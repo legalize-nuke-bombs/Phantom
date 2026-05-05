@@ -2,9 +2,13 @@ package com.example.phantom.game.upgrader;
 
 import com.example.phantom.game.util.GameRunRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/games/upgrader")
@@ -33,7 +37,15 @@ public class UpgraderController {
     }
 
     @PostMapping("/run")
-    public ResponseEntity<UpgraderRunRepresentation> run(@AuthenticationPrincipal Long userId, @Valid @RequestBody GameRunRequest request) {
+    public ResponseEntity<UpgraderGameLogRepresentation> run(@AuthenticationPrincipal Long userId, @Valid @RequestBody GameRunRequest request) {
         return ResponseEntity.ok(upgraderService.run(userId, request));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<UpgraderGameLogRepresentation>> getHistory(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(50) Integer limit,
+            @RequestParam(required = false) Long before) {
+        return ResponseEntity.ok(upgraderService.getHistory(userId, limit, before));
     }
 }

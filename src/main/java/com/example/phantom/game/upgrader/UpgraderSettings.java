@@ -1,11 +1,13 @@
 package com.example.phantom.game.upgrader;
 
 import lombok.Getter;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.Map;
 
 @Getter
+@Component
 public class UpgraderSettings {
     private final Map<Integer, BigDecimal> percents = Map.ofEntries(
             Map.entry(75, new BigDecimal("1.2")),
@@ -15,5 +17,5 @@ public class UpgraderSettings {
             Map.entry(5, new BigDecimal("18")),
             Map.entry(1, new BigDecimal("90"))
     );
-    private final BigDecimal minimalBet = new BigDecimal(1);
+    private final BigDecimal minimalBet = new BigDecimal("2.5");
 }

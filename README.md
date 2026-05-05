@@ -1,59 +1,91 @@
 # Phantom
 
-REST API for a gambling platform. Users deposit USDT (TRC-20), play games with cryptographically verifiable outcomes, and withdraw winnings to any Tron wallet.
+REST API for a gambling platform.
+
+## Features
+* JWT authentication
+* Recovery keys
+* User profiles (view, edit, delete)
+* Wallets
+* Deposits & withdrawals via crypto: TON
+* Games: Upgrader, Cases
+* Provably fair
+* Game history
+* Pagination
+* Sweep scheduling
+* Owner panel
+* Chat for users who have deposited
+* Chat moderators
+* Chat moderator action history, can be read by everyone to prevent the role abuse
 
 ## Stack
 
-Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQL, JJWT, Tron/Trident SDK, Web3j, Lombok, Gradle.
-
-## Features
-
-- **Authentication** — JWT-based auth with BCrypt password hashing
-- **User profiles** — view, edit, delete accounts
-- **Wallets** — each user gets an auto-generated Tron wallet on registration
-- **Deposits** — USDT TRC-20 deposits
-- **Withdrawals** — USDT TRC-20 withdrawals
-- **Provably fair** — SHA-256 based verifiable randomness
-- **Games** — Upgrader, Cases
+Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQL, JJWT, Lombok, Gradle.
 
 ## API Endpoints
 
 ### Auth
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Register a new account |
-| POST | `/api/auth/login` | Login, returns JWT token |
+| Method | Endpoint             | Description                                  |
+|--------|----------------------|----------------------------------------------|
+| POST   | `/api/auth/register` | Register a new account, returns recovery key |
+| POST   | `/api/auth/login`    | Login, returns JWT token                     |
+| POST   | `/api/auth/recover`  | Recover account creditals                    |
 
 ### Users
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/users/me` | Get current user profile |
-| GET | `/api/users/by-id/{id}` | Get user by ID |
-| GET | `/api/users/by-username/{username}` | Get user by username |
-| PATCH | `/api/users/me` | Update display name |
-| PATCH | `/api/users/me/secure` | Change username or password |
-| DELETE | `/api/users/me` | Delete account |
+| Method | Endpoint                            | Description                 |
+|--------|-------------------------------------|-----------------------------|
+| GET    | `/api/users/me`                     | Get current user profile    |
+| GET    | `/api/users/by-id/{id}`             | Get user by ID              |
+| GET    | `/api/users/by-username/{username}` | Get user by username        |
+| PATCH  | `/api/users/me`                     | Update display name         |
+| PATCH  | `/api/users/me/secure`              | Change username or password |
+| POST   | `/api/users/me/new-recovery-key`    | Regenerate recovery key     |
+| DELETE | `/api/users/me`                     | Delete account              |
 
 ### Wallet
-| Method | Endpoint                           | Description                         |
-|--------|------------------------------------|-------------------------------------|
-| GET | `/api/wallet`                      | Get wallet info and deposit address |
-| POST | `/api/wallet/check-deposit/{txId}` | Confirm deposit                     |
-| POST | `/api/wallet/withdrawal/init`      | Initiate a withdrawal               |
-| POST | `/api/wallet/withdrawal/check`     | Check withdrawal statuses           |
+| Method | Endpoint                            | Description             |
+|--------|-------------------------------------|-------------------------|
+| GET    | `/api/wallet`                       | Get wallet info         |
+| GET    | `/api/wallet/ton`                   | Get TON deposit address |
+| POST   | `/api/wallet/ton/check-deposits`    | Check TON deposits      |
+| POST   | `/api/wallet/ton/withdraw`          | Withdraw TON            | 
+| POST   | `/api/wallet/ton/check-withdrawals` | Check TON withdrawals   | 
 
 ### Games
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/games` | List available games |
-| GET | `/api/games/upgrader` | Get upgrader settings |
-| POST | `/api/games/upgrader/init` | Start an upgrader game |
-| POST | `/api/games/upgrader/run` | Play the upgrader game |
-| DELETE | `/api/games/upgrader` | Cancel active upgrader game |
-| GET | `/api/games/cases` | Get case settings and prices |
-| POST | `/api/games/cases/init` | Start a case game |
-| POST | `/api/games/cases/run` | Open the case |
-| DELETE | `/api/games/cases` | Cancel active case game |
+| Method | Endpoint                      | Description                  |
+|--------|-------------------------------|------------------------------|
+| GET    | `/api/games`                  | List available games         |
+| GET    | `/api/games/finance-colors`   | Get finance colors           |
+| GET    | `/api/games/upgrader`         | Get upgrader settings        |
+| POST   | `/api/games/upgrader/init`    | Start an upgrader game       |
+| POST   | `/api/games/upgrader/run`     | Play the upgrader game       |
+| GET    | `/api/games/upgrader/history` | Get upgrader game history    |
+| DELETE | `/api/games/upgrader`         | Cancel active upgrader game  |
+| GET    | `/api/games/cases`            | Get case settings and prices |
+| POST   | `/api/games/cases/init`       | Start a case game            |
+| POST   | `/api/games/cases/run`        | Open the case                |
+| GET    | `/api/games/cases/history`    | Get case game history        |
+| DELETE | `/api/games/cases`            | Cancel active case game      |
+
+### Owner
+| Method | Endpoint                      | Description                         |
+|--------|-------------------------------|-------------------------------------|
+| POST   | `/api/owner/change-user-role` | Change user role                    |
+| GET    | `/api/owner/sweep/schedule`   | Get delay between sweeps in seconds |
+| POST   | `/api/owner/sweep/schedule`   | Set delay between sweeps            |
+| DELETE | `/api/owner/sweep/schedule`   | Disable sweeps                      |
+
+### Chat
+| Method | Endpoint                                    | Description                           |
+|--------|---------------------------------------------|---------------------------------------|
+| GET    | `/api/chat`                                 | Get messages                          |
+| POST   | `/api/chat`                                 | Send message                          |
+| DELETE | `/api/chat/{messageId}`                     | Delete message                        |
+| GET    | `/api/chat/banlist/me`                      | Get current user ban information      |
+| GET    | `/api/chat/banlist/{userId}`                | Get ban information by user id        |
+| POST   | `/api/chat/banlist/{targetId}`              | Ban user                              |
+| DELETE | `/api/chat/banlist/{targetId}`              | Unban user                            |
+| GET    | `/api/chat/chat-moderator-actions`          | Get chat moderator actions            |
 
 ## Building
 
@@ -69,12 +101,24 @@ CREATE DATABASE phantom;
 DB_USER=<your_db_user>
 DB_PASSWORD=<your_db_password>
 JWT_SECRET=<base64_encoded_secret_min_32_bytes>
-JWT_EXPIRATION_MS=86400000
-TRON_MASTER_MNEMONIC=<your_mnemonic_phrase>
-TRON_MASTER_FEE_LIMIT=12500000
+OWNER_KEY=<base64_encoded_key_min_32_bytes>
+```
+
+On Windows, you can generate random base64 with PowerShell:
+```
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Max 256 }))
 ```
 
 3. Run:
 ```
 ./gradlew bootRun
 ```
+
+## Getting started
+1. Register an `OWNER` account with an `OWNER_KEY`
+2. Login
+3. Set master wallets
+
+## For production use (important)
+* Use full disk encryption (LUKS, BitLocker)
+* Use HTTPS

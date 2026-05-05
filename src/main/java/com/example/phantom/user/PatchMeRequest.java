@@ -7,6 +7,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class PatchMeRequest {
-    @Size(min=UserValidationConstants.DISPLAY_NAME_MIN_LENGTH, max=UserValidationConstants.DISPLAY_NAME_MAX_LENGTH)
+    @Size(min= UserConstants.DISPLAY_NAME_MIN_LENGTH, max= UserConstants.DISPLAY_NAME_MAX_LENGTH)
     private String displayName;
 }

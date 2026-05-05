@@ -9,9 +9,13 @@ import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 
@@ -20,18 +24,20 @@ public class CaseService {
 
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final CaseGameRepository caseGameRepository;
+    private final CaseGameLogRepository caseGameLogRepository;
 
     private final ProvablyFairProvider provablyFairProvider;
     private final CaseSettings settings;
-    private final CaseGameRepository caseGameRepository;
 
-    public CaseService(UserRepository userRepository, WalletRepository walletRepository, ProvablyFairProvider provablyFairProvider, CaseGameRepository caseGameRepository) {
+    public CaseService(UserRepository userRepository, WalletRepository walletRepository, CaseGameRepository caseGameRepository, CaseGameLogRepository caseGameLogRepository, ProvablyFairProvider provablyFairProvider, CaseSettings settings) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
+        this.caseGameRepository = caseGameRepository;
+        this.caseGameLogRepository = caseGameLogRepository;
 
         this.provablyFairProvider = provablyFairProvider;
-        this.settings = new CaseSettings();
-        this.caseGameRepository = caseGameRepository;
+        this.settings = settings;
     }
 
     public CaseSettings get() {
@@ -41,7 +47,7 @@ public class CaseService {
     @Transactional
     public GameInitRepresentation init(Long userId, CaseInitRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        Wallet wallet = walletRepository.findByUserId(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+        Wallet wallet = walletRepository.findById(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
 
         String caseName = request.getCaseName();
 
@@ -76,8 +82,9 @@ public class CaseService {
     }
 
     @Transactional
-    public CaseRunRepresentation run(Long userId, GameRunRequest request) {
-        Wallet wallet = walletRepository.findByUserIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+    public CaseGameLogRepresentation run(Long userId, GameRunRequest request) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        Wallet wallet = walletRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
         CaseGame caseGame = caseGameRepository.findById(userId).orElseThrow(() -> new NotFoundException("case game not found"));
 
         String clientSeed = request.getClientSeed();
@@ -98,11 +105,26 @@ public class CaseService {
 
         caseGameRepository.delete(caseGame);
 
-        CaseRunRepresentation representation = new CaseRunRepresentation();
-        representation.setResult(result);
-        representation.setCaseIndex(caseIndex);
-        representation.setServerSeed(serverSeed);
-        return representation;
+        CaseGameLog caseGameLog = new CaseGameLog();
+        caseGameLog.setUser(user);
+        caseGameLog.setTimestamp(Instant.now().getEpochSecond());
+        caseGameLog.setCaseName(caseName);
+        caseGameLog.setResult(result);
+        caseGameLog.setServerSeed(serverSeed);
+        caseGameLog.setClientSeed(clientSeed);
+        caseGameLog = caseGameLogRepository.save(caseGameLog);
+
+        return new CaseGameLogRepresentation(caseGameLog);
+    }
+
+    public List<CaseGameLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
+        Pageable pageable = PageRequest.of(0, limit);
+
+        List<CaseGameLog> logs = before != null
+                ? caseGameLogRepository.findByUserIdBeforePageable(userId, before, pageable)
+                : caseGameLogRepository.findByUserIdPageable(userId, pageable);
+
+        return logs.stream().map(CaseGameLogRepresentation::new).toList();
     }
 
     private void validateEnoughMoney(Wallet wallet, Case thecase) {

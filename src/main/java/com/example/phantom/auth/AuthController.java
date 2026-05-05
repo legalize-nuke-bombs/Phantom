@@ -25,4 +25,9 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
+
+    @PostMapping("/recover")
+    public ResponseEntity<Map<String, String>> recover(@Valid @RequestBody RecoverRequest request) {
+        return ResponseEntity.ok(authService.recover(request));
+    }
 }

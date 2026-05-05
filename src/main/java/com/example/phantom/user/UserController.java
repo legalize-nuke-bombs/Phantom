@@ -1,7 +1,6 @@
 package com.example.phantom.user;
 
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -42,8 +41,13 @@ public class UserController {
         return ResponseEntity.ok(userService.patchMeSecure(userId, request));
     }
 
+    @PostMapping("/me/new-recovery-key")
+    public ResponseEntity<Map<String, String>> neyMyRecoveryKey(@AuthenticationPrincipal Long userId, @Valid @RequestBody PasswordRequest passwordRequest) {
+        return ResponseEntity.ok(userService.newMyRecoveryKey(userId, passwordRequest));
+    }
+
     @DeleteMapping("/me")
-    public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal Long userId, @Valid @RequestBody DeleteMeRequest request) {
+    public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal Long userId, @Valid @RequestBody PasswordRequest request) {
         userService.deleteMe(userId, request);
         return ResponseEntity.noContent().build();
     }

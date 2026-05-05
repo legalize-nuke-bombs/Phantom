@@ -1,7 +1,7 @@
 package com.example.phantom.game.thecase;
 
-import com.example.phantom.game.util.MoneyColors;
-import com.example.phantom.money.MoneyConstants;
+import com.example.phantom.game.util.FinanceColors;
+import com.example.phantom.finance.FinanceConstants;
 import lombok.Getter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -15,15 +15,15 @@ public class Case {
     private final Integer size;
     private final Map<BigDecimal, Integer> data;
 
-    public Case(String name, int blue, int purple, int pink, int red, int gold) {
+    public Case(String name, int blue, int purple, int pink, int red, int gold, FinanceColors financeColors) {
         this.name = name;
 
         this.data = new TreeMap<>();
-        if (blue > 0) this.data.put(MoneyColors.BLUE, blue);
-        if (purple > 0) this.data.put(MoneyColors.PURPLE, purple);
-        if (pink > 0) this.data.put(MoneyColors.PINK, pink);
-        if (red > 0) this.data.put(MoneyColors.RED, red);
-        if (gold > 0) this.data.put(MoneyColors.GOLD, gold);
+        if (blue > 0) this.data.put(financeColors.getBlue(), blue);
+        if (purple > 0) this.data.put(financeColors.getPurple(), purple);
+        if (pink > 0) this.data.put(financeColors.getPink(), pink);
+        if (red > 0) this.data.put(financeColors.getRed(), red);
+        if (gold > 0) this.data.put(financeColors.getGold(), gold);
 
         Integer size = 0;
         for (Map.Entry<BigDecimal, Integer> entry : this.data.entrySet()) {
@@ -32,7 +32,7 @@ public class Case {
 
         BigDecimal cost = new BigDecimal(0);
         for (Map.Entry<BigDecimal, Integer> entry : this.data.entrySet()) {
-            BigDecimal fraction = entry.getKey().multiply(new BigDecimal(entry.getValue())).divide(new BigDecimal(size), MoneyConstants.SCALE, RoundingMode.DOWN);
+            BigDecimal fraction = entry.getKey().multiply(new BigDecimal(entry.getValue())).divide(new BigDecimal(size), FinanceConstants.SCALE, RoundingMode.DOWN);
             cost = cost.add(fraction);
         }
         cost = cost.divide(new BigDecimal("0.8"), 1, RoundingMode.DOWN);

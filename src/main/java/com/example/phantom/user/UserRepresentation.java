@@ -1,12 +1,18 @@
 package com.example.phantom.user;
 
 import lombok.Getter;
-import lombok.Setter;
 
 @Getter
-@Setter
 public class UserRepresentation {
-    private Long id;
-    private String username;
-    private String displayName;
+    private final Long id;
+    private final String username;
+    private final String displayName;
+    private final Role role;
+
+    public UserRepresentation(User user) {
+        this.id = user.getId();
+        this.username = user.getUsername();
+        this.displayName = user.getDisplayName();
+        this.role = user.getRole();
+    }
 }

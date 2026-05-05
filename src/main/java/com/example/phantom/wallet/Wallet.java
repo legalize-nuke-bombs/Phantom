@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import java.math.BigDecimal;
-import com.example.phantom.money.MoneyConstants;
+import com.example.phantom.finance.FinanceConstants;
 
 @Entity
 @Table(name = "wallets")
@@ -17,23 +17,18 @@ import com.example.phantom.money.MoneyConstants;
 @NoArgsConstructor
 public class Wallet {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "user_id", unique = true)
-    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @MapsId
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
-    @Column(nullable = false, precision = MoneyConstants.PRECISION, scale = MoneyConstants.SCALE)
+    @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
     private BigDecimal balance;
 
-    @Column(nullable = false, precision = MoneyConstants.PRECISION, scale = MoneyConstants.SCALE)
+    @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
     private BigDecimal depositsSum;
-
-    @Column(nullable = false, unique = true, length = WalletConstants.ADDRESS_LENGTH)
-    private String depositAddress;
-
-    @Column(nullable = false, length = WalletConstants.PRIVATE_KEY_LENGTH)
-    private String depositPrivateKey;
 }

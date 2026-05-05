@@ -8,9 +8,13 @@ import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Random;
 
 @Service
@@ -19,19 +23,19 @@ public class UpgraderService {
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
     private final UpgraderGameRepository upgraderGameRepository;
+    private final UpgraderGameLogRepository upgraderGameLogRepository;
 
     private final ProvablyFairProvider provablyFairProvider;
-
     private final UpgraderSettings settings;
 
-    public UpgraderService(UserRepository userRepository, WalletRepository walletRepository, UpgraderGameRepository upgraderGameRepository, ProvablyFairProvider provablyFairProvider) {
+    public UpgraderService(UserRepository userRepository, WalletRepository walletRepository, UpgraderGameRepository upgraderGameRepository, UpgraderGameLogRepository upgraderGameLogRepository, ProvablyFairProvider provablyFairProvider, UpgraderSettings settings) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.upgraderGameRepository = upgraderGameRepository;
+        this.upgraderGameLogRepository = upgraderGameLogRepository;
 
         this.provablyFairProvider = provablyFairProvider;
-
-        this.settings = new UpgraderSettings();
+        this.settings = settings;
     }
 
     public UpgraderSettings get() {
@@ -41,15 +45,15 @@ public class UpgraderService {
     @Transactional
     public UpgraderInitRepresentation init(Long userId, UpgraderInitRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        Wallet wallet = walletRepository.findByUserId(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+        Wallet wallet = walletRepository.findById(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
 
         BigDecimal bet = request.getBet();
-        Integer successPercent = request.getSuccessPercent();
+        Integer percent = request.getPercent();
 
         validateBetBigEnough(bet);
         validateEnoughMoney(wallet, bet);
 
-        BigDecimal multiplier = getMultiplier(successPercent);
+        BigDecimal multiplier = getMultiplier(percent);
 
         if (upgraderGameRepository.existsById(userId)) {
             upgraderGameRepository.deleteById(userId);
@@ -58,7 +62,7 @@ public class UpgraderService {
         UpgraderGame upgrader = new UpgraderGame();
         upgrader.setUser(user);
         upgrader.setBet(bet);
-        upgrader.setSuccessPercent(successPercent);
+        upgrader.setPercent(percent);
         upgrader.setPossibleResult(bet.multiply(multiplier));
         upgrader.setServerSeed(provablyFairProvider.generateSeed());
         upgrader = upgraderGameRepository.save(upgrader);
@@ -80,42 +84,63 @@ public class UpgraderService {
     }
 
     @Transactional
-    public UpgraderRunRepresentation run(Long userId, GameRunRequest request) {
-        Wallet wallet = walletRepository.findByUserIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+    public UpgraderGameLogRepresentation run(Long userId, GameRunRequest request) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        Wallet wallet = walletRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
         UpgraderGame upgraderGame = upgraderGameRepository.findById(userId).orElseThrow(() -> new NotFoundException("upgrader game not found"));
 
         String clientSeed = request.getClientSeed();
 
         String serverSeed = upgraderGame.getServerSeed();
         BigDecimal bet = upgraderGame.getBet();
-        Integer successPercent = upgraderGame.getSuccessPercent();
+        Integer percent = upgraderGame.getPercent();
         BigDecimal possibleResult = upgraderGame.getPossibleResult();
 
         validateEnoughMoney(wallet, bet);
 
         Random fairRandom = provablyFairProvider.fairRandom(serverSeed, clientSeed);
 
-        int percent = fairRandom.nextInt(100) + 1;
-        boolean won = successPercent >= percent;
+        int randomResult = fairRandom.nextInt(100) + 1;
+        boolean won = percent >= randomResult;
 
-        UpgraderRunRepresentation representation = new UpgraderRunRepresentation();
-        representation.setWon(won);
-        representation.setPercent(percent);
-        representation.setServerSeed(serverSeed);
+        UpgraderGameLog upgraderGameLog = new UpgraderGameLog();
+        upgraderGameLog.setUser(user);
+        upgraderGameLog.setTimestamp(Instant.now().getEpochSecond());
+        upgraderGameLog.setBet(bet);
+        upgraderGameLog.setPercent(percent);
+        upgraderGameLog.setServerSeed(serverSeed);
+        upgraderGameLog.setClientSeed(clientSeed);
 
         wallet.setBalance(wallet.getBalance().subtract(bet));
         if (won) {
             wallet.setBalance(wallet.getBalance().add(possibleResult));
+            upgraderGameLog.setResult(possibleResult);
+        }
+        else {
+            upgraderGameLog.setResult(BigDecimal.ZERO);
         }
 
         walletRepository.save(wallet);
+
         upgraderGameRepository.delete(upgraderGame);
 
-        return representation;
+        upgraderGameLog = upgraderGameLogRepository.save(upgraderGameLog);
+
+        return new UpgraderGameLogRepresentation(upgraderGameLog);
     }
 
-    private BigDecimal getMultiplier(Integer successPercent) {
-        BigDecimal multiplier = settings.getPercents().get(successPercent);
+    public List<UpgraderGameLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
+        Pageable pageable = PageRequest.of(0, limit);
+
+        List<UpgraderGameLog> logs = before != null
+                ? upgraderGameLogRepository.findByUserIdBeforePageable(userId, before, pageable)
+                : upgraderGameLogRepository.findByUserIdPageable(userId, pageable);
+
+        return logs.stream().map(UpgraderGameLogRepresentation::new).toList();
+    }
+
+    private BigDecimal getMultiplier(Integer percent) {
+        BigDecimal multiplier = settings.getPercents().get(percent);
         if (multiplier == null) {
             throw new BadRequestException("option not available");
         }

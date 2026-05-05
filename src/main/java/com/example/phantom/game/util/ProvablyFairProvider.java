@@ -1,6 +1,7 @@
 package com.example.phantom.game.util;
 
 import com.example.phantom.exception.BadRequestException;
+import org.springframework.stereotype.Component;
 
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -10,6 +11,7 @@ import java.util.HexFormat;
 import java.util.Random;
 
 
+@Component
 public class ProvablyFairProvider {
     private final SecureRandom random;
 

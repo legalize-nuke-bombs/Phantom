@@ -18,5 +18,5 @@ public class UpgraderInitRequest {
     @NotNull
     @Min(0)
     @Max(100)
-    private Integer successPercent;
+    private Integer percent;
 }

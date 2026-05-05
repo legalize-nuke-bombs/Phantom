@@ -1,7 +1,7 @@
 package com.example.phantom.game.upgrader;
 
 import com.example.phantom.game.util.ProvablyFairProvider;
-import com.example.phantom.money.MoneyConstants;
+import com.example.phantom.finance.FinanceConstants;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -26,13 +26,13 @@ public class UpgraderGame {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
-    @Column(nullable = false, precision = MoneyConstants.PRECISION, scale = MoneyConstants.SCALE)
+    @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
     private BigDecimal bet;
 
     @Column(nullable = false)
-    private Integer successPercent;
+    private Integer percent;
 
-    @Column(nullable = false, precision = MoneyConstants.PRECISION, scale = MoneyConstants.SCALE)
+    @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
     private BigDecimal possibleResult;
 
     @Column(nullable = false, length = ProvablyFairProvider.SEED_LENGTH)
