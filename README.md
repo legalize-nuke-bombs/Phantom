@@ -68,12 +68,14 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | DELETE | `/api/games/cases`            | Cancel active case game      |
 
 ### Owner
-| Method | Endpoint                      | Description                         |
-|--------|-------------------------------|-------------------------------------|
-| POST   | `/api/owner/change-user-role` | Change user role                    |
-| GET    | `/api/owner/sweep/schedule`   | Get delay between sweeps in seconds |
-| POST   | `/api/owner/sweep/schedule`   | Set delay between sweeps            |
-| DELETE | `/api/owner/sweep/schedule`   | Disable sweeps                      |
+| Method | Endpoint                        | Description                                     |
+|--------|---------------------------------|-------------------------------------------------|
+| POST   | `/api/owner/change-user-role`   | Change user role                                |
+| GET    | `/api/owner/sweep/schedule`     | Get delay between sweeps in seconds             |
+| POST   | `/api/owner/sweep/schedule`     | Set delay between sweeps                        |
+| DELETE | `/api/owner/sweep/schedule`     | Disable sweeps                                  |
+| GET    | `/api/owner/master-wallets/ton` | Get TON master wallet address & balance         |
+| POST   | `/api/owner/master-wallets/ton` | Set TON master wallet mnemonic & wallet version |
 
 ### Chat
 | Method | Endpoint                                    | Description                           |
@@ -102,11 +104,17 @@ DB_USER=<your_db_user>
 DB_PASSWORD=<your_db_password>
 JWT_SECRET=<base64_encoded_secret_min_32_bytes>
 OWNER_KEY=<base64_encoded_key_min_32_bytes>
+TON_API_KEY=<your_ton_api_key>
 ```
 
 On Windows, you can generate random base64 with PowerShell:
 ```
 [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Max 256 }))
+```
+
+You can get your `TON_API_KEY` here:
+```
+Telegram, @toncenter
 ```
 
 3. Run:
