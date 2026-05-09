@@ -21,6 +21,7 @@ public class User {
     @Column(nullable = false, length = UserConstants.DISPLAY_NAME_MAX_LENGTH)
     private String displayName;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
 

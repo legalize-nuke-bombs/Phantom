@@ -27,6 +27,7 @@ public class TonWallet {
     @Column(nullable = false)
     private String mnemonic;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TonApiService.WalletVersion walletVersion;
 
