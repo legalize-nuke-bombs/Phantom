@@ -32,7 +32,7 @@ public class MasterWalletService {
         this.tonApiService = tonApiService;
     }
 
-    public MasterWalletRepresentation getTon(@AuthenticationPrincipal Long userId) {
+    public MasterWalletRepresentation getTon(Long userId) {
         getOwner(userId);
 
         Variable address = variableRepository.findById("TON_MASTER_WALLET_ADDRESS").orElseThrow(() -> new BadRequestException("ton master wallet has not been set"));
@@ -49,7 +49,7 @@ public class MasterWalletService {
     }
 
     @Transactional
-    public Map<String, String> setTon(@AuthenticationPrincipal Long userId, SetTonMasterWalletRequest request) {
+    public Map<String, String> setTon(Long userId, SetTonMasterWalletRequest request) {
         getOwner(userId);
 
         String mnemonic = request.getMnemonic();
