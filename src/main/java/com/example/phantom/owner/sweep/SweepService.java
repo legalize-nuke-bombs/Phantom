@@ -2,6 +2,9 @@ package com.example.phantom.owner.sweep;
 
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
+import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.ratelimit.RateLimitReached;
+import com.example.phantom.ratelimit.RateLimiter;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -24,18 +27,23 @@ public class SweepService {
     private final VariableRepository variableRepository;
     private final SweepLogRepository sweepLogRepository;
 
+    private final RateLimiter rateLimiter;
     private Instant lastSweep;
 
-    public SweepService(UserRepository userRepository, VariableRepository variableRepository, SweepLogRepository sweepLogRepository) {
+    public SweepService(UserRepository userRepository, VariableRepository variableRepository, SweepLogRepository sweepLogRepository, RateLimiter rateLimiter) {
         this.userRepository = userRepository;
         this.variableRepository = variableRepository;
         this.sweepLogRepository = sweepLogRepository;
 
+        this.rateLimiter = rateLimiter;
         this.lastSweep = Instant.now();
     }
 
     public List<SweepLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
-        getOwner(userId);
+        User user = getOwner(userId);
+
+        try { rateLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
+        catch (RateLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
 
         Pageable pageable = PageRequest.of(0, limit);
 

@@ -1,7 +1,6 @@
 package com.example.phantom.chat;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,10 +19,10 @@ public class ChatController {
     }
 
     @GetMapping
-    public ResponseEntity<List<MessageRepresentation>> get(
-            @RequestParam(defaultValue = "50") @Min(1) @Max(50) Integer limit,
-            @RequestParam(required = false) Long before) {
-        return ResponseEntity.ok(service.get(limit, before));
+    public ResponseEntity<List<MessageRepresentation>> get(@AuthenticationPrincipal Long userId,
+                                                           @RequestParam(defaultValue = "20") @Min(1) Integer limit,
+                                                           @RequestParam(required = false) Long before) {
+        return ResponseEntity.ok(service.get(userId, limit, before));
     }
 
     @PostMapping

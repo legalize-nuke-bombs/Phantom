@@ -3,7 +3,6 @@ package com.example.phantom.game.thecase;
 import com.example.phantom.game.util.GameInitRepresentation;
 import com.example.phantom.game.util.GameRunRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -43,10 +42,9 @@ public class CaseController {
     }
 
     @GetMapping("/history")
-    public ResponseEntity<List<CaseGameLogRepresentation>> getHistory(
-            @AuthenticationPrincipal Long userId,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(50) Integer limit,
-            @RequestParam(required = false) Long before) {
+    public ResponseEntity<List<CaseGameLogRepresentation>> getHistory(@AuthenticationPrincipal Long userId,
+                                                                      @RequestParam(defaultValue = "20") @Min(1) Integer limit,
+                                                                      @RequestParam(required = false) Long before) {
         return ResponseEntity.ok(caseService.getHistory(userId, limit, before));
     }
 }

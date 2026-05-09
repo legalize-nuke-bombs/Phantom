@@ -2,8 +2,10 @@ package com.example.phantom.auth;
 
 import com.example.phantom.crypto.ton.TonApiService;
 import com.example.phantom.crypto.ton.TonWalletVersion;
+import com.example.phantom.owner.OwnerAccessDenied;
 import com.example.phantom.owner.OwnerAccessValidator;
 import com.example.phantom.jwt.JwtTokenProvider;
+import com.example.phantom.owner.OwnerBadAccess;
 import com.example.phantom.user.*;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
@@ -52,7 +54,10 @@ public class AuthService {
         String adminKey = request.getOwnerKey();
         Role role = request.getRole();
 
-        boolean isOwner = ownerAccessValidator.isOwner(adminKey);
+        boolean isOwner;
+        try { isOwner = ownerAccessValidator.isOwner(adminKey); }
+        catch (OwnerBadAccess e) { throw new BadRequestException(e.getMessage()); }
+        catch (OwnerAccessDenied e) { throw new UnauthorizedException(e.getMessage()); }
 
         if (!isOwner && role != null) {
             throw new ForbiddenException("owner key not specified");

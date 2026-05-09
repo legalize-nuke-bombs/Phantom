@@ -1,8 +1,8 @@
 package com.example.phantom.chat.chatmoderatoraction;
 
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,10 +18,10 @@ public class ChatModeratorActionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ChatModeratorActionRepresentation>> get(
-            @RequestParam(defaultValue = "50") @Min(1) @Max(50) Integer limit,
-            @RequestParam(required = false) Long before
+    public ResponseEntity<List<ChatModeratorActionRepresentation>> get(@AuthenticationPrincipal Long userId,
+                                                                       @RequestParam(defaultValue = "20") @Min(1) Integer limit,
+                                                                       @RequestParam(required = false) Long before
     ) {
-        return ResponseEntity.ok(service.get(limit, before));
+        return ResponseEntity.ok(service.get(userId, limit, before));
     }
 }

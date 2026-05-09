@@ -41,7 +41,12 @@ public class OwnerService {
             throw new BadRequestException("target already has this role");
         }
 
-        if ((target.getRole() == Role.OWNER || role == Role.OWNER) && !ownerAccessValidator.isOwner(ownerKey)) {
+        boolean isOwner;
+        try { isOwner = !ownerAccessValidator.isOwner(ownerKey); }
+        catch (OwnerBadAccess e) { throw new BadRequestException(e.getMessage()); }
+        catch (OwnerAccessDenied e) { throw new UnauthorizedException(e.getMessage()); }
+
+        if ((target.getRole() == Role.OWNER || role == Role.OWNER) && !isOwner) {
             throw new UnauthorizedException("owner key not specified");
         }
 

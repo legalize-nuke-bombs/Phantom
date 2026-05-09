@@ -4,9 +4,11 @@ import com.example.phantom.chat.banlist.Ban;
 import com.example.phantom.chat.banlist.BanRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
-import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
+import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.ratelimit.RateLimitReached;
+import com.example.phantom.ratelimit.RateLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
@@ -29,15 +31,24 @@ public class ChatService {
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
 
-    public ChatService(UserRepository userRepository, WalletRepository walletRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository) {
+    private final RateLimiter rateLimiter;
+
+    public ChatService(UserRepository userRepository, WalletRepository walletRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimiter rateLimiter) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
+
+        this.rateLimiter = rateLimiter;
     }
 
-    public List<MessageRepresentation> get(Integer limit, Long before) {
+    public List<MessageRepresentation> get(Long userId, Integer limit, Long before) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+
+        try { rateLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
+        catch (RateLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+
         Pageable pageable = PageRequest.of(0, limit);
 
         List<Message> messages = before != null

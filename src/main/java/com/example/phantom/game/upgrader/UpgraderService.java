@@ -3,6 +3,8 @@ package com.example.phantom.game.upgrader;
 import com.example.phantom.exception.*;
 import com.example.phantom.game.util.GameRunRequest;
 import com.example.phantom.game.util.ProvablyFairProvider;
+import com.example.phantom.ratelimit.RateLimitReached;
+import com.example.phantom.ratelimit.RateLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
@@ -26,15 +28,17 @@ public class UpgraderService {
     private final UpgraderGameLogRepository upgraderGameLogRepository;
 
     private final ProvablyFairProvider provablyFairProvider;
+    private final RateLimiter rateLimiter;
     private final UpgraderSettings settings;
 
-    public UpgraderService(UserRepository userRepository, WalletRepository walletRepository, UpgraderGameRepository upgraderGameRepository, UpgraderGameLogRepository upgraderGameLogRepository, ProvablyFairProvider provablyFairProvider, UpgraderSettings settings) {
+    public UpgraderService(UserRepository userRepository, WalletRepository walletRepository, UpgraderGameRepository upgraderGameRepository, UpgraderGameLogRepository upgraderGameLogRepository, ProvablyFairProvider provablyFairProvider, RateLimiter rateLimiter, UpgraderSettings settings) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.upgraderGameRepository = upgraderGameRepository;
         this.upgraderGameLogRepository = upgraderGameLogRepository;
 
         this.provablyFairProvider = provablyFairProvider;
+        this.rateLimiter = rateLimiter;
         this.settings = settings;
     }
 
@@ -130,6 +134,11 @@ public class UpgraderService {
     }
 
     public List<UpgraderGameLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+
+        try { rateLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
+        catch (RateLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+
         Pageable pageable = PageRequest.of(0, limit);
 
         List<UpgraderGameLog> logs = before != null
