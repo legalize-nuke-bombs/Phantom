@@ -1,6 +1,5 @@
 package com.example.phantom.owner.sweep;
 
-import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.user.Role;
@@ -8,25 +7,45 @@ import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.variable.Variable;
 import com.example.phantom.variable.VariableRepository;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 @Service
-@Slf4j
 public class SweepService {
 
     private final UserRepository userRepository;
     private final VariableRepository variableRepository;
+    private final SweepLogRepository sweepLogRepository;
+
     private Instant lastSweep;
 
-    public SweepService(UserRepository userRepository, VariableRepository variableRepository) {
+    public SweepService(UserRepository userRepository, VariableRepository variableRepository, SweepLogRepository sweepLogRepository) {
         this.userRepository = userRepository;
         this.variableRepository = variableRepository;
+        this.sweepLogRepository = sweepLogRepository;
+
         this.lastSweep = Instant.now();
+    }
+
+    public List<SweepLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
+        getOwner(userId);
+
+        Pageable pageable = PageRequest.of(0, limit);
+
+        List<SweepLog> logs =
+                before != null
+                        ? sweepLogRepository.findAllBeforePageable(before, pageable)
+                        : sweepLogRepository.findAllPageable(pageable);
+
+        return logs.stream().map(SweepLogRepresentation::new).toList();
+
     }
 
     public Map<String, String> getSchedule(Long userId) {
@@ -71,13 +90,19 @@ public class SweepService {
 
         lastSweep = now;
 
-        log.info("sweep");
+        SweepLog sweepLog = new SweepLog();
+        sweepLog.setTimestamp(now.getEpochSecond());
+        sweepLog.setSender("FROM");
+        sweepLog.setReceiver("TO");
+        sweepLog.setAmount(BigDecimal.ZERO);
+        sweepLog.setStatus("OK");
+        sweepLogRepository.save(sweepLog);
     }
 
     private User getOwner(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
         if (user.getRole() != Role.OWNER) {
-            throw new ForbiddenException("not an owner");
+            throw new ForbiddenException("you don't have permission to use sweep service");
         }
         return user;
     }

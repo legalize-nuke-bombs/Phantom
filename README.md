@@ -13,6 +13,7 @@ REST API for a gambling platform.
 * Game history
 * Pagination
 * Sweep scheduling
+* Sweep history
 * Owner panel
 * Chat for users who have deposited
 * Chat moderators
@@ -71,6 +72,7 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | Method | Endpoint                        | Description                                     |
 |--------|---------------------------------|-------------------------------------------------|
 | POST   | `/api/owner/change-user-role`   | Change user role                                |
+| GET    | `/api/owner/sweep/history`      | Get sweep history                               |
 | GET    | `/api/owner/sweep/schedule`     | Get delay between sweeps in seconds             |
 | POST   | `/api/owner/sweep/schedule`     | Set delay between sweeps                        |
 | DELETE | `/api/owner/sweep/schedule`     | Disable sweeps                                  |
