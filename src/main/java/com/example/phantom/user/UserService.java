@@ -86,14 +86,16 @@ public class UserService {
             throw new UnauthorizedException("invalid password");
         }
 
-        String publicRecoveryKey = recoveryKeyProvider.generatePart();
-        String privateRecoveryKey = recoveryKeyProvider.generatePart();
+        RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.generateKeyPair();
+        String recoveryKey;
+        try { recoveryKey = recoveryKeyProvider.keyPairToRecoveryKey(recoveryKeyPair); }
+        catch (BadRecoveryKey e) { throw new RuntimeException("failed to generate recovery key"); }
 
-        user.setPublicRecoveryKey(publicRecoveryKey);
-        user.setPrivateRecoveryKeyHash(passwordEncoder.encode(privateRecoveryKey));
+        user.setPublicRecoveryKey(recoveryKeyPair.publicKey());
+        user.setPrivateRecoveryKeyHash(passwordEncoder.encode(recoveryKeyPair.privateKey()));
         userRepository.save(user);
 
-        return Map.of("recoveryKey", publicRecoveryKey + privateRecoveryKey);
+        return Map.of("recoveryKey", recoveryKey);
     }
 
     @Transactional

@@ -1,6 +1,5 @@
 package com.example.phantom.auth;
 
-import com.example.phantom.owner.OwnerConstants;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.UserConstants;
 import jakarta.validation.constraints.*;

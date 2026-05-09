@@ -4,10 +4,7 @@ import com.example.phantom.crypto.ton.TonApiService;
 import com.example.phantom.crypto.ton.TonWalletVersion;
 import com.example.phantom.owner.OwnerAccessValidator;
 import com.example.phantom.jwt.JwtTokenProvider;
-import com.example.phantom.user.RecoveryKeyProvider;
-import com.example.phantom.user.Role;
-import com.example.phantom.user.User;
-import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.*;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
 import com.example.phantom.wallet.ton.TonWallet;
@@ -72,16 +69,18 @@ public class AuthService {
             throw new BadRequestException("passwords do not match");
         }
 
-        String publicRecoveryKey = recoveryKeyProvider.generatePart();
-        String privateRecoveryKey = recoveryKeyProvider.generatePart();
+        RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.generateKeyPair();
+        String recoveryKey;
+        try { recoveryKey = recoveryKeyProvider.keyPairToRecoveryKey(recoveryKeyPair); }
+        catch (BadRecoveryKey e) { throw new RuntimeException("failed to generate recovery key"); }
 
         User user = new User();
         user.setUsername(username);
         user.setDisplayName(displayName);
         user.setRole(role);
         user.setPasswordHash(passwordEncoder.encode(password1));
-        user.setPublicRecoveryKey(publicRecoveryKey);
-        user.setPrivateRecoveryKeyHash(passwordEncoder.encode(privateRecoveryKey));
+        user.setPublicRecoveryKey(recoveryKeyPair.publicKey());
+        user.setPrivateRecoveryKeyHash(passwordEncoder.encode(recoveryKeyPair.privateKey()));
         try { user = userRepository.save(user); }
         catch (DataIntegrityViolationException e) { throw new ConflictException("username already exists"); }
 
@@ -108,7 +107,7 @@ public class AuthService {
             throw new RuntimeException("failed to create ton wallet");
         }
 
-        return Map.of("recoveryKey", publicRecoveryKey + privateRecoveryKey);
+        return Map.of("recoveryKey", recoveryKey);
     }
 
     public Map<String, String> login(LoginRequest request) {
@@ -130,12 +129,13 @@ public class AuthService {
         String newPassword1 = request.getNewPassword1();
         String newPassword2 = request.getNewPassword2();
 
-        String publicRecoveryKey = recoveryKey.substring(0, recoveryKey.length() / 2);
-        String privateRecoveryKey = recoveryKey.substring(recoveryKey.length() / 2);
+        RecoveryKeyProvider.KeyPair recoveryKeyPair;
+        try { recoveryKeyPair = recoveryKeyProvider.recoveryKeyToKeyPair(recoveryKey); }
+        catch (BadRecoveryKey e) { throw new BadRequestException("bad recovery key"); }
 
-        User user = userRepository.findByPublicRecoveryKey(publicRecoveryKey).orElseThrow(() -> new UnauthorizedException("invalid recovery key"));
+        User user = userRepository.findByPublicRecoveryKey(recoveryKeyPair.publicKey()).orElseThrow(() -> new UnauthorizedException("invalid recovery key"));
 
-        if (!passwordEncoder.matches(privateRecoveryKey, user.getPrivateRecoveryKeyHash())) {
+        if (!passwordEncoder.matches(recoveryKeyPair.privateKey(), user.getPrivateRecoveryKeyHash())) {
             throw new UnauthorizedException("invalid recovery key");
         }
 

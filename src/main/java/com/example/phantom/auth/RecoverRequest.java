@@ -14,7 +14,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class RecoverRequest {
     @NotNull
-    @Size(min = 2 * RecoveryKeyProvider.RECOVERY_KEY_PART_LENGTH, max = 2 * RecoveryKeyProvider.RECOVERY_KEY_PART_LENGTH)
+    @Size(min = RecoveryKeyProvider.RECOVERY_KEY_LENGTH, max = RecoveryKeyProvider.RECOVERY_KEY_LENGTH)
     private String recoveryKey;
 
     @Size(min = UserConstants.USERNAME_MIN_LENGTH, max = UserConstants.USERNAME_MAX_LENGTH)
