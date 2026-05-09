@@ -1,11 +1,14 @@
 package com.example.phantom.owner.masterwallet;
 
+import com.example.phantom.crypto.CryptoException;
+import com.example.phantom.crypto.CryptoExchangeService;
 import com.example.phantom.crypto.ton.TonApiException;
 import com.example.phantom.crypto.ton.TonApiService;
 import com.example.phantom.exception.BadGatewayException;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
+import com.example.phantom.finance.FinanceConstants;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -15,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Map;
 
 @Service
@@ -24,12 +28,14 @@ public class MasterWalletService {
     private final VariableRepository variableRepository;
 
     private final TonApiService tonApiService;
+    private final CryptoExchangeService cryptoExchangeService;
 
-    public MasterWalletService(UserRepository userRepository, VariableRepository variableRepository, TonApiService tonApiService) {
+    public MasterWalletService(UserRepository userRepository, VariableRepository variableRepository, TonApiService tonApiService, CryptoExchangeService cryptoExchangeService) {
         this.userRepository = userRepository;
         this.variableRepository = variableRepository;
 
         this.tonApiService = tonApiService;
+        this.cryptoExchangeService = cryptoExchangeService;
     }
 
     public MasterWalletRepresentation getTon(Long userId) {
@@ -41,6 +47,9 @@ public class MasterWalletService {
         BigDecimal balance;
         try { balance = tonApiService.getBalance(addressValue); }
         catch (TonApiException e) { throw new BadGatewayException("failed to check balance"); }
+
+        try { balance = balance.multiply(cryptoExchangeService.getTonUsdt()).setScale(FinanceConstants.SCALE, RoundingMode.DOWN); }
+        catch (CryptoException e) { throw new BadGatewayException("failed to exchange"); }
 
         MasterWalletRepresentation representation = new MasterWalletRepresentation();
         representation.setAddress(address.getValue());
