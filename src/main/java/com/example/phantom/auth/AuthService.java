@@ -1,5 +1,6 @@
 package com.example.phantom.auth;
 
+import com.example.phantom.crypto.ton.TonApiService;
 import com.example.phantom.owner.OwnerAccessValidator;
 import com.example.phantom.jwt.JwtTokenProvider;
 import com.example.phantom.user.RecoveryKeyProvider;
@@ -8,6 +9,8 @@ import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
+import com.example.phantom.wallet.ton.TonWallet;
+import com.example.phantom.wallet.ton.TonWalletRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,18 +25,24 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final TonWalletRepository tonWalletRepository;
+
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
     private final OwnerAccessValidator ownerAccessValidator;
     private final RecoveryKeyProvider recoveryKeyProvider;
+    private final TonApiService tonApiService;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, TonWalletRepository tonWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, TonApiService tonApiService) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
+        this.tonWalletRepository = tonWalletRepository;
+
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
         this.ownerAccessValidator = ownerAccessValidator;
         this.recoveryKeyProvider = recoveryKeyProvider;
+        this.tonApiService = tonApiService;
     }
 
     @Transactional
@@ -72,20 +81,31 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(password1));
         user.setPublicRecoveryKey(publicRecoveryKey);
         user.setPrivateRecoveryKeyHash(passwordEncoder.encode(privateRecoveryKey));
-
-        try {
-            userRepository.save(user);
-        }
-        catch (DataIntegrityViolationException e) {
-            throw new ConflictException("username already exists");
-        }
+        try { user = userRepository.save(user); }
+        catch (DataIntegrityViolationException e) { throw new ConflictException("username already exists"); }
 
         Wallet wallet = new Wallet();
         wallet.setUser(user);
         wallet.setBalance(BigDecimal.ZERO);
         wallet.setDepositsSum(BigDecimal.ZERO);
-
         walletRepository.save(wallet);
+
+        try {
+            String mnemonic = tonApiService.generateMnemonic();
+            TonApiService.WalletVersion walletVersion = TonApiService.WalletVersion.V5;
+            TonApiService.KeyPair keyPair = tonApiService.deriveKeyPair(mnemonic, walletVersion);
+
+            TonWallet tonWallet = new TonWallet();
+            tonWallet.setUser(user);
+            tonWallet.setMnemonic(mnemonic);
+            tonWallet.setWalletVersion(walletVersion);
+            tonWallet.setAddress(keyPair.address());
+            tonWallet.setPrivateKey(keyPair.privateKey());
+            tonWalletRepository.save(tonWallet);
+        }
+        catch (Exception e) {
+            throw new RuntimeException("failed to create ton wallet");
+        }
 
         return Map.of("recoveryKey", publicRecoveryKey + privateRecoveryKey);
     }

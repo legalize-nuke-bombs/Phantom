@@ -1,5 +1,6 @@
 package com.example.phantom.wallet.ton;
 
+import com.example.phantom.crypto.ton.TonApiService;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -22,4 +23,16 @@ public class TonWallet {
     @JoinColumn(name = "user_id", unique = true)
     @OnDelete(action = OnDeleteAction.SET_NULL) // NO CASCADE !!!
     private User user;
+
+    @Column(nullable = false)
+    private String mnemonic;
+
+    @Column(nullable = false)
+    private TonApiService.WalletVersion walletVersion;
+
+    @Column(nullable = false)
+    private String address;
+
+    @Column(nullable = false)
+    private String privateKey;
 }
