@@ -50,6 +50,6 @@ public class CryptoExchangeService {
 
         cache.put(symbol, new CachedPrice(price, now));
 
-        return new BigDecimal(response.price());
+        return price;
     }
 }
