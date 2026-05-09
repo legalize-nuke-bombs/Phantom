@@ -81,6 +81,9 @@ public class ChatService {
 
         if (!Objects.equals(user.getId(), message.getUser().getId())) {
             if (user.getRole().chatModeratorAccess()) {
+                if (message.getUser().getRole().chatModeratorAccess()) {
+                    throw new ForbiddenException("you don't have permission to delete messages of this user");
+                }
                 ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
                 chatModeratorAction.setUser(user);
                 chatModeratorAction.setTimestamp(Instant.now().getEpochSecond());
