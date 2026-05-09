@@ -1,6 +1,5 @@
 package com.example.phantom.jwt;
 
-import com.example.phantom.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,11 +15,9 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
-    private final UserRepository userRepository;
 
-    public JwtAuthFilter(JwtTokenProvider jwtTokenProvider, UserRepository userRepository) {
+    public JwtAuthFilter(JwtTokenProvider jwtTokenProvider) {
         this.jwtTokenProvider = jwtTokenProvider;
-        this.userRepository = userRepository;
     }
 
     @Override
@@ -36,10 +33,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             Long userId = jwtTokenProvider.getUserIdFromToken(token).orElse(null);
 
             if (userId != null) {
-                if (userRepository.existsById(userId)) {
-                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userId, null, List.of());
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                }
+                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userId, null, List.of());
+                SecurityContextHolder.getContext().setAuthentication(auth);
             }
         }
 
