@@ -15,9 +15,9 @@ public class RateLimiterConfig {
         RateLimiter rateLimiter = new RateLimiter();
 
         rateLimiter.registerRules("pagination", Map.of(
-                Plan.DEFAULT, new Rule(20L * 10, 30L),
-                Plan.PRO, new Rule(20L * 50, 30L),
-                Plan.MAX, new Rule(20L * 100, 30L)
+                Plan.DEFAULT, new Rule(20L * 50, 60L),
+                Plan.PRO, new Rule(20L * 100, 60L),
+                Plan.MAX, new Rule(20L * 200, 60L)
         ));
 
         return rateLimiter;
