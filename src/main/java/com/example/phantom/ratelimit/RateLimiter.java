@@ -17,7 +17,7 @@ public class RateLimiter {
 
     public void registerRules(String action, Map<Plan, Rule> rules) {
         if (rules.size() != Plan.values().length) {
-            throw new RuntimeException("bad rule");
+            throw new RuntimeException("bad rules");
         }
 
         rules.forEach((plan, rule) -> {
@@ -29,10 +29,13 @@ public class RateLimiter {
     public void startAction(User user, String action, Long tokens) throws RateLimitReached {
         Long now = Instant.now().getEpochSecond();
 
-        Rule rule = rules.get(rulesKey(action, user.getPlan()));
-        if (rule == null) throw new RuntimeException("unknown action");
+        String rulesKey = rulesKey(action, user.getPlan());
+        String statesKey = statesKey(action, user.getId());
 
-        State state = states.get(stateKey(action, user.getId()));
+        Rule rule = rules.get(rulesKey);
+        if (rule == null) throw new RuntimeException("rule not found");
+
+        State state = states.get(statesKey);
         if (state == null || (now - state.getTimestamp() > rule.getSeconds())) {
             state = new State(now, 0L);
         }
@@ -45,14 +48,14 @@ public class RateLimiter {
                             + "try again in " + (state.getTimestamp() + rule.getSeconds() - now) + " seconds");
         }
 
-        states.put(action, state);
+        states.put(statesKey, state);
     }
 
     private String rulesKey(String action, Plan plan) {
         return action + "." + plan.name();
     }
 
-    private String stateKey(String action, Long userId) {
+    private String statesKey(String action, Long userId) {
         return action + "." + userId;
     }
 }
