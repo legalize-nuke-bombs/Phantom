@@ -30,8 +30,6 @@ public class TonApiService {
     private final RestClient client;
     private final boolean testnet;
 
-    public enum WalletVersion { V1R1, V1R2, V1R3, V2R1, V2R2, V3R1, V3R2, V4R2, V5 }
-
     public record KeyPair(String address, String privateKey) {}
     private record ToncenterResponse(boolean ok, String result) {}
 
@@ -51,7 +49,7 @@ public class TonApiService {
         catch (Exception e) { throw new TonApiException(e.getMessage()); }
     }
 
-    public KeyPair deriveKeyPair(String mnemonic, WalletVersion version) throws TonApiException {
+    public KeyPair deriveKeyPair(String mnemonic, TonWalletVersion version) throws TonApiException {
         Pair keys;
         try { keys = Mnemonic.toKeyPair(mnemonic); }
         catch (Exception e) { throw new TonApiException(e.getMessage()); }
@@ -76,7 +74,7 @@ public class TonApiService {
         return new BigDecimal(response.result()).divide(NANOTON, 9, RoundingMode.DOWN);
     }
 
-    private Address buildWalletAddress(TweetNaclFast.Signature.KeyPair keyPair, WalletVersion version) {
+    private Address buildWalletAddress(TweetNaclFast.Signature.KeyPair keyPair, TonWalletVersion version) {
         return switch (version) {
             case V1R1 -> WalletV1R1.builder().wc(0).keyPair(keyPair).build().getAddress();
             case V1R2 -> WalletV1R2.builder().wc(0).keyPair(keyPair).build().getAddress();

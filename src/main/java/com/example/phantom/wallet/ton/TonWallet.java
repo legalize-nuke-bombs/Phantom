@@ -1,6 +1,6 @@
 package com.example.phantom.wallet.ton;
 
-import com.example.phantom.crypto.ton.TonApiService;
+import com.example.phantom.crypto.ton.TonWalletVersion;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -29,7 +29,7 @@ public class TonWallet {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TonApiService.WalletVersion walletVersion;
+    private TonWalletVersion walletVersion;
 
     @Column(nullable = false)
     private String address;

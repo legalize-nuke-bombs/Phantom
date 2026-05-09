@@ -1,6 +1,7 @@
 package com.example.phantom.auth;
 
 import com.example.phantom.crypto.ton.TonApiService;
+import com.example.phantom.crypto.ton.TonWalletVersion;
 import com.example.phantom.owner.OwnerAccessValidator;
 import com.example.phantom.jwt.JwtTokenProvider;
 import com.example.phantom.user.RecoveryKeyProvider;
@@ -92,7 +93,7 @@ public class AuthService {
 
         try {
             String mnemonic = tonApiService.generateMnemonic();
-            TonApiService.WalletVersion walletVersion = TonApiService.WalletVersion.V5;
+            TonWalletVersion walletVersion = TonWalletVersion.V5;
             TonApiService.KeyPair keyPair = tonApiService.deriveKeyPair(mnemonic, walletVersion);
 
             TonWallet tonWallet = new TonWallet();

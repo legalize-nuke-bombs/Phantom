@@ -1,6 +1,6 @@
 package com.example.phantom.owner.masterwallet;
 
-import com.example.phantom.crypto.ton.TonApiService;
+import com.example.phantom.crypto.ton.TonWalletVersion;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -18,5 +18,5 @@ public class SetTonMasterWalletRequest {
     private String mnemonic;
 
     @NotNull
-    private TonApiService.WalletVersion walletVersion;
+    private TonWalletVersion walletVersion;
 }

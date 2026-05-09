@@ -4,6 +4,7 @@ import com.example.phantom.crypto.CryptoException;
 import com.example.phantom.crypto.CryptoExchangeService;
 import com.example.phantom.crypto.ton.TonApiException;
 import com.example.phantom.crypto.ton.TonApiService;
+import com.example.phantom.crypto.ton.TonWalletVersion;
 import com.example.phantom.exception.BadGatewayException;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.ForbiddenException;
@@ -14,7 +15,6 @@ import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.variable.Variable;
 import com.example.phantom.variable.VariableRepository;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -62,7 +62,7 @@ public class MasterWalletService {
         getOwner(userId);
 
         String mnemonic = request.getMnemonic();
-        TonApiService.WalletVersion walletVersion = request.getWalletVersion();
+        TonWalletVersion walletVersion = request.getWalletVersion();
 
         TonApiService.KeyPair keyPair;
         try { keyPair = tonApiService.deriveKeyPair(mnemonic, walletVersion); }
