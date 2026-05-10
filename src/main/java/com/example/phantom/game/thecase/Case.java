@@ -35,7 +35,7 @@ public class Case {
             BigDecimal fraction = entry.getKey().multiply(new BigDecimal(entry.getValue())).divide(new BigDecimal(size), FinanceConstants.SCALE, RoundingMode.DOWN);
             cost = cost.add(fraction);
         }
-        cost = cost.divide(new BigDecimal("0.8"), 1, RoundingMode.DOWN);
+        cost = cost.divide(new BigDecimal("0.9"), 1, RoundingMode.DOWN);
 
         this.cost = cost;
         this.size = size;
