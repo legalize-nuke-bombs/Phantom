@@ -19,18 +19,18 @@ public class SweepLog {
     @Column(nullable = false)
     private Long timestamp;
 
-    @Column(nullable = false, length = SweepLogConstants.COIN_MAX_LENGTH)
+    @Column(nullable = false, length = SweepConstants.COIN_MAX_LENGTH)
     private String coin;
 
-    @Column(nullable = false, length = SweepLogConstants.SENDER_MAX_LENGTH)
+    @Column(nullable = false, length = SweepConstants.SENDER_MAX_LENGTH)
     private String sender;
 
-    @Column(nullable = false, length = SweepLogConstants.RECEIVER_MAX_LENGTH)
+    @Column(nullable = false, length = SweepConstants.RECEIVER_MAX_LENGTH)
     private String receiver;
 
     @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
     private BigDecimal amount;
 
-    @Column(nullable = false, length = SweepLogConstants.STATUS_MAX_LENGTH)
+    @Column(nullable = false, length = SweepConstants.STATUS_MAX_LENGTH)
     private String status;
 }
