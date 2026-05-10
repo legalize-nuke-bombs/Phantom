@@ -20,6 +20,12 @@ public class RateLimiterConfig {
                 Plan.MAX, new Rule(20L * 200, 60L)
         ));
 
+        rateLimiter.registerRules("crypto", Map.of(
+                Plan.DEFAULT, new Rule(5L, 60L),
+                Plan.PRO, new Rule(10L, 60L),
+                Plan.MAX, new Rule(20L, 60L)
+        ));
+
         return rateLimiter;
     }
 }

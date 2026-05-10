@@ -18,7 +18,9 @@ import org.ton.ton4j.smartcontract.wallet.v4.WalletV4R2;
 import org.ton.ton4j.smartcontract.wallet.v5.WalletV5;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
 
 @Service
 public class TonApiService {
@@ -31,7 +33,13 @@ public class TonApiService {
     private final boolean testnet;
 
     public record KeyPair(String address, String privateKey) {}
+    public record TonTransaction(String hash, BigDecimal value) {}
+
     private record ToncenterResponse(boolean ok, String result) {}
+    private record ToncenterTransactionId(String lt, String hash) {}
+    private record ToncenterInMsg(String source, String destination, String value) {}
+    private record ToncenterTransaction(ToncenterTransactionId transaction_id, ToncenterInMsg in_msg) {}
+    private record ToncenterTransactionsResponse(boolean ok, ToncenterTransaction[] result) {}
 
     public TonApiService(@Value("${ton.api.base-url}") String baseUrl,
                          @Value("${ton.api.key:}") String apiKey,
@@ -72,6 +80,29 @@ public class TonApiService {
             throw new TonApiException("failed to get balance for " + address);
         }
         return new BigDecimal(response.result()).divide(NANOTON, 9, RoundingMode.DOWN);
+    }
+
+    public List<TonTransaction> getTransactions(String address, int limit) throws TonApiException {
+        ToncenterTransactionsResponse response = client.get()
+                .uri("/api/v2/getTransactions?address={addr}&limit={limit}", address, limit)
+                .retrieve()
+                .body(ToncenterTransactionsResponse.class);
+
+        if (response == null || !response.ok() || response.result() == null) {
+            throw new TonApiException("failed to get transactions for " + address);
+        }
+
+        List<TonTransaction> deposits = new ArrayList<>();
+        for (ToncenterTransaction tx : response.result()) {
+            if (tx.in_msg() == null || tx.in_msg().source() == null || tx.in_msg().source().isEmpty()) continue;
+            if (tx.in_msg().value() == null) continue;
+
+            BigDecimal value = new BigDecimal(tx.in_msg().value()).divide(NANOTON, 9, RoundingMode.DOWN);
+            if (value.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            deposits.add(new TonTransaction(tx.transaction_id().hash(), value));
+        }
+        return deposits;
     }
 
     private Address buildWalletAddress(TweetNaclFast.Signature.KeyPair keyPair, TonWalletVersion version) {

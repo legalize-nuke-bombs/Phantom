@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -24,15 +25,7 @@ public class TonController {
     }
 
     @PostMapping("/check-deposits")
-    public ResponseEntity<Void> checkDeposits() {
-        return ResponseEntity.ok(service.checkDeposits());
+    public ResponseEntity<List<TonDepositRepresentation>> checkDeposits(@AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(service.checkDeposits(userId));
     }
-
-    @PostMapping("/withdraw")
-    public ResponseEntity<Void> withdraw() {
-        return ResponseEntity.ok(service.withdraw());
-    }
-
-    @PostMapping("/check-withdrawals")
-    public ResponseEntity<Void> checkWithdrawals() { return ResponseEntity.ok(service.checkWithdrawals()); }
 }
