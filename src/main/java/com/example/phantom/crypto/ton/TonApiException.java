@@ -1,8 +1,6 @@
 package com.example.phantom.crypto.ton;
 
-import com.example.phantom.crypto.CryptoException;
-
-public class TonApiException extends CryptoException {
+public class TonApiException extends Exception {
     public TonApiException(String message) {
         super(message);
     }

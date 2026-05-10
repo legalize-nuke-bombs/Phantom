@@ -13,15 +13,13 @@ public class CryptoExchangeService {
     private final RestClient client;
     private final Map<String, CachedPrice> cache;
 
-    private final static int CACHE_DURATION = 30;
+    private static final int CACHE_DURATION = 30;
 
     private record TickerResponse(String symbol, String price) {}
-    private record CachedPrice(BigDecimal price, Long timestamp) {}
+    private record CachedPrice(BigDecimal price, long timestamp) {}
 
     public CryptoExchangeService() {
-        this.client = RestClient.builder()
-                .baseUrl("https://api.binance.com")
-                .build();
+        this.client = RestClient.builder().baseUrl("https://api.binance.com").build();
         this.cache = new ConcurrentHashMap<>();
     }
 
@@ -30,26 +28,25 @@ public class CryptoExchangeService {
     }
 
     private BigDecimal getPrice(String symbol) throws CryptoException {
-        Long now = Instant.now().getEpochSecond();
+        long now = Instant.now().getEpochSecond();
 
-        CachedPrice cachedPrice = cache.get(symbol);
-        if (cachedPrice != null && now - cachedPrice.timestamp() < CACHE_DURATION) {
-            return cachedPrice.price;
+        try {
+            return cache.compute(symbol, (key, cached) -> {
+                if (cached != null && now - cached.timestamp() < CACHE_DURATION) {
+                    return cached;
+                }
+
+                TickerResponse response = client.get().uri("/api/v3/ticker/price?symbol={s}", symbol).retrieve().body(TickerResponse.class);
+
+                if (response == null || response.price() == null) {
+                    throw new CryptoRuntimeException("failed to get price for " + symbol);
+                }
+
+                return new CachedPrice(new BigDecimal(response.price()), now);
+            }).price();
         }
-
-        TickerResponse response = client.get()
-                .uri("/api/v3/ticker/price?symbol={s}", symbol)
-                .retrieve()
-                .body(TickerResponse.class);
-
-        if (response == null || response.price() == null) {
-            throw new CryptoException("failed to get price for " + symbol);
+        catch (CryptoRuntimeException e) {
+            throw new CryptoException(e.getMessage());
         }
-
-        BigDecimal price = new BigDecimal(response.price());
-
-        cache.put(symbol, new CachedPrice(price, now));
-
-        return price;
     }
 }
