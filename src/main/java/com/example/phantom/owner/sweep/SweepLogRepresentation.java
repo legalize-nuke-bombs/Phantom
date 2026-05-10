@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 public class SweepLogRepresentation {
     private final Long id;
     private final Long timestamp;
+    private final String coin;
     private final String sender;
     private final String receiver;
     private final BigDecimal amount;
@@ -16,6 +17,7 @@ public class SweepLogRepresentation {
     public SweepLogRepresentation(SweepLog sweepLog) {
         this.id = sweepLog.getId();
         this.timestamp = sweepLog.getTimestamp();
+        this.coin = sweepLog.getCoin();
         this.sender = sweepLog.getSender();
         this.receiver = sweepLog.getReceiver();
         this.amount = sweepLog.getAmount();

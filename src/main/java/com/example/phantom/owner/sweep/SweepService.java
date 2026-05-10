@@ -100,8 +100,9 @@ public class SweepService {
 
         SweepLog sweepLog = new SweepLog();
         sweepLog.setTimestamp(now.getEpochSecond());
-        sweepLog.setSender("FROM");
-        sweepLog.setReceiver("TO");
+        sweepLog.setCoin("coin");
+        sweepLog.setSender("sender");
+        sweepLog.setReceiver("receiver");
         sweepLog.setAmount(BigDecimal.ZERO);
         sweepLog.setStatus("OK");
         sweepLogRepository.save(sweepLog);
