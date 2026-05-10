@@ -25,12 +25,15 @@ public class SweepLog {
     @Column(nullable = false, length = SweepConstants.SENDER_MAX_LENGTH)
     private String sender;
 
+    @Column(precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
+    private BigDecimal amount;
+
     @Column(nullable = false, length = SweepConstants.RECEIVER_MAX_LENGTH)
     private String receiver;
 
-    @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
-    private BigDecimal amount;
-
     @Column(nullable = false, length = SweepConstants.STATUS_MAX_LENGTH)
     private String status;
+
+    @Column
+    private String hash;
 }

@@ -29,13 +29,13 @@ public class TonReadService {
 
     public BigDecimal getBalance(String address) throws TonApiException {
         try { return new BigDecimal(tonCenter.getBalance(Address.of(address))).divide(TonConstants.NANOTON, 9, RoundingMode.DOWN); }
-        catch (Exception e) { throw new TonApiException("failed to get balance for " + address); }
+        catch (Throwable e) { throw new TonApiException("failed to get balance for " + address); }
     }
 
     public List<IncomingTransfer> getIncomingTransfers(String address, int limit) throws TonApiException {
         TonResponse<List<TransactionResponse>> response;
         try { response = tonCenter.getTransactions(address, limit); }
-        catch (Exception e) { throw new TonApiException("failed to get transactions for " + address); }
+        catch (Throwable e) { throw new TonApiException("failed to get transactions for " + address); }
 
         if (response == null || !response.isSuccess() || response.getResult() == null) {
             throw new TonApiException("failed to get transactions for " + address);
@@ -60,7 +60,7 @@ public class TonReadService {
                 return TonTransferStatus.CONFIRMED;
             }
         }
-        catch (Exception e) { throw new TonApiException("failed to check message confirmation"); }
+        catch (Throwable e) { throw new TonApiException("failed to check message confirmation"); }
 
         if (Instant.now().getEpochSecond() > sendTimestamp + validationDuration) {
             return TonTransferStatus.REJECTED;

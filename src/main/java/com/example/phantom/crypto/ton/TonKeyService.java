@@ -35,13 +35,6 @@ public class TonKeyService {
         return new KeyPair(address, HexFormat.of().formatHex(keys.getSecretKey()));
     }
 
-    public TweetNaclFast.Signature.KeyPair deriveSignatureKeyPair(String mnemonic) throws TonApiException {
-        Pair keys;
-        try { keys = Mnemonic.toKeyPair(mnemonic); }
-        catch (Exception e) { throw new TonApiException(e.getMessage()); }
-        return TweetNaclFast.Signature.keyPair_fromSeed(keys.getSecretKey());
-    }
-
     private Address buildWalletAddress(TweetNaclFast.Signature.KeyPair keyPair, TonWalletVersion version) {
         return switch (version) {
             case V5 -> WalletV5.builder().wc(0).keyPair(keyPair).walletId(TonConstants.WALLET_ID_V5).isSigAuthAllowed(true).build().getAddress();

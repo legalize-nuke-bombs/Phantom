@@ -17,5 +17,5 @@ public class UpgraderSettings {
             Map.entry(5, new BigDecimal("18")),
             Map.entry(1, new BigDecimal("90"))
     );
-    private final BigDecimal minimalBet = new BigDecimal("2.5");
+    private final BigDecimal minimalBet = new BigDecimal("1");
 }

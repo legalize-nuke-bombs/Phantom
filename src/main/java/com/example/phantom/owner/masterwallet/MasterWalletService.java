@@ -1,7 +1,7 @@
 package com.example.phantom.owner.masterwallet;
 
 import com.example.phantom.crypto.CryptoException;
-import com.example.phantom.crypto.CryptoExchangeService;
+import com.example.phantom.crypto.CryptoExchangeRateService;
 import com.example.phantom.crypto.ton.TonApiException;
 import com.example.phantom.crypto.ton.TonKeyService;
 import com.example.phantom.crypto.ton.TonReadService;
@@ -29,14 +29,14 @@ public class MasterWalletService {
     private final VariableRepository variableRepository;
     private final TonReadService tonReadService;
     private final TonKeyService tonKeyService;
-    private final CryptoExchangeService cryptoExchangeService;
+    private final CryptoExchangeRateService cryptoExchangeRateService;
 
-    public MasterWalletService(UserRepository userRepository, VariableRepository variableRepository, TonReadService tonReadService, TonKeyService tonKeyService, CryptoExchangeService cryptoExchangeService) {
+    public MasterWalletService(UserRepository userRepository, VariableRepository variableRepository, TonReadService tonReadService, TonKeyService tonKeyService, CryptoExchangeRateService cryptoExchangeRateService) {
         this.userRepository = userRepository;
         this.variableRepository = variableRepository;
         this.tonReadService = tonReadService;
         this.tonKeyService = tonKeyService;
-        this.cryptoExchangeService = cryptoExchangeService;
+        this.cryptoExchangeRateService = cryptoExchangeRateService;
     }
 
     public MasterWalletRepresentation getTon(Long userId) {
@@ -49,7 +49,7 @@ public class MasterWalletService {
         try { balance = tonReadService.getBalance(addressValue); }
         catch (TonApiException e) { throw new BadGatewayException("failed to check balance"); }
 
-        try { balance = balance.multiply(cryptoExchangeService.getTonUsdt()).setScale(FinanceConstants.SCALE, RoundingMode.DOWN); }
+        try { balance = balance.multiply(cryptoExchangeRateService.getTonUsdt()).setScale(FinanceConstants.SCALE, RoundingMode.DOWN); }
         catch (CryptoException e) { throw new BadGatewayException("failed to exchange"); }
 
         MasterWalletRepresentation representation = new MasterWalletRepresentation();

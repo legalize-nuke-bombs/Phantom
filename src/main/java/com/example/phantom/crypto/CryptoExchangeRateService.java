@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-public class CryptoExchangeService {
+public class CryptoExchangeRateService {
 
     private final RestClient client;
     private final Map<String, CachedPrice> cache;
@@ -20,7 +20,7 @@ public class CryptoExchangeService {
     private record TickerResponse(String symbol, String price) {}
     private record CachedPrice(BigDecimal price, long timestamp) {}
 
-    public CryptoExchangeService() {
+    public CryptoExchangeRateService() {
         this.client = RestClient.builder()
                 .baseUrl("https://api.binance.com")
                 .requestFactory(new SimpleClientHttpRequestFactory() {{
@@ -47,13 +47,13 @@ public class CryptoExchangeService {
                 TickerResponse response = client.get().uri("/api/v3/ticker/price?symbol={s}", symbol).retrieve().body(TickerResponse.class);
 
                 if (response == null || response.price() == null) {
-                    throw new CryptoRuntimeException("failed to get price for " + symbol);
+                    throw new RuntimeException("failed to get price for " + symbol);
                 }
 
                 return new CachedPrice(new BigDecimal(response.price()), now);
             }).price();
         }
-        catch (CryptoRuntimeException e) {
+        catch (Exception e) {
             throw new CryptoException(e.getMessage());
         }
     }

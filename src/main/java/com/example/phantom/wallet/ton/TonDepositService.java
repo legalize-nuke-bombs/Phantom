@@ -1,7 +1,7 @@
 package com.example.phantom.wallet.ton;
 
 import com.example.phantom.crypto.CryptoException;
-import com.example.phantom.crypto.CryptoExchangeService;
+import com.example.phantom.crypto.CryptoExchangeRateService;
 import com.example.phantom.crypto.ton.TonApiException;
 import com.example.phantom.crypto.ton.TonReadService;
 import com.example.phantom.exception.BadGatewayException;
@@ -26,14 +26,14 @@ public class TonDepositService {
     private final TonWalletRepository tonWalletRepository;
     private final TonDepositRepository tonDepositRepository;
     private final TonReadService tonReadService;
-    private final CryptoExchangeService cryptoExchangeService;
+    private final CryptoExchangeRateService cryptoExchangeRateService;
 
-    public TonDepositService(WalletRepository walletRepository, TonWalletRepository tonWalletRepository, TonDepositRepository tonDepositRepository, TonReadService tonReadService, CryptoExchangeService cryptoExchangeService) {
+    public TonDepositService(WalletRepository walletRepository, TonWalletRepository tonWalletRepository, TonDepositRepository tonDepositRepository, TonReadService tonReadService, CryptoExchangeRateService cryptoExchangeRateService) {
         this.walletRepository = walletRepository;
         this.tonWalletRepository = tonWalletRepository;
         this.tonDepositRepository = tonDepositRepository;
         this.tonReadService = tonReadService;
-        this.cryptoExchangeService = cryptoExchangeService;
+        this.cryptoExchangeRateService = cryptoExchangeRateService;
     }
 
     public List<TonDeposit> fetchDeposits(User user) {
@@ -53,7 +53,7 @@ public class TonDepositService {
         if (newTransfers.isEmpty()) return List.of();
 
         BigDecimal tonUsdtRate;
-        try { tonUsdtRate = cryptoExchangeService.getTonUsdt(); }
+        try { tonUsdtRate = cryptoExchangeRateService.getTonUsdt(); }
         catch (CryptoException e) { throw new BadGatewayException("failed to get exchange rate"); }
 
         Long now = Instant.now().getEpochSecond();
