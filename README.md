@@ -44,6 +44,11 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/users/me/new-recovery-key`    | Regenerate recovery key     |
 | DELETE | `/api/users/me`                     | Delete account              |
 
+### Rate limit
+| Method | Endpoint                            | Description     |
+|--------|-------------------------------------|-----------------|
+| GET    | `/api/rate-limit`                   | Get your limits |
+
 ### Wallet
 | Method | Endpoint                            | Description             |
 |--------|-------------------------------------|-------------------------|
