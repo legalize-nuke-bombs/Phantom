@@ -5,8 +5,10 @@ import org.springframework.stereotype.Service;
 import org.ton.ton4j.smartcontract.types.Destination;
 import org.ton.ton4j.smartcontract.types.WalletV5Config;
 import org.ton.ton4j.smartcontract.wallet.v5.WalletV5;
-import org.ton.ton4j.tlb.Transaction;
+import org.ton.ton4j.tlb.Message;
 import org.ton.ton4j.toncenter.TonCenter;
+import org.ton.ton4j.toncenter.TonResponse;
+import org.ton.ton4j.toncenter.model.SendBocResponse;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
@@ -22,7 +24,7 @@ public class TonTransferService {
         this.tonKeyService = tonKeyService;
     }
 
-    public Transaction sendPayment(String mnemonic, String toAddress, BigDecimal amountTon) throws TonApiException {
+    public String sendPayment(String mnemonic, String toAddress, BigDecimal amountTon) throws TonApiException {
         TweetNaclFast.Signature.KeyPair keyPair = tonKeyService.deriveSignatureKeyPair(mnemonic);
         BigInteger amountNano = amountTon.multiply(TonConstants.NANOTON).toBigInteger();
 
@@ -34,7 +36,16 @@ public class TonTransferService {
 
         WalletV5Config config = WalletV5Config.builder().walletId(TonConstants.WALLET_ID_V5).seqno(seqno).recipients(List.of(Destination.builder().address(toAddress).amount(amountNano).bounce(false).build())).build();
 
-        try { return wallet.sendWithConfirmation(config); }
-        catch (Exception e) { throw new TonApiException("failed to send payment: " + e.getMessage()); }
+        Message message = wallet.prepareExternalMsg(config);
+
+        TonResponse<SendBocResponse> response;
+        try { response = tonCenter.sendBocReturnHash(message.toCell().toBase64()); }
+        catch (Exception e) { throw new TonApiException("failed to send payment"); }
+
+        if (response == null || !response.isSuccess()) {
+            throw new TonApiException("failed to send payment: " + (response != null ? response.getError() : "null response"));
+        }
+
+        return response.getResult().getHash();
     }
 }
