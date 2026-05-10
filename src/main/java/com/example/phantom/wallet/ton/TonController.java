@@ -1,11 +1,9 @@
 package com.example.phantom.wallet.ton;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
@@ -27,5 +25,15 @@ public class TonController {
     @PostMapping("/check-deposits")
     public ResponseEntity<List<TonDepositRepresentation>> checkDeposits(@AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(service.checkDeposits(userId));
+    }
+
+    @PostMapping("/withdraw")
+    public ResponseEntity<TonWithdrawalRepresentation> withdraw(@AuthenticationPrincipal Long userId, @Valid @RequestBody TonWithdrawRequest request) {
+        return ResponseEntity.ok(service.withdraw(userId, request));
+    }
+
+    @PostMapping("/check-pending-withdrawals")
+    public ResponseEntity<List<TonWithdrawalRepresentation>> checkPendingWithdrawals(@AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(service.checkPendingWithdrawals(userId));
     }
 }

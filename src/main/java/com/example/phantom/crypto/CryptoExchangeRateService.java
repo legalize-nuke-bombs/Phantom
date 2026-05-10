@@ -1,5 +1,6 @@
 package com.example.phantom.crypto;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Slf4j
 public class CryptoExchangeRateService {
 
     private final RestClient client;
@@ -44,13 +46,18 @@ public class CryptoExchangeRateService {
                     return cached;
                 }
 
+                log.info("fetching price for {}...", symbol);
                 TickerResponse response = client.get().uri("/api/v3/ticker/price?symbol={s}", symbol).retrieve().body(TickerResponse.class);
 
                 if (response == null || response.price() == null) {
+                    log.error("failed to fetch price for {}", symbol);
                     throw new RuntimeException("failed to get price for " + symbol);
                 }
 
-                return new CachedPrice(new BigDecimal(response.price()), now);
+                String price = response.price;
+
+                log.info("fetched price for {}: {}", symbol, price);
+                return new CachedPrice(new BigDecimal(price), now);
             }).price();
         }
         catch (Exception e) {

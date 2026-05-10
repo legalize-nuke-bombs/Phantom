@@ -41,7 +41,7 @@ public class TonDepositService {
 
         List<TonReadService.IncomingTransfer> transfers;
         try { transfers = tonReadService.getIncomingTransfers(tonWallet.getAddress(), TX_FETCH_LIMIT); }
-        catch (TonApiException e) { throw new BadGatewayException("failed to fetch transactions"); }
+        catch (TonApiException e) { throw new BadGatewayException(e.getMessage()); }
 
         if (transfers.isEmpty()) return List.of();
 
@@ -54,7 +54,7 @@ public class TonDepositService {
 
         BigDecimal tonUsdtRate;
         try { tonUsdtRate = cryptoExchangeRateService.getTonUsdt(); }
-        catch (CryptoException e) { throw new BadGatewayException("failed to get exchange rate"); }
+        catch (CryptoException e) { throw new BadGatewayException(e.getMessage()); }
 
         Long now = Instant.now().getEpochSecond();
         List<TonDeposit> deposits = new ArrayList<>();

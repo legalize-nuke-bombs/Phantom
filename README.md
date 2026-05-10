@@ -50,13 +50,13 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | GET    | `/api/rate-limit`                   | Get your limits |
 
 ### Wallet
-| Method | Endpoint                            | Description             |
-|--------|-------------------------------------|-------------------------|
-| GET    | `/api/wallet`                       | Get wallet info         |
-| GET    | `/api/wallet/ton`                   | Get TON deposit address |
-| POST   | `/api/wallet/ton/check-deposits`    | Check TON deposits      |
-| POST   | `/api/wallet/ton/withdraw`          | Withdraw TON            | 
-| POST   | `/api/wallet/ton/check-withdrawals` | Check TON withdrawals   | 
+| Method | Endpoint                                    | Description                   |
+|--------|---------------------------------------------|-------------------------------|
+| GET    | `/api/wallet`                               | Get wallet info               |
+| GET    | `/api/wallet/ton`                           | Get TON deposit address       |
+| POST   | `/api/wallet/ton/check-deposits`            | Check TON deposits            |
+| POST   | `/api/wallet/ton/withdraw`                  | Withdraw TON                  | 
+| POST   | `/api/wallet/ton/check-pending-withdrawals` | Check TON pending withdrawals | 
 
 ### Games
 | Method | Endpoint                      | Description                  |

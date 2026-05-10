@@ -116,19 +116,19 @@ public class SweepService {
 
         List<SweepLog> sweepLogs = new ArrayList<>();
 
-        sweepLogs = sweepTon(sweepLogs);
+        sweepTon(sweepLogs);
 
         sweepLogRepository.saveAll(sweepLogs);
     }
 
-    private List<SweepLog> sweepTon(List<SweepLog> sweepLogs) {
+    private void sweepTon(List<SweepLog> sweepLogs) {
         Variable masterAddress = variableRepository.findById("TON_MASTER_WALLET_ADDRESS").orElse(null);
-        if (masterAddress == null) return sweepLogs;
+        if (masterAddress == null) return;
         String masterAddressValue = masterAddress.getValue();
 
         BigDecimal tonUsdRate;
         try { tonUsdRate = cryptoExchangeRateService.getTonUsdt(); }
-        catch (CryptoException e) { return sweepLogs; }
+        catch (CryptoException e) { return; }
 
         List<TonWallet> tonWallets = tonWalletRepository.findAll();
 
@@ -161,8 +161,6 @@ public class SweepService {
                 sweepLogs.add(sweepLog);
             }
         }
-
-        return sweepLogs;
     }
 
     private User getOwner(Long userId) {
