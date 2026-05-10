@@ -1,6 +1,6 @@
 package com.example.phantom.auth;
 
-import com.example.phantom.crypto.ton.TonApiService;
+import com.example.phantom.crypto.ton.TonKeyService;
 import com.example.phantom.crypto.ton.TonWalletVersion;
 import com.example.phantom.owner.OwnerAccessDenied;
 import com.example.phantom.owner.OwnerAccessValidator;
@@ -31,9 +31,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final OwnerAccessValidator ownerAccessValidator;
     private final RecoveryKeyProvider recoveryKeyProvider;
-    private final TonApiService tonApiService;
+    private final TonKeyService tonKeyService;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, TonWalletRepository tonWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, TonApiService tonApiService) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, TonWalletRepository tonWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, TonKeyService tonKeyService) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.tonWalletRepository = tonWalletRepository;
@@ -42,7 +42,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.ownerAccessValidator = ownerAccessValidator;
         this.recoveryKeyProvider = recoveryKeyProvider;
-        this.tonApiService = tonApiService;
+        this.tonKeyService = tonKeyService;
     }
 
     @Transactional
@@ -96,9 +96,9 @@ public class AuthService {
         walletRepository.save(wallet);
 
         try {
-            String mnemonic = tonApiService.generateMnemonic();
+            String mnemonic = tonKeyService.generateMnemonic();
             TonWalletVersion walletVersion = TonWalletVersion.V5;
-            TonApiService.KeyPair keyPair = tonApiService.deriveKeyPair(mnemonic, walletVersion);
+            TonKeyService.KeyPair keyPair = tonKeyService.deriveKeyPair(mnemonic, walletVersion);
 
             TonWallet tonWallet = new TonWallet();
             tonWallet.setUser(user);
