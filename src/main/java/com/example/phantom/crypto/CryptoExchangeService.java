@@ -1,8 +1,10 @@
 package com.example.phantom.crypto;
 
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,7 +21,13 @@ public class CryptoExchangeService {
     private record CachedPrice(BigDecimal price, long timestamp) {}
 
     public CryptoExchangeService() {
-        this.client = RestClient.builder().baseUrl("https://api.binance.com").build();
+        this.client = RestClient.builder()
+                .baseUrl("https://api.binance.com")
+                .requestFactory(new SimpleClientHttpRequestFactory() {{
+                    setConnectTimeout(Duration.ofSeconds(10));
+                    setReadTimeout(Duration.ofSeconds(30));
+                }})
+                .build();
         this.cache = new ConcurrentHashMap<>();
     }
 
