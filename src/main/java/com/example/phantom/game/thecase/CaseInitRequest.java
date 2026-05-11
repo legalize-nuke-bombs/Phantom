@@ -9,6 +9,6 @@ import lombok.Setter;
 @Setter
 public class CaseInitRequest {
     @NotNull
-    @Size(max=255)
+    @Size(max=CaseConstants.CASE_NAME_MAX_LENGTH)
     private String caseName;
 }
