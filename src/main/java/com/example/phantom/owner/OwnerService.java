@@ -42,7 +42,7 @@ public class OwnerService {
         }
 
         boolean isOwner;
-        try { isOwner = !ownerAccessValidator.isOwner(ownerKey); }
+        try { isOwner = ownerAccessValidator.isOwner(ownerKey); }
         catch (OwnerBadAccess e) { throw new BadRequestException(e.getMessage()); }
         catch (OwnerAccessDenied e) { throw new UnauthorizedException(e.getMessage()); }
 
