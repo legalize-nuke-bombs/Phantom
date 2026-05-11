@@ -19,12 +19,11 @@ public class CryptoExchangeRateService {
 
     private static final int CACHE_DURATION = 30;
 
-    private record TickerResponse(String symbol, String price) {}
     private record CachedPrice(BigDecimal price, long timestamp) {}
 
     public CryptoExchangeRateService() {
         this.client = RestClient.builder()
-                .baseUrl("https://api.binance.com")
+                .baseUrl("https://api.coingecko.com")
                 .requestFactory(new SimpleClientHttpRequestFactory() {{
                     setConnectTimeout(Duration.ofSeconds(10));
                     setReadTimeout(Duration.ofSeconds(10));
@@ -34,33 +33,38 @@ public class CryptoExchangeRateService {
     }
 
     public BigDecimal getTonUsdt() throws CryptoException {
-        return getPrice("TONUSDT");
+        return getPrice("the-open-network");
     }
 
-    private BigDecimal getPrice(String symbol) throws CryptoException {
+    @SuppressWarnings("unchecked")
+    private BigDecimal getPrice(String coinId) throws CryptoException {
         long now = Instant.now().getEpochSecond();
 
         try {
-            return cache.compute(symbol, (key, cached) -> {
+            return cache.compute(coinId, (key, cached) -> {
                 if (cached != null && now - cached.timestamp() < CACHE_DURATION) {
                     return cached;
                 }
 
-                log.info("fetching price for {}...", symbol);
-                TickerResponse response = client.get().uri("/api/v3/ticker/price?symbol={s}", symbol).retrieve().body(TickerResponse.class);
+                log.info("fetching price for {}...", coinId);
 
-                if (response == null || response.price() == null) {
-                    throw new RuntimeException("failed to get price for " + symbol);
+                Map<String, Map<String, Number>> response = client.get()
+                        .uri("/api/v3/simple/price?ids={id}&vs_currencies=usd", coinId)
+                        .retrieve()
+                        .body(Map.class);
+
+                if (response == null || !response.containsKey(coinId) || !response.get(coinId).containsKey("usd")) {
+                    throw new RuntimeException("failed to get price for " + coinId);
                 }
 
-                String price = response.price;
+                BigDecimal price = new BigDecimal(response.get(coinId).get("usd").toString());
 
-                log.info("fetched price for {}: {}", symbol, price);
-                return new CachedPrice(new BigDecimal(price), now);
+                log.info("fetched price for {}: {}", coinId, price);
+                return new CachedPrice(price, now);
             }).price();
         }
         catch (Exception e) {
-            log.error("failed to fetch price for {}", symbol);
+            log.error("failed to fetch price for {}", coinId);
             throw new CryptoException(e.getMessage());
         }
     }
