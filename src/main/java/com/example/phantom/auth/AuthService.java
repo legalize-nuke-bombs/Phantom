@@ -57,7 +57,7 @@ public class AuthService {
         boolean isOwner;
         try { isOwner = ownerAccessValidator.isOwner(adminKey); }
         catch (OwnerBadAccess e) { throw new BadRequestException(e.getMessage()); }
-        catch (OwnerAccessDenied e) { throw new UnauthorizedException(e.getMessage()); }
+        catch (OwnerAccessDenied e) { throw new ForbiddenException(e.getMessage()); }
 
         if (!isOwner && role != null) {
             throw new ForbiddenException("owner key not specified");
@@ -121,7 +121,7 @@ public class AuthService {
 
         User user = userRepository.findByUsername(username).orElseThrow(() -> new NotFoundException("username does not exist"));
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new UnauthorizedException("password is invalid");
+            throw new ForbiddenException("password is invalid");
         }
 
         return Map.of("token", jwtTokenProvider.generateToken(user.getId()));
@@ -138,10 +138,10 @@ public class AuthService {
         try { recoveryKeyPair = recoveryKeyProvider.recoveryKeyToKeyPair(recoveryKey); }
         catch (BadRecoveryKey e) { throw new BadRequestException("bad recovery key"); }
 
-        User user = userRepository.findByPublicRecoveryKey(recoveryKeyPair.publicKey()).orElseThrow(() -> new UnauthorizedException("invalid recovery key"));
+        User user = userRepository.findByPublicRecoveryKey(recoveryKeyPair.publicKey()).orElseThrow(() -> new ForbiddenException("invalid recovery key"));
 
         if (!passwordEncoder.matches(recoveryKeyPair.privateKey(), user.getPrivateRecoveryKeyHash())) {
-            throw new UnauthorizedException("invalid recovery key");
+            throw new ForbiddenException("invalid recovery key");
         }
 
         if (newUsername == null && newPassword1 == null) {

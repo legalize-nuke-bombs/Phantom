@@ -60,7 +60,7 @@ public class UserService {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-            throw new UnauthorizedException("invalid password");
+            throw new ForbiddenException("invalid password");
         }
 
         if (password != null) user.setPasswordHash(passwordEncoder.encode(password));
@@ -83,7 +83,7 @@ public class UserService {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new UnauthorizedException("invalid password");
+            throw new ForbiddenException("invalid password");
         }
 
         RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.generateKeyPair();
@@ -105,7 +105,7 @@ public class UserService {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new UnauthorizedException("invalid password");
+            throw new ForbiddenException("invalid password");
         }
 
         userRepository.delete(user);

@@ -5,6 +5,7 @@ import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepositor
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
+import com.example.phantom.exception.UnauthorizedException;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -110,7 +111,7 @@ public class BanlistService {
     }
 
     private User getChatModerator(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new UnauthorizedException("user not found"));
         if (!user.getRole().chatModeratorAccess()) {
             throw new ForbiddenException("you don't have permission to ban users");
         }

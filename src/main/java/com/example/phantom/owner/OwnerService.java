@@ -3,7 +3,6 @@ package com.example.phantom.owner;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.UnauthorizedException;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -44,10 +43,10 @@ public class OwnerService {
         boolean isOwner;
         try { isOwner = ownerAccessValidator.isOwner(ownerKey); }
         catch (OwnerBadAccess e) { throw new BadRequestException(e.getMessage()); }
-        catch (OwnerAccessDenied e) { throw new UnauthorizedException(e.getMessage()); }
+        catch (OwnerAccessDenied e) { throw new ForbiddenException(e.getMessage()); }
 
         if ((target.getRole() == Role.OWNER || role == Role.OWNER) && !isOwner) {
-            throw new UnauthorizedException("owner key not specified");
+            throw new ForbiddenException("owner key not specified");
         }
 
         target.setRole(role);
