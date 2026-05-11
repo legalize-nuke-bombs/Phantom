@@ -63,10 +63,10 @@ public class UserService {
             throw new UnauthorizedException("invalid password");
         }
 
-        if (username != null) user.setUsername(username);
         if (password != null) user.setPasswordHash(passwordEncoder.encode(password));
 
         try {
+            if (username != null) user.setUsername(username);
             userRepository.save(user);
         }
         catch (DataIntegrityViolationException e) {
