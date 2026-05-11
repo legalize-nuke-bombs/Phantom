@@ -42,7 +42,7 @@ public class SweepService {
     private final TonApiService tonApiService;
 
     private final RateLimiter rateLimiter;
-    private Instant lastSweep;
+    private volatile Instant lastSweep;
 
     public SweepService(
             UserRepository userRepository,
