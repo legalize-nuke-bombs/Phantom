@@ -4,8 +4,8 @@ import com.example.phantom.exception.*;
 import com.example.phantom.game.util.GameInitRepresentation;
 import com.example.phantom.game.util.GameRunRequest;
 import com.example.phantom.game.util.ProvablyFairProvider;
-import com.example.phantom.ratelimit.RateLimitReached;
-import com.example.phantom.ratelimit.RateLimiter;
+import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
@@ -31,9 +31,9 @@ public class CaseService {
 
     private final ProvablyFairProvider provablyFairProvider;
     private final CaseSettings settings;
-    private final RateLimiter rateLimiter;
+    private final UsageLimiter usageLimiter;
 
-    public CaseService(UserRepository userRepository, WalletRepository walletRepository, CaseGameRepository caseGameRepository, CaseGameLogRepository caseGameLogRepository, ProvablyFairProvider provablyFairProvider, CaseSettings settings, RateLimiter rateLimiter) {
+    public CaseService(UserRepository userRepository, WalletRepository walletRepository, CaseGameRepository caseGameRepository, CaseGameLogRepository caseGameLogRepository, ProvablyFairProvider provablyFairProvider, CaseSettings settings, UsageLimiter usageLimiter) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.caseGameRepository = caseGameRepository;
@@ -41,7 +41,7 @@ public class CaseService {
 
         this.provablyFairProvider = provablyFairProvider;
         this.settings = settings;
-        this.rateLimiter = rateLimiter;
+        this.usageLimiter = usageLimiter;
     }
 
     public CaseSettings get() {
@@ -124,8 +124,8 @@ public class CaseService {
     public List<CaseGameLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
-        try { rateLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
-        catch (RateLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        try { usageLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
+        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
 
         Pageable pageable = PageRequest.of(0, limit);
 

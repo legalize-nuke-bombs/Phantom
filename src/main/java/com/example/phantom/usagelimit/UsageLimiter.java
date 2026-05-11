@@ -1,4 +1,4 @@
-package com.example.phantom.ratelimit;
+package com.example.phantom.usagelimit;
 
 import com.example.phantom.user.Plan;
 import com.example.phantom.user.User;
@@ -7,16 +7,16 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class RateLimiter {
-    private final Map<Plan, Map<String, Rule>> rules;
-    private final Map<Long, Map<String, State>> states;
+public class UsageLimiter {
+    private final Map<Plan, Map<String, UsageLimitRule>> rules;
+    private final Map<Long, Map<String, UsageLimitState>> states;
 
-    public RateLimiter() {
+    public UsageLimiter() {
         this.rules = new ConcurrentHashMap<>();
         this.states = new ConcurrentHashMap<>();
     }
 
-    public void registerRules(String action, Map<Plan, Rule> rules) {
+    public void registerRules(String action, Map<Plan, UsageLimitRule> rules) {
         if (rules.size() != Plan.values().length) {
             throw new RuntimeException("bad rules");
         }
@@ -28,12 +28,12 @@ public class RateLimiter {
         );
     }
 
-    public void startAction(User user, String action, Long tokens) throws RateLimitReached {
+    public void startAction(User user, String action, Long tokens) throws UsageLimitReached {
         long now = Instant.now().getEpochSecond();
 
-        Map<String, Rule> planRules = rules.get(user.getPlan());
+        Map<String, UsageLimitRule> planRules = rules.get(user.getPlan());
 
-        Rule rule = planRules != null ? planRules.get(action) : null;
+        UsageLimitRule rule = planRules != null ? planRules.get(action) : null;
         if (rule == null) throw new RuntimeException("rule not found");
 
         try {
@@ -44,10 +44,10 @@ public class RateLimiter {
 
                 userStates.compute(action, (key2, state) -> {
                     if (state == null || (now - state.getTimestamp() > rule.getSeconds())) {
-                        state = new State(now, 0L);
+                        state = new UsageLimitState(now, 0L);
                     }
                     if (state.getTokens() + tokens > rule.getTokens()) {
-                        throw new RateLimitReachedRuntime(action, state.getTimestamp() + rule.getSeconds() - now);
+                        throw new UsageLimitReachedRuntime(action, state.getTimestamp() + rule.getSeconds() - now);
                     }
                     state.setTokens(state.getTokens() + tokens);
                     return state;
@@ -56,24 +56,24 @@ public class RateLimiter {
                 return userStates;
             });
         }
-        catch (RateLimitReachedRuntime e) {
-            throw new RateLimitReached(e.getMessage());
+        catch (UsageLimitReachedRuntime e) {
+            throw new UsageLimitReached(e.getMessage());
         }
     }
 
-    public RateLimitRepresentation get(User user) {
-        RateLimitRepresentation representation = new RateLimitRepresentation();
+    public UsageLimitRepresentation get(User user) {
+        UsageLimitRepresentation representation = new UsageLimitRepresentation();
         representation.setData(new TreeMap<>());
 
         Long now = Instant.now().getEpochSecond();;
 
-        Map<String, Rule> planRules = rules.get(user.getPlan());
-        Map<String, State> userStates = states.get(user.getId());
+        Map<String, UsageLimitRule> planRules = rules.get(user.getPlan());
+        Map<String, UsageLimitState> userStates = states.get(user.getId());
 
         planRules.forEach((action, rule) -> {
-            State state = userStates != null ? userStates.get(action) : null;
+            UsageLimitState state = userStates != null ? userStates.get(action) : null;
 
-            RateLimitActionRepresentation actionRepresentation = new RateLimitActionRepresentation();
+            UsageLimitActionRepresentation actionRepresentation = new UsageLimitActionRepresentation();
             actionRepresentation.setSeconds(rule.getSeconds());
             actionRepresentation.setTokensTotal(rule.getTokens());
             if (state != null && (now - state.getTimestamp() <= rule.getSeconds())) {

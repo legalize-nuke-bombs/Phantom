@@ -7,8 +7,8 @@ import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepositor
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
-import com.example.phantom.ratelimit.RateLimitReached;
-import com.example.phantom.ratelimit.RateLimiter;
+import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
@@ -31,23 +31,23 @@ public class ChatService {
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
 
-    private final RateLimiter rateLimiter;
+    private final UsageLimiter usageLimiter;
 
-    public ChatService(UserRepository userRepository, WalletRepository walletRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimiter rateLimiter) {
+    public ChatService(UserRepository userRepository, WalletRepository walletRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, UsageLimiter usageLimiter) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
 
-        this.rateLimiter = rateLimiter;
+        this.usageLimiter = usageLimiter;
     }
 
     public List<MessageRepresentation> get(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
-        try { rateLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
-        catch (RateLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        try { usageLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
+        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
 
         Pageable pageable = PageRequest.of(0, limit);
 

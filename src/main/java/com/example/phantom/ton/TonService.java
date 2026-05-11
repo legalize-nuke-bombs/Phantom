@@ -2,8 +2,8 @@ package com.example.phantom.ton;
 
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
-import com.example.phantom.ratelimit.RateLimitReached;
-import com.example.phantom.ratelimit.RateLimiter;
+import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.ton.deposit.TonDeposit;
 import com.example.phantom.ton.deposit.TonDepositRepresentation;
 import com.example.phantom.ton.deposit.TonDepositService;
@@ -25,20 +25,20 @@ public class TonService {
     private final TonWalletRepository tonWalletRepository;
     private final TonDepositService tonDepositService;
     private final TonWithdrawalService tonWithdrawalService;
-    private final RateLimiter rateLimiter;
+    private final UsageLimiter usageLimiter;
 
     public TonService(
             UserRepository userRepository,
             TonWalletRepository tonWalletRepository,
             TonDepositService tonDepositService,
             TonWithdrawalService tonWithdrawalService,
-            RateLimiter rateLimiter
+            UsageLimiter usageLimiter
     ) {
         this.userRepository = userRepository;
         this.tonWalletRepository = tonWalletRepository;
         this.tonDepositService = tonDepositService;
         this.tonWithdrawalService = tonWithdrawalService;
-        this.rateLimiter = rateLimiter;
+        this.usageLimiter = usageLimiter;
     }
 
     public Map<String, String> get(Long userId) {
@@ -80,9 +80,9 @@ public class TonService {
 
     private void rateLimit(User user) {
         try {
-            rateLimiter.startAction(user, "crypto", 1L);
+            usageLimiter.startAction(user, "crypto", 1L);
         }
-        catch (RateLimitReached e) {
+        catch (UsageLimitReached e) {
             throw new TooManyRequestsException(e.getMessage());
         }
     }

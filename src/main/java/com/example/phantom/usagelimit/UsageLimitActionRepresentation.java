@@ -1,4 +1,4 @@
-package com.example.phantom.ratelimit;
+package com.example.phantom.usagelimit;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -7,7 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class RateLimitActionRepresentation {
+public class UsageLimitActionRepresentation {
     private Long timestamp;
     private Long seconds;
     private Long tokensSpent;

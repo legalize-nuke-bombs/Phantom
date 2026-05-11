@@ -5,8 +5,8 @@ import com.example.phantom.crypto.CryptoExchangeRateService;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
-import com.example.phantom.ratelimit.RateLimitReached;
-import com.example.phantom.ratelimit.RateLimiter;
+import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.ton.TonApiException;
 import com.example.phantom.ton.TonApiService;
 import com.example.phantom.ton.TonWallet;
@@ -41,7 +41,7 @@ public class SweepService {
     private final CryptoExchangeRateService cryptoExchangeRateService;
     private final TonApiService tonApiService;
 
-    private final RateLimiter rateLimiter;
+    private final UsageLimiter usageLimiter;
     private volatile Instant lastSweep;
 
     public SweepService(
@@ -51,7 +51,7 @@ public class SweepService {
             SweepLogRepository sweepLogRepository,
             CryptoExchangeRateService cryptoExchangeRateService,
             TonApiService tonApiService,
-            RateLimiter rateLimiter
+            UsageLimiter usageLimiter
     ) {
         this.userRepository = userRepository;
         this.tonWalletRepository = tonWalletRepository;
@@ -61,7 +61,7 @@ public class SweepService {
         this.cryptoExchangeRateService = cryptoExchangeRateService;
         this.tonApiService = tonApiService;
 
-        this.rateLimiter = rateLimiter;
+        this.usageLimiter = usageLimiter;
         this.lastSweep = Instant.now();
     }
 
@@ -69,9 +69,9 @@ public class SweepService {
         User user = getOwner(userId);
 
         try {
-            rateLimiter.startAction(user, "pagination", Long.valueOf(limit));
+            usageLimiter.startAction(user, "pagination", Long.valueOf(limit));
         }
-        catch (RateLimitReached e) {
+        catch (UsageLimitReached e) {
             throw new TooManyRequestsException(e.getMessage());
         }
 

@@ -1,4 +1,4 @@
-package com.example.phantom.ratelimit;
+package com.example.phantom.usagelimit;
 
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.user.User;
@@ -6,18 +6,18 @@ import com.example.phantom.user.UserRepository;
 import org.springframework.stereotype.Service;
 
 @Service
-public class RateLimitService {
+public class UsageLimitService {
 
     private final UserRepository userRepository;
-    private final RateLimiter rateLimiter;
+    private final UsageLimiter usageLimiter;
 
-    public RateLimitService(UserRepository userRepository, RateLimiter rateLimiter) {
+    public UsageLimitService(UserRepository userRepository, UsageLimiter usageLimiter) {
         this.userRepository = userRepository;
-        this.rateLimiter = rateLimiter;
+        this.usageLimiter = usageLimiter;
     }
 
-    public RateLimitRepresentation get(Long userId) {
+    public UsageLimitRepresentation get(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        return rateLimiter.get(user);
+        return usageLimiter.get(user);
     }
 }
