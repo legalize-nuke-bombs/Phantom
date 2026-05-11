@@ -6,6 +6,7 @@ REST API for a gambling platform.
 * JWT authentication
 * Recovery keys
 * User profiles (view, edit, delete)
+* Rate limit
 * Usage limit
 * Wallets
 * Deposits & withdrawals via crypto: TON

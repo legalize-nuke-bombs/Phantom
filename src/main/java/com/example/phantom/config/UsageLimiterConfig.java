@@ -9,9 +9,9 @@ import org.springframework.context.annotation.Configuration;
 import java.util.Map;
 
 @Configuration
-public class RateLimiterConfig {
+public class UsageLimiterConfig {
     @Bean
-    public UsageLimiter rateLimiter() {
+    public UsageLimiter usageLimiter() {
         UsageLimiter usageLimiter = new UsageLimiter();
 
         usageLimiter.registerRules("pagination", Map.of(
