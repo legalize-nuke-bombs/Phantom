@@ -1,17 +1,20 @@
-package com.example.phantom.wallet.ton;
+package com.example.phantom.ton.deposit;
 
 import com.example.phantom.crypto.CryptoException;
 import com.example.phantom.crypto.CryptoExchangeRateService;
-import com.example.phantom.crypto.ton.TonApiException;
-import com.example.phantom.crypto.ton.TonReadService;
 import com.example.phantom.exception.BadGatewayException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.finance.FinanceConstants;
+import com.example.phantom.ton.TonApiException;
+import com.example.phantom.ton.TonApiService;
+import com.example.phantom.ton.TonWallet;
+import com.example.phantom.ton.TonWalletRepository;
 import com.example.phantom.user.User;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -25,42 +28,67 @@ public class TonDepositService {
     private final WalletRepository walletRepository;
     private final TonWalletRepository tonWalletRepository;
     private final TonDepositRepository tonDepositRepository;
-    private final TonReadService tonReadService;
+    private final TonApiService tonApiService;
     private final CryptoExchangeRateService cryptoExchangeRateService;
 
-    public TonDepositService(WalletRepository walletRepository, TonWalletRepository tonWalletRepository, TonDepositRepository tonDepositRepository, TonReadService tonReadService, CryptoExchangeRateService cryptoExchangeRateService) {
+    public TonDepositService(
+            WalletRepository walletRepository,
+            TonWalletRepository tonWalletRepository,
+            TonDepositRepository tonDepositRepository,
+            TonApiService tonApiService,
+            CryptoExchangeRateService cryptoExchangeRateService
+    ) {
         this.walletRepository = walletRepository;
         this.tonWalletRepository = tonWalletRepository;
         this.tonDepositRepository = tonDepositRepository;
-        this.tonReadService = tonReadService;
+        this.tonApiService = tonApiService;
         this.cryptoExchangeRateService = cryptoExchangeRateService;
     }
 
     public List<TonDeposit> fetchDeposits(User user) {
         TonWallet tonWallet = tonWalletRepository.findByUserId(user.getId()).orElseThrow(() -> new NotFoundException("ton wallet not found"));
 
-        List<TonReadService.IncomingTransfer> transfers;
-        try { transfers = tonReadService.getIncomingTransfers(tonWallet.getAddress(), TX_FETCH_LIMIT); }
-        catch (TonApiException e) { throw new BadGatewayException(e.getMessage()); }
+        List<TonApiService.IncomingTransfer> transfers;
+        try {
+            transfers = tonApiService.getIncomingTransfers(tonWallet.getAddress(), TX_FETCH_LIMIT);
+        }
+        catch (TonApiException e) {
+            throw new BadGatewayException(e.getMessage());
+        }
 
-        if (transfers.isEmpty()) return List.of();
+        if (transfers.isEmpty()) {
+            return List.of();
+        }
 
-        List<String> txHashes = transfers.stream().map(TonReadService.IncomingTransfer::txHash).toList();
+        List<String> txHashes = transfers.stream()
+                .map(TonApiService.IncomingTransfer::txHash)
+                .toList();
+
         Set<String> existingHashes = new HashSet<>(tonDepositRepository.findExistingHashes(txHashes));
 
-        List<TonReadService.IncomingTransfer> newTransfers = transfers.stream().filter(tx -> !existingHashes.contains(tx.txHash())).toList();
+        List<TonApiService.IncomingTransfer> newTransfers = transfers.stream()
+                .filter(tx -> !existingHashes.contains(tx.txHash()))
+                .toList();
 
-        if (newTransfers.isEmpty()) return List.of();
+        if (newTransfers.isEmpty()) {
+            return List.of();
+        }
 
         BigDecimal tonUsdtRate;
-        try { tonUsdtRate = cryptoExchangeRateService.getTonUsdt(); }
-        catch (CryptoException e) { throw new BadGatewayException(e.getMessage()); }
+        try {
+            tonUsdtRate = cryptoExchangeRateService.getTonUsdt();
+        }
+        catch (CryptoException e) {
+            throw new BadGatewayException(e.getMessage());
+        }
 
-        Long now = Instant.now().getEpochSecond();
+        long now = Instant.now().getEpochSecond();
         List<TonDeposit> deposits = new ArrayList<>();
 
-        for (TonReadService.IncomingTransfer tx : newTransfers) {
-            BigDecimal usdAmount = tx.amountTon().multiply(tonUsdtRate).setScale(FinanceConstants.SCALE, RoundingMode.DOWN);
+        for (TonApiService.IncomingTransfer tx : newTransfers) {
+            BigDecimal usdAmount = tx.amountTon()
+                    .multiply(tonUsdtRate)
+                    .setScale(FinanceConstants.SCALE, RoundingMode.DOWN);
 
             TonDeposit deposit = new TonDeposit();
             deposit.setUser(user);
@@ -83,6 +111,7 @@ public class TonDepositService {
         }
 
         Wallet wallet = walletRepository.findByIdForPessimisticWrite(user.getId()).orElseThrow(() -> new NotFoundException("wallet not found"));
+
         wallet.setBalance(wallet.getBalance().add(totalAmount));
         wallet.setDepositsSum(wallet.getDepositsSum().add(totalAmount));
         walletRepository.save(wallet);

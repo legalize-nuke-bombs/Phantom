@@ -1,9 +1,13 @@
-package com.example.phantom.wallet.ton;
+package com.example.phantom.ton;
 
+import com.example.phantom.ton.deposit.TonDepositRepresentation;
+import com.example.phantom.ton.withdrawal.TonWithdrawRequest;
+import com.example.phantom.ton.withdrawal.TonWithdrawalRepresentation;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 import java.util.Map;
 

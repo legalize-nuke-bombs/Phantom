@@ -1,6 +1,5 @@
-package com.example.phantom.wallet.ton;
+package com.example.phantom.ton;
 
-import com.example.phantom.crypto.ton.TonWalletVersion;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -21,19 +20,19 @@ public class TonWallet {
 
     @OneToOne
     @JoinColumn(name = "user_id", unique = true)
-    @OnDelete(action = OnDeleteAction.SET_NULL) // NO CASCADE !!!
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     private User user;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = TonConstants.MNEMONIC_MAX_LENGTH)
     private String mnemonic;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = TonConstants.WALLET_VERSION_MAX_LENGTH)
     private TonWalletVersion walletVersion;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = TonConstants.ADDRESS_LENGTH)
     private String address;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = TonConstants.PRIVATE_KEY_HEX_LENGTH)
     private String privateKey;
 }

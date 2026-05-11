@@ -1,4 +1,4 @@
-package com.example.phantom.crypto.ton;
+package com.example.phantom.ton;
 
 public enum TonTransferStatus {
     CONFIRMED,

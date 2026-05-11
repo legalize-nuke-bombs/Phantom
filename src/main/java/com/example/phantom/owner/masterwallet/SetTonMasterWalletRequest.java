@@ -1,6 +1,7 @@
 package com.example.phantom.owner.masterwallet;
 
-import com.example.phantom.crypto.ton.TonWalletVersion;
+import com.example.phantom.ton.TonConstants;
+import com.example.phantom.ton.TonWalletVersion;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -14,7 +15,7 @@ import lombok.Setter;
 public class SetTonMasterWalletRequest {
     @NotNull
     @NotBlank
-    @Size(max = 255)
+    @Size(max = TonConstants.MNEMONIC_MAX_LENGTH)
     private String mnemonic;
 
     @NotNull

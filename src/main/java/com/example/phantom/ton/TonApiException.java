@@ -1,4 +1,4 @@
-package com.example.phantom.crypto.ton;
+package com.example.phantom.ton;
 
 public class TonApiException extends Exception {
     public TonApiException(String message) {

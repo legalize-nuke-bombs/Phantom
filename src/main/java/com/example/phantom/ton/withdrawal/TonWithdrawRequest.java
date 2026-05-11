@@ -1,5 +1,6 @@
-package com.example.phantom.wallet.ton;
+package com.example.phantom.ton.withdrawal;
 
+import com.example.phantom.ton.TonConstants;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -7,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
 import java.math.BigDecimal;
 
 @Getter
@@ -19,6 +21,6 @@ public class TonWithdrawRequest {
     private String address;
 
     @NotNull
-    @Min(TonConstants.MIN_WITHDRAWAL)
+    @Min(TonWithdrawalConstants.MIN)
     private BigDecimal amount;
 }

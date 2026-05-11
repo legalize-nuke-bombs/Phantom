@@ -1,7 +1,7 @@
 package com.example.phantom.auth;
 
-import com.example.phantom.crypto.ton.TonKeyService;
-import com.example.phantom.crypto.ton.TonWalletVersion;
+import com.example.phantom.ton.TonKeyService;
+import com.example.phantom.ton.TonWalletVersion;
 import com.example.phantom.owner.OwnerAccessDenied;
 import com.example.phantom.owner.OwnerAccessValidator;
 import com.example.phantom.jwt.JwtTokenProvider;
@@ -9,8 +9,8 @@ import com.example.phantom.owner.OwnerBadAccess;
 import com.example.phantom.user.*;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
-import com.example.phantom.wallet.ton.TonWallet;
-import com.example.phantom.wallet.ton.TonWalletRepository;
+import com.example.phantom.ton.TonWallet;
+import com.example.phantom.ton.TonWalletRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;

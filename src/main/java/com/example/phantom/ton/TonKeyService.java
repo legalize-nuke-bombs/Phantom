@@ -1,4 +1,4 @@
-package com.example.phantom.crypto.ton;
+package com.example.phantom.ton;
 
 import com.iwebpp.crypto.TweetNaclFast;
 import org.springframework.stereotype.Service;
@@ -6,6 +6,7 @@ import org.ton.ton4j.address.Address;
 import org.ton.ton4j.mnemonic.Mnemonic;
 import org.ton.ton4j.mnemonic.Pair;
 import org.ton.ton4j.smartcontract.wallet.v5.WalletV5;
+
 import java.util.HexFormat;
 
 @Service
@@ -15,29 +16,45 @@ public class TonKeyService {
 
     public record KeyPair(String address, String privateKey) {}
 
-    public TonKeyService(TonConfig tonConfig) {
-        this.testnet = tonConfig.isTestnet();
+    public TonKeyService(TonConfig config) {
+        this.testnet = config.isTestnet();
     }
 
     public String generateMnemonic() throws TonApiException {
-        try { return Mnemonic.generateString(24); }
-        catch (Exception e) { throw new TonApiException(e.getMessage()); }
+        try {
+            return Mnemonic.generateString(24);
+        }
+        catch (Exception e) {
+            throw new TonApiException(e.getMessage());
+        }
     }
 
     public KeyPair deriveKeyPair(String mnemonic, TonWalletVersion version) throws TonApiException {
         Pair keys;
-        try { keys = Mnemonic.toKeyPair(mnemonic); }
-        catch (Exception e) { throw new TonApiException(e.getMessage()); }
+        try {
+            keys = Mnemonic.toKeyPair(mnemonic);
+        }
+        catch (Exception e) {
+            throw new TonApiException(e.getMessage());
+        }
 
         TweetNaclFast.Signature.KeyPair sigKeyPair = TweetNaclFast.Signature.keyPair_fromSeed(keys.getSecretKey());
         Address walletAddress = buildWalletAddress(sigKeyPair, version);
-        String address = testnet ? walletAddress.toNonBounceableTestnet() : walletAddress.toNonBounceable();
+        String address = testnet
+                ? walletAddress.toNonBounceableTestnet()
+                : walletAddress.toNonBounceable();
         return new KeyPair(address, HexFormat.of().formatHex(keys.getSecretKey()));
     }
 
     private Address buildWalletAddress(TweetNaclFast.Signature.KeyPair keyPair, TonWalletVersion version) {
         return switch (version) {
-            case V5 -> WalletV5.builder().wc(0).keyPair(keyPair).walletId(TonConstants.WALLET_ID_V5).isSigAuthAllowed(true).build().getAddress();
+            case V5 -> WalletV5.builder()
+                    .wc(0)
+                    .keyPair(keyPair)
+                    .walletId(TonConstants.WALLET_ID_V5)
+                    .isSigAuthAllowed(true)
+                    .build()
+                    .getAddress();
         };
     }
 }

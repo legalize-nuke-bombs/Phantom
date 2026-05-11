@@ -1,4 +1,4 @@
-package com.example.phantom.wallet.ton;
+package com.example.phantom.ton;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

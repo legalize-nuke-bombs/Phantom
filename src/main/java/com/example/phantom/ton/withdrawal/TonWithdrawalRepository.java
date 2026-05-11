@@ -1,8 +1,9 @@
-package com.example.phantom.wallet.ton;
+package com.example.phantom.ton.withdrawal;
 
-import com.example.phantom.crypto.ton.TonTransferStatus;
+import com.example.phantom.ton.TonTransferStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+
 import java.util.List;
 
 public interface TonWithdrawalRepository extends JpaRepository<TonWithdrawal, Long> {
