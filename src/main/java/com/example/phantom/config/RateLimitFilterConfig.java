@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RateLimitFilterConfig {
     @Bean
-    public RateLimitFilter globalRateLimitFilter() {
+    public RateLimitFilter rateLimitFilter() {
         return new RateLimitFilter();
     }
 
