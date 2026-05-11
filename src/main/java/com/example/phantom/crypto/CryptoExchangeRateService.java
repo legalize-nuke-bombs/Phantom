@@ -27,7 +27,7 @@ public class CryptoExchangeRateService {
                 .baseUrl("https://api.binance.com")
                 .requestFactory(new SimpleClientHttpRequestFactory() {{
                     setConnectTimeout(Duration.ofSeconds(10));
-                    setReadTimeout(Duration.ofSeconds(30));
+                    setReadTimeout(Duration.ofSeconds(10));
                 }})
                 .build();
         this.cache = new ConcurrentHashMap<>();
@@ -50,7 +50,6 @@ public class CryptoExchangeRateService {
                 TickerResponse response = client.get().uri("/api/v3/ticker/price?symbol={s}", symbol).retrieve().body(TickerResponse.class);
 
                 if (response == null || response.price() == null) {
-                    log.error("failed to fetch price for {}", symbol);
                     throw new RuntimeException("failed to get price for " + symbol);
                 }
 
@@ -61,6 +60,7 @@ public class CryptoExchangeRateService {
             }).price();
         }
         catch (Exception e) {
+            log.error("failed to fetch price for {}", symbol);
             throw new CryptoException(e.getMessage());
         }
     }
