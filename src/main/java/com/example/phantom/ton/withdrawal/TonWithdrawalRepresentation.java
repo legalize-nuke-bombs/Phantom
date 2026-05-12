@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 
 @Getter
 public class TonWithdrawalRepresentation {
+    private final Long id;
     private final Long timestamp;
     private final String receiver;
     private final BigDecimal amount;
@@ -14,6 +15,7 @@ public class TonWithdrawalRepresentation {
     private final String hash;
 
     public TonWithdrawalRepresentation(TonWithdrawal withdrawal) {
+        this.id = withdrawal.getId();
         this.timestamp = withdrawal.getTimestamp();
         this.receiver = withdrawal.getReceiver();
         this.amount = withdrawal.getAmount();

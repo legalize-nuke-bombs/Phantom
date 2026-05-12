@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 
 @Getter
 public class CaseGameLogRepresentation {
+    private final Long id;
     private final Long timestamp;
     private final String caseName;
     private final BigDecimal result;
@@ -13,6 +14,7 @@ public class CaseGameLogRepresentation {
     private final String clientSeed;
 
     public CaseGameLogRepresentation(CaseGameLog caseGameLog) {
+        this.id = caseGameLog.getId();
         this.timestamp = caseGameLog.getTimestamp();
         this.caseName = caseGameLog.getCaseName();
         this.result = caseGameLog.getResult();

@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 
 @Getter
 public class UpgraderGameLogRepresentation {
+    private final Long id;
     private final Long timestamp;
     private final BigDecimal bet;
     private final Integer percent;
@@ -14,6 +15,7 @@ public class UpgraderGameLogRepresentation {
     private final String clientSeed;
 
     public UpgraderGameLogRepresentation(UpgraderGameLog upgraderGameLog) {
+        this.id = upgraderGameLog.getId();
         this.timestamp = upgraderGameLog.getTimestamp();
         this.bet = upgraderGameLog.getBet();
         this.percent = upgraderGameLog.getPercent();
