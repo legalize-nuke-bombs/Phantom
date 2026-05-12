@@ -5,6 +5,7 @@ REST API for a gambling platform.
 ## Features
 * JWT authentication
 * Recovery keys
+* Platform stats
 * User profiles (view, edit, delete)
 * Rate limit
 * Usage limit
@@ -33,6 +34,11 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/auth/register` | Register a new account, returns recovery key |
 | POST   | `/api/auth/login`    | Login, returns JWT token                     |
 | POST   | `/api/auth/recover`  | Recover account creditals                    |
+
+### Stats
+| Method | Endpoint            | Description        |
+|--------|---------------------|--------------------|
+| GET    | `/api/stats`        | Get platform stats |
 
 ### Users
 | Method | Endpoint                            | Description                 |
