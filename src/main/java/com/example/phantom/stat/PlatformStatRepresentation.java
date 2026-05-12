@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @NoArgsConstructor
-public class StatRepresentation {
+public class PlatformStatRepresentation {
     private Long upgraderGames;
     private Long upgraderGamesToday;
     private BigDecimal upgraderMaxResult;

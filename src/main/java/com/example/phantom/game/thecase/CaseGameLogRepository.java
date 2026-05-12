@@ -17,6 +17,12 @@ public interface CaseGameLogRepository extends JpaRepository<CaseGameLog, Long> 
     @Query("SELECT COUNT(l) FROM CaseGameLog l WHERE l.timestamp >= ?1")
     long countSinceTimestamp(Long timestamp);
 
+    @Query("SELECT COUNT(l) FROM CaseGameLog l WHERE l.user.id = ?1")
+    long countByUserId(Long userId);
+
+    @Query("SELECT MAX(l.result) FROM CaseGameLog l WHERE l.user.id = ?1")
+    BigDecimal maxResultByUserId(Long userId);
+
     @Query("SELECT MAX(l.result) FROM CaseGameLog l")
     BigDecimal maxResult();
 }

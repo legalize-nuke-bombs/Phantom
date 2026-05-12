@@ -17,6 +17,12 @@ public interface UpgraderGameLogRepository extends JpaRepository<UpgraderGameLog
     @Query("SELECT COUNT(l) FROM UpgraderGameLog l WHERE l.timestamp >= ?1")
     long countSinceTimestamp(Long timestamp);
 
+    @Query("SELECT COUNT(l) FROM UpgraderGameLog l WHERE l.user.id = ?1")
+    long countByUserId(Long userId);
+
+    @Query("SELECT MAX(l.result) FROM UpgraderGameLog l WHERE l.user.id = ?1")
+    BigDecimal maxResultByUserId(Long userId);
+
     @Query("SELECT MAX(l.result) FROM UpgraderGameLog l")
     BigDecimal maxResult();
 }

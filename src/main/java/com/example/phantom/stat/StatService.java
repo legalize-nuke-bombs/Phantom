@@ -15,7 +15,7 @@ import java.time.Instant;
 @Service
 public class StatService {
 
-    private final StatRepresentation cache;
+    private final PlatformStatRepresentation platformStatCache;
 
     private final UpgraderGameLogRepository upgraderGameLogRepository;
     private final CaseGameLogRepository caseGameLogRepository;
@@ -23,7 +23,7 @@ public class StatService {
     private final UserRepository userRepository;
 
     public StatService(UpgraderGameLogRepository upgraderGameLogRepository, CaseGameLogRepository caseGameLogRepository, TonWithdrawalRepository tonWithdrawalRepository, UserRepository userRepository) {
-        this.cache = new StatRepresentation();
+        this.platformStatCache = new PlatformStatRepresentation();
 
         this.upgraderGameLogRepository = upgraderGameLogRepository;
         this.caseGameLogRepository = caseGameLogRepository;
@@ -31,30 +31,44 @@ public class StatService {
         this.userRepository = userRepository;
     }
 
-    public StatRepresentation get() {
-        return this.cache;
+    public PlatformStatRepresentation get() {
+        return this.platformStatCache;
+    }
+
+    public PersonalStatRepresentation getByUserId(Long userId) {
+        PersonalStatRepresentation representation = new PersonalStatRepresentation();
+
+        representation.setUpgraderGames(upgraderGameLogRepository.countByUserId(userId));
+        representation.setUpgradeGameMaxResult(upgraderGameLogRepository.maxResultByUserId(userId));
+        if (representation.getUpgradeGameMaxResult() == null) representation.setUpgradeGameMaxResult(BigDecimal.ZERO);
+
+        representation.setCaseGames(caseGameLogRepository.countByUserId(userId));
+        representation.setCaseGameMaxResult(caseGameLogRepository.maxResultByUserId(userId));
+        if (representation.getCaseGameMaxResult() == null) representation.setCaseGameMaxResult(BigDecimal.ZERO);
+
+        return representation;
     }
 
     @Scheduled(fixedDelay = 1000)
-    public void updateCache() {
+    public void updatePlatformStatCache() {
         Long timestamp24 = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
 
-        cache.setUpgraderGames(upgraderGameLogRepository.count());
-        cache.setUpgraderGamesToday(upgraderGameLogRepository.countSinceTimestamp(timestamp24));
-        cache.setUpgraderMaxResult(upgraderGameLogRepository.maxResult());
-        if (cache.getUpgraderMaxResult() == null) cache.setUpgraderMaxResult(BigDecimal.ZERO);
+        platformStatCache.setUpgraderGames(upgraderGameLogRepository.count());
+        platformStatCache.setUpgraderGamesToday(upgraderGameLogRepository.countSinceTimestamp(timestamp24));
+        platformStatCache.setUpgraderMaxResult(upgraderGameLogRepository.maxResult());
+        if (platformStatCache.getUpgraderMaxResult() == null) platformStatCache.setUpgraderMaxResult(BigDecimal.ZERO);
 
-        cache.setCaseGames(caseGameLogRepository.count());
-        cache.setCaseGamesToday(caseGameLogRepository.countSinceTimestamp(timestamp24));
-        cache.setCaseMaxResult(caseGameLogRepository.maxResult());
-        if (cache.getCaseMaxResult() == null) cache.setCaseMaxResult(BigDecimal.ZERO);
+        platformStatCache.setCaseGames(caseGameLogRepository.count());
+        platformStatCache.setCaseGamesToday(caseGameLogRepository.countSinceTimestamp(timestamp24));
+        platformStatCache.setCaseMaxResult(caseGameLogRepository.maxResult());
+        if (platformStatCache.getCaseMaxResult() == null) platformStatCache.setCaseMaxResult(BigDecimal.ZERO);
 
-        cache.setTonWithdrawals(tonWithdrawalRepository.sumByStatus(TonTransferStatus.CONFIRMED));
-        cache.setTonWithdrawalsToday(tonWithdrawalRepository.sumByStatusSinceTimestamp(TonTransferStatus.CONFIRMED, timestamp24));
-        if (cache.getTonWithdrawals() == null) cache.setTonWithdrawals(BigDecimal.ZERO);
-        if (cache.getTonWithdrawalsToday() == null) cache.setTonWithdrawalsToday(BigDecimal.ZERO);
+        platformStatCache.setTonWithdrawals(tonWithdrawalRepository.sumByStatus(TonTransferStatus.CONFIRMED));
+        platformStatCache.setTonWithdrawalsToday(tonWithdrawalRepository.sumByStatusSinceTimestamp(TonTransferStatus.CONFIRMED, timestamp24));
+        if (platformStatCache.getTonWithdrawals() == null) platformStatCache.setTonWithdrawals(BigDecimal.ZERO);
+        if (platformStatCache.getTonWithdrawalsToday() == null) platformStatCache.setTonWithdrawalsToday(BigDecimal.ZERO);
 
-        cache.setUsers(userRepository.count());
+        platformStatCache.setUsers(userRepository.count());
     }
 
 }
