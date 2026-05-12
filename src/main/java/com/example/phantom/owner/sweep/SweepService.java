@@ -162,17 +162,8 @@ public class SweepService {
                 amount = null;
             }
 
-            SweepLog sweepLog = new SweepLog();
-            sweepLog.setTimestamp(Instant.now().getEpochSecond());
-            sweepLog.setCoin("ton");
-            sweepLog.setSender(address);
-            sweepLog.setAmount(amount);
-            sweepLog.setReceiver(masterAddressValue);
 
-            if (amount == null || amount.compareTo(SweepConstants.MIN_SWEEP_FOR_TON) < 0) {
-                sweepLog.setStatus("skipped");
-            }
-            else {
+            if (amount != null && amount.compareTo(SweepConstants.MIN_SWEEP_FOR_TON) >= 0) {
                 String hash = null;
                 try {
                     hash = tonApiService.sendAll(privateKey, address, masterAddressValue);
@@ -181,11 +172,16 @@ public class SweepService {
                     log.warn("sweep failed for {}: {}", address, e.getMessage());
                 }
 
+                SweepLog sweepLog = new SweepLog();
+                sweepLog.setTimestamp(Instant.now().getEpochSecond());
+                sweepLog.setCoin("ton");
+                sweepLog.setSender(address);
+                sweepLog.setAmount(amount);
+                sweepLog.setReceiver(masterAddressValue);
                 sweepLog.setStatus(hash != null ? "ok" : "failed");
                 sweepLog.setHash(hash);
+                sweepLogs.add(sweepLog);
             }
-
-            sweepLogs.add(sweepLog);
         }
     }
 
