@@ -1,6 +1,5 @@
 package com.example.phantom.game;
 
-import com.example.phantom.game.util.FinanceColors;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,7 +18,4 @@ public class GameController {
     public GameSettings get() {
         return gameService.get();
     }
-
-    @GetMapping("/finance-colors")
-    public FinanceColors getFinanceColors() { return gameService.getFinanceColors(); }
 }

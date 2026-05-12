@@ -1,6 +1,6 @@
 package com.example.phantom.game.thecase;
 
-import com.example.phantom.game.util.FinanceColors;
+import com.example.phantom.finance.FinanceColors;
 import com.example.phantom.finance.FinanceConstants;
 import lombok.Getter;
 import java.math.BigDecimal;

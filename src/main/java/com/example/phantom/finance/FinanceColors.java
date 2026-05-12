@@ -1,4 +1,4 @@
-package com.example.phantom.game.util;
+package com.example.phantom.finance;
 
 import lombok.Getter;
 import org.springframework.stereotype.Component;

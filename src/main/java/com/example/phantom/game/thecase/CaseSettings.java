@@ -1,6 +1,6 @@
 package com.example.phantom.game.thecase;
 
-import com.example.phantom.game.util.FinanceColors;
+import com.example.phantom.finance.FinanceColors;
 import lombok.Getter;
 import org.springframework.stereotype.Component;
 
