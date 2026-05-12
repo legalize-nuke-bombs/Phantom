@@ -28,9 +28,9 @@ public class BanlistService {
     }
 
     public BanRepresentation getById(Long userId) {
-        Ban ban = banRepository.findById(userId).orElseThrow(() -> new BadRequestException("user is not banned"));
+        Ban ban = banRepository.findById(userId).orElseThrow(() -> new NotFoundException("user is not banned"));
         if (!ban.isActive()) {
-            throw new BadRequestException("user is not banned");
+            throw new NotFoundException("user is not banned");
         }
         return new BanRepresentation(ban);
     }
