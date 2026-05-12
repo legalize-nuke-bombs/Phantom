@@ -1,4 +1,4 @@
-package com.example.phantom.config;
+package com.example.phantom.auth;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

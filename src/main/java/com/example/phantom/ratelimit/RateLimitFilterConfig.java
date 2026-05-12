@@ -1,6 +1,5 @@
-package com.example.phantom.config;
+package com.example.phantom.ratelimit;
 
-import com.example.phantom.ratelimit.RateLimitFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
