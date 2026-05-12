@@ -5,7 +5,6 @@ REST API for a gambling platform.
 ## Features
 * JWT authentication
 * Recovery keys
-* Platform & personal stats
 * User profiles (view, edit, delete)
 * Rate limit
 * Usage limit
@@ -15,6 +14,7 @@ REST API for a gambling platform.
 * Provably fair
 * Game history
 * Pagination
+* Platform & personal stats
 * Sweep scheduling
 * Sweep history
 * Owner panel
@@ -34,12 +34,6 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/auth/register` | Register a new account, returns recovery key |
 | POST   | `/api/auth/login`    | Login, returns JWT token                     |
 | POST   | `/api/auth/recover`  | Recover account creditals                    |
-
-### Stats
-| Method | Endpoint        | Description        |
-|--------|-----------------|--------------------|
-| GET    | `/api/stats`    | Get platform stats |
-| GET    | `/api/stats/me` | Get personal stats |
 
 ### Users
 | Method | Endpoint                            | Description                 |
@@ -81,6 +75,12 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/games/cases/run`        | Open the case                |
 | GET    | `/api/games/cases/history`    | Get case game history        |
 | DELETE | `/api/games/cases`            | Cancel active case game      |
+
+### Stats
+| Method | Endpoint        | Description        |
+|--------|-----------------|--------------------|
+| GET    | `/api/stats`    | Get platform stats |
+| GET    | `/api/stats/me` | Get personal stats |
 
 ### Owner
 | Method | Endpoint                        | Description                                     |
