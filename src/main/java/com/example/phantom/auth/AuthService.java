@@ -157,10 +157,12 @@ public class AuthService {
             }
         }
 
-        if (newUsername != null) user.setUsername(newUsername);
         if (newPassword1 != null) user.setPasswordHash(passwordEncoder.encode(newPassword1));
 
-        try { userRepository.save(user); }
+        try {
+            if (newUsername != null) user.setUsername(newUsername);
+            userRepository.save(user);
+        }
         catch (DataIntegrityViolationException e) { throw new ConflictException("username already exists"); }
 
         return Map.of("message", "recovered");
