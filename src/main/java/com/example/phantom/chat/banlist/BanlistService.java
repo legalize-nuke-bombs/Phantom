@@ -59,7 +59,9 @@ public class BanlistService {
 
         Long now = Instant.now().getEpochSecond();
 
-        ban = new Ban();
+        if (ban == null) {
+            ban = new Ban();
+        }
         ban.setUser(target);
         ban.setTimestamp(now);
         ban.setModerator(user);
