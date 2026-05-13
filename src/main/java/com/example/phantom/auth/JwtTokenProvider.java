@@ -1,4 +1,4 @@
-package com.example.phantom.security;
+package com.example.phantom.auth;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;

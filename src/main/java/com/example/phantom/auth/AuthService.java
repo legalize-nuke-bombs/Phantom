@@ -4,7 +4,6 @@ import com.example.phantom.ton.TonKeyService;
 import com.example.phantom.ton.TonWalletVersion;
 import com.example.phantom.owner.OwnerAccessDenied;
 import com.example.phantom.owner.OwnerAccessValidator;
-import com.example.phantom.security.JwtTokenProvider;
 import com.example.phantom.owner.OwnerBadAccess;
 import com.example.phantom.user.*;
 import com.example.phantom.wallet.Wallet;

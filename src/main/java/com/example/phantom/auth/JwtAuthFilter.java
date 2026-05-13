@@ -1,4 +1,4 @@
-package com.example.phantom.security;
+package com.example.phantom.auth;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
