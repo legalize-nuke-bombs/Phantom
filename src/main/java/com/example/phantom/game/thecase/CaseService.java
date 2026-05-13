@@ -5,11 +5,12 @@ import com.example.phantom.game.util.GameInitRepresentation;
 import com.example.phantom.game.util.GameRunRequest;
 import com.example.phantom.game.util.ProvablyFairProvider;
 import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.wallet.Wallet;
-import com.example.phantom.wallet.WalletRepository;
+import com.example.phantom.wallet.balancechange.BalanceChangeType;
+import com.example.phantom.wallet.WalletService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,7 +26,7 @@ import java.util.Random;
 public class CaseService {
 
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
+    private final WalletService walletService;
     private final CaseGameRepository caseGameRepository;
     private final CaseGameLogRepository caseGameLogRepository;
 
@@ -33,9 +34,9 @@ public class CaseService {
     private final CaseSettings settings;
     private final UsageLimiter usageLimiter;
 
-    public CaseService(UserRepository userRepository, WalletRepository walletRepository, CaseGameRepository caseGameRepository, CaseGameLogRepository caseGameLogRepository, ProvablyFairProvider provablyFairProvider, CaseSettings settings, UsageLimiter usageLimiter) {
+    public CaseService(UserRepository userRepository, WalletService walletService, CaseGameRepository caseGameRepository, CaseGameLogRepository caseGameLogRepository, ProvablyFairProvider provablyFairProvider, CaseSettings settings, UsageLimiter usageLimiter) {
         this.userRepository = userRepository;
-        this.walletRepository = walletRepository;
+        this.walletService = walletService;
         this.caseGameRepository = caseGameRepository;
         this.caseGameLogRepository = caseGameLogRepository;
 
@@ -51,13 +52,12 @@ public class CaseService {
     @Transactional
     public GameInitRepresentation init(Long userId, CaseInitRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        Wallet wallet = walletRepository.findById(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
 
         String caseName = request.getCaseName();
 
         Case thecase = findCase(caseName);
 
-        validateEnoughMoney(wallet, thecase);
+        validateEnoughMoney(userId, thecase);
 
         String serverSeed = provablyFairProvider.generateSeed();
 
@@ -88,7 +88,7 @@ public class CaseService {
     @Transactional
     public CaseGameLogRepresentation run(Long userId, GameRunRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        Wallet wallet = walletRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+        walletService.lock(userId);
         CaseGame caseGame = caseGameRepository.findById(userId).orElseThrow(() -> new NotFoundException("case game not found"));
 
         String clientSeed = request.getClientSeed();
@@ -98,14 +98,14 @@ public class CaseService {
 
         Case thecase = findCase(caseName);
 
-        validateEnoughMoney(wallet, thecase);
+        validateEnoughMoney(userId, thecase);
 
         Random random = provablyFairProvider.fairRandom(serverSeed, clientSeed);
         int caseIndex = random.nextInt(thecase.getSize());
         BigDecimal result = thecase.get(caseIndex);
 
-        wallet.setBalance(wallet.getBalance().subtract(thecase.getCost()).add(result));
-        walletRepository.save(wallet);
+        walletService.addChange(user, thecase.getCost().negate(), BalanceChangeType.CASE_BET);
+        walletService.addChange(user, result, BalanceChangeType.CASE_WIN);
 
         caseGameRepository.delete(caseGame);
 
@@ -124,7 +124,7 @@ public class CaseService {
     public List<CaseGameLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
-        try { usageLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
+        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
 
         Pageable pageable = PageRequest.of(0, limit);
@@ -136,8 +136,8 @@ public class CaseService {
         return logs.stream().map(CaseGameLogRepresentation::new).toList();
     }
 
-    private void validateEnoughMoney(Wallet wallet, Case thecase) {
-        if (wallet.getBalance().compareTo(thecase.getCost()) < 0) {
+    private void validateEnoughMoney(Long userId, Case thecase) {
+        if (walletService.getBalance(userId).compareTo(thecase.getCost()) < 0) {
             throw new BadRequestException("insufficient balance");
         }
     }

@@ -7,8 +7,6 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
-import java.math.BigDecimal;
-import com.example.phantom.finance.FinanceConstants;
 
 @Entity
 @Table(name = "wallets")
@@ -25,10 +23,4 @@ public class Wallet {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
-
-    @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
-    private BigDecimal balance;
-
-    @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
-    private BigDecimal depositsSum;
 }

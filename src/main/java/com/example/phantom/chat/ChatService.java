@@ -9,11 +9,11 @@ import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.exception.UnauthorizedException;
 import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.wallet.Wallet;
-import com.example.phantom.wallet.WalletRepository;
+import com.example.phantom.wallet.WalletService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,16 +27,16 @@ import java.util.Objects;
 public class ChatService {
 
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
+    private final WalletService walletService;
     private final MessageRepository messageRepository;
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
 
     private final UsageLimiter usageLimiter;
 
-    public ChatService(UserRepository userRepository, WalletRepository walletRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, UsageLimiter usageLimiter) {
+    public ChatService(UserRepository userRepository, WalletService walletService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, UsageLimiter usageLimiter) {
         this.userRepository = userRepository;
-        this.walletRepository = walletRepository;
+        this.walletService = walletService;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
@@ -47,7 +47,7 @@ public class ChatService {
     public List<MessageRepresentation> get(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new UnauthorizedException("user not found"));
 
-        try { usageLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
+        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
 
         Pageable pageable = PageRequest.of(0, limit);
@@ -69,8 +69,7 @@ public class ChatService {
         }
 
         if (!user.getRole().chatModeratorAccess()) {
-            Wallet wallet = walletRepository.findById(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
-            if (wallet.getDepositsSum().compareTo(ChatConstants.MIN_DEPOSITS_SUM) < 0) {
+            if (walletService.getDepositsSum(userId).compareTo(ChatConstants.MIN_DEPOSITS_SUM) < 0) {
                 throw new ForbiddenException("min deposits sum = " + ChatConstants.MIN_DEPOSITS_SUM);
             }
         }

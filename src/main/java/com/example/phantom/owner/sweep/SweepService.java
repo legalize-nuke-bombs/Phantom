@@ -6,6 +6,7 @@ import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.ton.TonApiException;
 import com.example.phantom.ton.TonApiService;
@@ -69,7 +70,7 @@ public class SweepService {
         User user = getOwner(userId);
 
         try {
-            usageLimiter.startAction(user, "pagination", Long.valueOf(limit));
+            usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit));
         }
         catch (UsageLimitReached e) {
             throw new TooManyRequestsException(e.getMessage());

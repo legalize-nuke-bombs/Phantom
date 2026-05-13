@@ -12,9 +12,7 @@ REST API for a gambling platform.
 * Deposits & withdrawals via crypto: TON
 * Games: Upgrader, Cases
 * Provably fair
-* Game history
-* Pagination
-* Platform & personal stats
+* Platform stats
 * Sweep scheduling
 * Sweep history
 * Owner panel
@@ -55,6 +53,7 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | Method | Endpoint                                    | Description                   |
 |--------|---------------------------------------------|-------------------------------|
 | GET    | `/api/wallet`                               | Get wallet info               |
+| GET    | `/api/wallet/history`                       | Get wallet operation history  |
 | GET    | `/api/wallet/ton`                           | Get TON deposit address       |
 | POST   | `/api/wallet/ton/check-deposits`            | Check TON deposits            |
 | POST   | `/api/wallet/ton/withdraw`                  | Withdraw TON                  | 

@@ -8,15 +8,15 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class UsageLimiter {
-    private final Map<Plan, Map<String, UsageLimitRule>> rules;
-    private final Map<Long, Map<String, UsageLimitState>> states;
+    private final Map<Plan, Map<UsageAction, UsageLimitRule>> rules;
+    private final Map<Long, Map<UsageAction, UsageLimitState>> states;
 
     public UsageLimiter() {
         this.rules = new ConcurrentHashMap<>();
         this.states = new ConcurrentHashMap<>();
     }
 
-    public void registerRules(String action, Map<Plan, UsageLimitRule> rules) {
+    public void registerRules(UsageAction action, Map<Plan, UsageLimitRule> rules) {
         if (rules.size() != Plan.values().length) {
             throw new RuntimeException("bad rules");
         }
@@ -28,10 +28,10 @@ public class UsageLimiter {
         );
     }
 
-    public void startAction(User user, String action, Long tokens) throws UsageLimitReached {
+    public void startAction(User user, UsageAction action, Long tokens) throws UsageLimitReached {
         long now = Instant.now().getEpochSecond();
 
-        Map<String, UsageLimitRule> planRules = rules.get(user.getPlan());
+        Map<UsageAction, UsageLimitRule> planRules = rules.get(user.getPlan());
 
         UsageLimitRule rule = planRules != null ? planRules.get(action) : null;
         if (rule == null) throw new RuntimeException("rule not found");
@@ -47,7 +47,7 @@ public class UsageLimiter {
                         state = new UsageLimitState(now, 0L);
                     }
                     if (state.getTokens() + tokens > rule.getTokens()) {
-                        throw new UsageLimitReachedRuntime(action, state.getTimestamp() + rule.getSeconds() - now);
+                        throw new UsageLimitReachedRuntime(action.name(), state.getTimestamp() + rule.getSeconds() - now);
                     }
                     state.setTokens(state.getTokens() + tokens);
                     return state;
@@ -67,8 +67,8 @@ public class UsageLimiter {
 
         Long now = Instant.now().getEpochSecond();;
 
-        Map<String, UsageLimitRule> planRules = rules.get(user.getPlan());
-        Map<String, UsageLimitState> userStates = states.get(user.getId());
+        Map<UsageAction, UsageLimitRule> planRules = rules.get(user.getPlan());
+        Map<UsageAction, UsageLimitState> userStates = states.get(user.getId());
 
         planRules.forEach((action, rule) -> {
             UsageLimitState state = userStates != null ? userStates.get(action) : null;
@@ -80,7 +80,7 @@ public class UsageLimiter {
                 actionRepresentation.setTimestamp(state.getTimestamp());
                 actionRepresentation.setTokensSpent(state.getTokens());
             }
-            representation.getData().put(action, actionRepresentation);
+            representation.getData().put(action.name(), actionRepresentation);
         });
 
         return representation;

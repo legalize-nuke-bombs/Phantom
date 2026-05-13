@@ -3,6 +3,7 @@ package com.example.phantom.chat.chatmoderatoraction;
 import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.exception.UnauthorizedException;
 import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -30,7 +31,7 @@ public class ChatModeratorActionService {
     public List<ChatModeratorActionRepresentation> get(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new UnauthorizedException("user not found"));
 
-        try { usageLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
+        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
 
         Pageable pageable = PageRequest.of(0, limit);

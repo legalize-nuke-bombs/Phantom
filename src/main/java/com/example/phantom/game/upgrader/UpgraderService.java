@@ -4,11 +4,12 @@ import com.example.phantom.exception.*;
 import com.example.phantom.game.util.GameRunRequest;
 import com.example.phantom.game.util.ProvablyFairProvider;
 import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.wallet.Wallet;
-import com.example.phantom.wallet.WalletRepository;
+import com.example.phantom.wallet.balancechange.BalanceChangeType;
+import com.example.phantom.wallet.WalletService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,7 +24,7 @@ import java.util.Random;
 public class UpgraderService {
 
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
+    private final WalletService walletService;
     private final UpgraderGameRepository upgraderGameRepository;
     private final UpgraderGameLogRepository upgraderGameLogRepository;
 
@@ -31,9 +32,9 @@ public class UpgraderService {
     private final UsageLimiter usageLimiter;
     private final UpgraderSettings settings;
 
-    public UpgraderService(UserRepository userRepository, WalletRepository walletRepository, UpgraderGameRepository upgraderGameRepository, UpgraderGameLogRepository upgraderGameLogRepository, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, UpgraderSettings settings) {
+    public UpgraderService(UserRepository userRepository, WalletService walletService, UpgraderGameRepository upgraderGameRepository, UpgraderGameLogRepository upgraderGameLogRepository, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, UpgraderSettings settings) {
         this.userRepository = userRepository;
-        this.walletRepository = walletRepository;
+        this.walletService = walletService;
         this.upgraderGameRepository = upgraderGameRepository;
         this.upgraderGameLogRepository = upgraderGameLogRepository;
 
@@ -49,13 +50,12 @@ public class UpgraderService {
     @Transactional
     public UpgraderInitRepresentation init(Long userId, UpgraderInitRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        Wallet wallet = walletRepository.findById(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
 
         BigDecimal bet = request.getBet();
         Integer percent = request.getPercent();
 
         validateBetBigEnough(bet);
-        validateEnoughMoney(wallet, bet);
+        validateEnoughMoney(userId, bet);
 
         BigDecimal multiplier = getMultiplier(percent);
 
@@ -90,7 +90,7 @@ public class UpgraderService {
     @Transactional
     public UpgraderGameLogRepresentation run(Long userId, GameRunRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        Wallet wallet = walletRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+        walletService.lock(userId);
         UpgraderGame upgraderGame = upgraderGameRepository.findById(userId).orElseThrow(() -> new NotFoundException("upgrader game not found"));
 
         String clientSeed = request.getClientSeed();
@@ -100,7 +100,7 @@ public class UpgraderService {
         Integer percent = upgraderGame.getPercent();
         BigDecimal possibleResult = upgraderGame.getPossibleResult();
 
-        validateEnoughMoney(wallet, bet);
+        validateEnoughMoney(userId, bet);
 
         Random fairRandom = provablyFairProvider.fairRandom(serverSeed, clientSeed);
 
@@ -115,16 +115,14 @@ public class UpgraderService {
         upgraderGameLog.setServerSeed(serverSeed);
         upgraderGameLog.setClientSeed(clientSeed);
 
-        wallet.setBalance(wallet.getBalance().subtract(bet));
+        walletService.addChange(user, bet.negate(), BalanceChangeType.UPGRADER_BET);
         if (won) {
-            wallet.setBalance(wallet.getBalance().add(possibleResult));
+            walletService.addChange(user, possibleResult, BalanceChangeType.UPGRADER_WIN);
             upgraderGameLog.setResult(possibleResult);
         }
         else {
             upgraderGameLog.setResult(BigDecimal.ZERO);
         }
-
-        walletRepository.save(wallet);
 
         upgraderGameRepository.delete(upgraderGame);
 
@@ -136,7 +134,7 @@ public class UpgraderService {
     public List<UpgraderGameLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
-        try { usageLimiter.startAction(user, "pagination", Long.valueOf(limit)); }
+        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
 
         Pageable pageable = PageRequest.of(0, limit);
@@ -162,8 +160,8 @@ public class UpgraderService {
         }
     }
 
-    private void validateEnoughMoney(Wallet wallet, BigDecimal bet) {
-        if (wallet.getBalance().compareTo(bet) < 0) {
+    private void validateEnoughMoney(Long userId, BigDecimal bet) {
+        if (walletService.getBalance(userId).compareTo(bet) < 0) {
             throw new BadRequestException("insufficient balance");
         }
     }

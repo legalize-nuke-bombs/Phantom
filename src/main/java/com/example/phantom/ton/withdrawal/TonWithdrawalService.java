@@ -3,7 +3,6 @@ package com.example.phantom.ton.withdrawal;
 import com.example.phantom.crypto.CryptoException;
 import com.example.phantom.crypto.CryptoExchangeRateService;
 import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.ServiceUnavailable;
 import com.example.phantom.finance.FinanceConstants;
 import com.example.phantom.ton.TonApiException;
@@ -13,8 +12,8 @@ import com.example.phantom.ton.TonTransferStatus;
 import com.example.phantom.user.User;
 import com.example.phantom.variable.Variable;
 import com.example.phantom.variable.VariableRepository;
-import com.example.phantom.wallet.Wallet;
-import com.example.phantom.wallet.WalletRepository;
+import com.example.phantom.wallet.balancechange.BalanceChangeType;
+import com.example.phantom.wallet.WalletService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +27,7 @@ import java.util.List;
 @Slf4j
 public class TonWithdrawalService {
 
-    private final WalletRepository walletRepository;
+    private final WalletService walletService;
     private final TonWithdrawalRepository tonWithdrawalRepository;
     private final TonRefundRepository tonRefundRepository;
     private final VariableRepository variableRepository;
@@ -36,14 +35,14 @@ public class TonWithdrawalService {
     private final TonApiService tonApiService;
 
     public TonWithdrawalService(
-            WalletRepository walletRepository,
+            WalletService walletService,
             TonWithdrawalRepository tonWithdrawalRepository,
             TonRefundRepository tonRefundRepository,
             VariableRepository variableRepository,
             CryptoExchangeRateService cryptoExchangeRateService,
             TonApiService tonApiService
     ) {
-        this.walletRepository = walletRepository;
+        this.walletService = walletService;
         this.tonWithdrawalRepository = tonWithdrawalRepository;
         this.tonRefundRepository = tonRefundRepository;
         this.variableRepository = variableRepository;
@@ -53,14 +52,13 @@ public class TonWithdrawalService {
 
     @Transactional
     public TonWithdrawal reserveFinances(User user, String receiver, BigDecimal amount) {
-        Wallet wallet = walletRepository.findByIdForPessimisticWrite(user.getId()).orElseThrow(() -> new NotFoundException("wallet not found"));
+        walletService.lock(user.getId());
 
-        if (wallet.getBalance().compareTo(amount) < 0) {
+        if (walletService.getBalance(user.getId()).compareTo(amount) < 0) {
             throw new BadRequestException("insufficient balance");
         }
 
-        wallet.setBalance(wallet.getBalance().subtract(amount));
-        walletRepository.save(wallet);
+        walletService.addChange(user, amount.negate(), BalanceChangeType.WITHDRAWAL);
 
         TonWithdrawal withdrawal = new TonWithdrawal();
         withdrawal.setUser(user);
@@ -128,13 +126,13 @@ public class TonWithdrawalService {
 
     @Transactional
     public void applyCheckedStatuses(Long userId, List<TonWithdrawal> checked) {
-        Wallet wallet = walletRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+        walletService.lock(userId);
 
         for (TonWithdrawal w : checked) {
             log.info("applying withdrawal {} status={}", w.getId(), w.getStatus());
             if (w.getStatus() == TonTransferStatus.REJECTED) {
                 if (tonRefundRepository.insertIfNotExists(w.getId()) > 0) {
-                    wallet.setBalance(wallet.getBalance().add(w.getAmount()));
+                    walletService.addChange(w.getUser(), w.getAmount(), BalanceChangeType.WITHDRAWAL_REFUND);
                     log.info("withdrawal {} refund {}", w.getId(), w.getAmount());
                 }
                 else {
@@ -144,7 +142,5 @@ public class TonWithdrawalService {
         }
 
         tonWithdrawalRepository.saveAll(checked);
-
-        walletRepository.save(wallet);
     }
 }

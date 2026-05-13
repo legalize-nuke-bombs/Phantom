@@ -15,7 +15,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.example.phantom.exception.*;
-import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Objects;
 
@@ -90,8 +89,6 @@ public class AuthService {
 
         Wallet wallet = new Wallet();
         wallet.setUser(user);
-        wallet.setBalance(BigDecimal.ZERO);
-        wallet.setDepositsSum(BigDecimal.ZERO);
         walletRepository.save(wallet);
 
         try {

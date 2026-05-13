@@ -12,13 +12,13 @@ public class UsageLimiterConfig {
     public UsageLimiter usageLimiter() {
         UsageLimiter usageLimiter = new UsageLimiter();
 
-        usageLimiter.registerRules("pagination", Map.of(
+        usageLimiter.registerRules(UsageAction.PAGINATION, Map.of(
                 Plan.DEFAULT, new UsageLimitRule(20L * 100, 60L),
                 Plan.PRO, new UsageLimitRule(20L * 200, 60L),
                 Plan.MAX, new UsageLimitRule(20L * 400, 60L)
         ));
 
-        usageLimiter.registerRules("crypto", Map.of(
+        usageLimiter.registerRules(UsageAction.CRYPTO, Map.of(
                 Plan.DEFAULT, new UsageLimitRule(5L, 60L),
                 Plan.PRO, new UsageLimitRule(10L, 60L),
                 Plan.MAX, new UsageLimitRule(20L, 60L)

@@ -10,8 +10,8 @@ import com.example.phantom.ton.TonApiService;
 import com.example.phantom.ton.TonWallet;
 import com.example.phantom.ton.TonWalletRepository;
 import com.example.phantom.user.User;
-import com.example.phantom.wallet.Wallet;
-import com.example.phantom.wallet.WalletRepository;
+import com.example.phantom.wallet.balancechange.BalanceChangeType;
+import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,20 +25,20 @@ public class TonDepositService {
 
     private static final int TX_FETCH_LIMIT = 20;
 
-    private final WalletRepository walletRepository;
+    private final WalletService walletService;
     private final TonWalletRepository tonWalletRepository;
     private final TonDepositRepository tonDepositRepository;
     private final TonApiService tonApiService;
     private final CryptoExchangeRateService cryptoExchangeRateService;
 
     public TonDepositService(
-            WalletRepository walletRepository,
+            WalletService walletService,
             TonWalletRepository tonWalletRepository,
             TonDepositRepository tonDepositRepository,
             TonApiService tonApiService,
             CryptoExchangeRateService cryptoExchangeRateService
     ) {
-        this.walletRepository = walletRepository;
+        this.walletService = walletService;
         this.tonWalletRepository = tonWalletRepository;
         this.tonDepositRepository = tonDepositRepository;
         this.tonApiService = tonApiService;
@@ -105,15 +105,9 @@ public class TonDepositService {
     public void applyDeposits(User user, List<TonDeposit> deposits) {
         tonDepositRepository.saveAll(deposits);
 
-        BigDecimal totalAmount = BigDecimal.ZERO;
+        walletService.lock(user.getId());
         for (TonDeposit deposit : deposits) {
-            totalAmount = totalAmount.add(deposit.getAmount());
+            walletService.addChange(user, deposit.getAmount(), BalanceChangeType.DEPOSIT);
         }
-
-        Wallet wallet = walletRepository.findByIdForPessimisticWrite(user.getId()).orElseThrow(() -> new NotFoundException("wallet not found"));
-
-        wallet.setBalance(wallet.getBalance().add(totalAmount));
-        wallet.setDepositsSum(wallet.getDepositsSum().add(totalAmount));
-        walletRepository.save(wallet);
     }
 }

@@ -1,8 +1,6 @@
 package com.example.phantom.wallet;
 
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 
@@ -12,9 +10,9 @@ public class WalletRepresentation {
     private final BigDecimal balance;
     private final BigDecimal depositsSum;
 
-    public WalletRepresentation(Wallet wallet) {
-        this.id = wallet.getId();
-        this.balance = wallet.getBalance();
-        this.depositsSum = wallet.getDepositsSum();
+    public WalletRepresentation(Long id, BigDecimal balance, BigDecimal depositsSum) {
+        this.id = id;
+        this.balance = balance;
+        this.depositsSum = depositsSum;
     }
 }
