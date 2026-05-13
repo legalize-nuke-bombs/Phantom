@@ -12,7 +12,6 @@ REST API for a gambling platform.
 * Deposits & withdrawals via crypto: TON
 * Games: Upgrader, Cases
 * Provably fair
-* Platform stats
 * Sweep scheduling
 * Sweep history
 * Owner panel
@@ -78,12 +77,6 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/games/cases/run`        | Open the case                |
 | GET    | `/api/games/cases/history`    | Get case game history        |
 | DELETE | `/api/games/cases`            | Cancel active case game      |
-
-### Stats
-| Method | Endpoint        | Description        |
-|--------|-----------------|--------------------|
-| GET    | `/api/stats`    | Get platform stats |
-| GET    | `/api/stats/me` | Get personal stats |
 
 ### Owner
 | Method | Endpoint                        | Description                                     |
