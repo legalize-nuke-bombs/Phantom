@@ -66,7 +66,6 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 ### Games
 | Method | Endpoint                      | Description                  |
 |--------|-------------------------------|------------------------------|
-| GET    | `/api/games`                  | List available games         |
 | GET    | `/api/games/upgrader`         | Get upgrader settings        |
 | POST   | `/api/games/upgrader/init`    | Start an upgrader game       |
 | POST   | `/api/games/upgrader/run`     | Play the upgrader game       |

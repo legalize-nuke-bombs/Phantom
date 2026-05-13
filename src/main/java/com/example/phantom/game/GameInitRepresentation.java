@@ -4,12 +4,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.math.BigDecimal;
+import java.util.Map;
 
 @Getter
 @Setter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class GameInitRepresentation {
     private String serverHash;
-    private BigDecimal possibleResult;
+    private Map<String, String> data;
 }

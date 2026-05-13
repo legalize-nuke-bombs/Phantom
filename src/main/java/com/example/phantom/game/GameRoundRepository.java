@@ -2,6 +2,7 @@ package com.example.phantom.game;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.math.BigDecimal;
@@ -12,6 +13,10 @@ public interface GameRoundRepository extends JpaRepository<GameRound, Long> {
 
     @Query("SELECT r FROM GameRound r WHERE r.user.id = ?1 AND r.gameType = ?2 AND r.clientSeed IS NULL")
     Optional<GameRound> findActiveRound(Long userId, GameType gameType);
+
+    @Modifying
+    @Query("DELETE FROM GameRound r WHERE r.user.id = ?1 AND r.gameType = ?2 AND r.clientSeed IS NULL")
+    void deleteActiveRound(Long userId, GameType gameType);
 
     @Query("SELECT r FROM GameRound r WHERE r.user.id = ?1 AND r.gameType = ?2 AND r.clientSeed IS NOT NULL ORDER BY r.id DESC")
     List<GameRound> findHistory(Long userId, GameType gameType, Pageable pageable);
