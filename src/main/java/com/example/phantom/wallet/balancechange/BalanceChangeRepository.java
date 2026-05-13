@@ -14,6 +14,9 @@ public interface BalanceChangeRepository extends JpaRepository<BalanceChange, Lo
     @Query("SELECT COALESCE(SUM(b.amount), 0) FROM BalanceChange b WHERE b.user.id = ?1 AND b.type = ?2")
     BigDecimal sumByType(Long userId, BalanceChangeType type);
 
+    @Query("SELECT COALESCE(SUM(b.amount), 0) FROM BalanceChange b WHERE b.type = ?1")
+    BigDecimal sumByType(BalanceChangeType type);
+
     @Query("SELECT b FROM BalanceChange b WHERE b.user.id = ?1 ORDER BY b.id DESC")
     List<BalanceChange> findByUserIdPageable(Long userId, Pageable pageable);
 

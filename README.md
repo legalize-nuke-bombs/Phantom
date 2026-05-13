@@ -48,12 +48,13 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 |--------|--------------------|-----------------|
 | GET    | `/api/usage-limit` | Get your limits |
 
-### Wallet
+### Wallets
 | Method | Endpoint                                    | Description                   |
 |--------|---------------------------------------------|-------------------------------|
-| GET    | `/api/wallet`                               | Get wallet info               |
-| GET    | `/api/wallet/history`                       | Get wallet operation history  |
-| GET    | `/api/wallet/ton`                           | Get TON deposit address       |
+| GET    | `/api/wallets/me`                           | Get wallet info               |
+| GET    | `/api/wallets/me/stats`                     | Get wallet stats              |
+| GET    | `/api/wallet/me/history`                    | Get wallet history            |
+| GET    | `/api/wallets/stats`                        | Get wallets platform stats    |
 | POST   | `/api/wallet/ton/check-deposits`            | Check TON deposits            |
 | POST   | `/api/wallet/ton/withdraw`                  | Withdraw TON                  | 
 | POST   | `/api/wallet/ton/check-pending-withdrawals` | Check TON pending withdrawals | 

@@ -1,6 +1,8 @@
 package com.example.phantom.wallet;
 
 import com.example.phantom.wallet.balancechange.BalanceChangeRepresentation;
+import com.example.phantom.wallet.balancechange.BalanceChangeRepository;
+import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -11,21 +13,39 @@ import java.util.List;
 
 @Validated
 @RestController
-@RequestMapping("/api/wallet")
+@RequestMapping("/api/wallets")
 public class WalletController {
 
     private final WalletService walletService;
+    private final BalanceChangeRepository balanceChangeRepository;
 
-    public WalletController(WalletService walletService) {
+    public WalletController(WalletService walletService, BalanceChangeRepository balanceChangeRepository) {
         this.walletService = walletService;
+        this.balanceChangeRepository = balanceChangeRepository;
     }
 
-    @GetMapping
+    @GetMapping("/stats")
+    public ResponseEntity<PlatformWalletStatRepresentation> stats() {
+        return ResponseEntity.ok(new PlatformWalletStatRepresentation(
+                balanceChangeRepository.sumByType(BalanceChangeType.DEPOSIT),
+                balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL).abs()
+        ));
+    }
+
+    @GetMapping("/me")
     public ResponseEntity<WalletRepresentation> get(@AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(walletService.get(userId));
     }
 
-    @GetMapping("/history")
+    @GetMapping("/me/stats")
+    public ResponseEntity<PersonalWalletStatRepresentation> myStats(@AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(new PersonalWalletStatRepresentation(
+                balanceChangeRepository.sumByType(userId, BalanceChangeType.DEPOSIT),
+                balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL).abs()
+        ));
+    }
+
+    @GetMapping("/me/history")
     public ResponseEntity<List<BalanceChangeRepresentation>> getHistory(
             @AuthenticationPrincipal Long userId,
             @RequestParam @Min(1) Integer limit,
