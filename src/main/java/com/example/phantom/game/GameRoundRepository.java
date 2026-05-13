@@ -36,6 +36,9 @@ public interface GameRoundRepository extends JpaRepository<GameRound, Long> {
     @Query("SELECT MAX(r.result) FROM GameRound r WHERE r.clientSeed IS NOT NULL")
     BigDecimal maxResult();
 
+    @Query("SELECT MAX(r.result) FROM GameRound r WHERE r.clientSeed IS NOT NULL AND r.timestamp >= ?1")
+    BigDecimal maxResultSince(Long timestamp);
+
     @Query("SELECT MAX(r.result) FROM GameRound r WHERE r.user.id = ?1 AND r.clientSeed IS NOT NULL")
     BigDecimal maxResultByUserId(Long userId);
 }

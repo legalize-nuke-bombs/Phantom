@@ -76,6 +76,8 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/games/cases/run`        | Open the case                |
 | GET    | `/api/games/cases/history`    | Get case game history        |
 | DELETE | `/api/games/cases`            | Cancel active case game      |
+| GET    | `/api/games/stats`            | Get games platform stats     |
+| GET    | `/api/games/stats/me`         | Get games personal stats     |
 
 ### Owner
 | Method | Endpoint                        | Description                                     |
