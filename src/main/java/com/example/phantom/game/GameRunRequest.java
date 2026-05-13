@@ -1,4 +1,4 @@
-package com.example.phantom.game.util;
+package com.example.phantom.game;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

@@ -4,8 +4,6 @@ public enum BalanceChangeType {
     DEPOSIT,
     WITHDRAWAL,
     WITHDRAWAL_REFUND,
-    CASE_BET,
-    CASE_WIN,
-    UPGRADER_BET,
-    UPGRADER_WIN
+    GAME_BET,
+    GAME_WIN
 }

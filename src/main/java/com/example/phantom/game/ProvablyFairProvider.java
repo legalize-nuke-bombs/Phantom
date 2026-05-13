@@ -1,4 +1,4 @@
-package com.example.phantom.game.util;
+package com.example.phantom.game;
 
 import com.example.phantom.exception.BadRequestException;
 import org.springframework.stereotype.Component;
@@ -9,7 +9,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.Random;
-
 
 @Component
 public class ProvablyFairProvider {
