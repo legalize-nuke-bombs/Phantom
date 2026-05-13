@@ -4,6 +4,7 @@ import com.example.phantom.chat.banlist.Ban;
 import com.example.phantom.chat.banlist.BanRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
+import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
@@ -98,7 +99,7 @@ public class ChatService {
                 ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
                 chatModeratorAction.setUser(user);
                 chatModeratorAction.setTimestamp(Instant.now().getEpochSecond());
-                chatModeratorAction.setAction("delete-message");
+                chatModeratorAction.setType(ChatModeratorActionType.DELETE_MESSAGE);
                 chatModeratorAction.setData(Map.of(
                         "user_id", String.valueOf(message.getUser().getId()),
                         "message_content", message.getContent()

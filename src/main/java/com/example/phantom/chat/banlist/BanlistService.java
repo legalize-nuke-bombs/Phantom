@@ -2,6 +2,7 @@ package com.example.phantom.chat.banlist;
 
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
+import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
@@ -72,7 +73,7 @@ public class BanlistService {
         ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
         chatModeratorAction.setUser(user);
         chatModeratorAction.setTimestamp(now);
-        chatModeratorAction.setAction("ban");
+        chatModeratorAction.setType(ChatModeratorActionType.BAN);
         chatModeratorAction.setData(Map.of(
                 "user_id", String.valueOf(targetId),
                 "reason", reason,
@@ -101,7 +102,7 @@ public class BanlistService {
         ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
         chatModeratorAction.setUser(user);
         chatModeratorAction.setTimestamp(Instant.now().getEpochSecond());
-        chatModeratorAction.setAction("unban");
+        chatModeratorAction.setType(ChatModeratorActionType.UNBAN);
         chatModeratorAction.setData(Map.of(
                 "user_id", String.valueOf(targetId),
                 "reason", reason

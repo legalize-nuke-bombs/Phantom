@@ -27,8 +27,9 @@ public class ChatModeratorAction {
     @Column(nullable = false)
     private Long timestamp;
 
-    @Column(nullable = false, length = ChatModeratorActionConstants.ACTION_MAX_LENGTH)
-    private String action;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ChatModeratorActionType type;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
