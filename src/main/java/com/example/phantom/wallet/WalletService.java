@@ -57,8 +57,7 @@ public class WalletService {
 
     public WalletRepresentation get(Long userId) {
         BigDecimal balance = getBalance(userId);
-        BigDecimal depositsSum = getDepositsSum(userId);
-        return new WalletRepresentation(userId, balance, depositsSum);
+        return new WalletRepresentation(userId, balance);
     }
 
     public List<BalanceChangeRepresentation> getHistory(Long userId, Integer limit, Long before) {

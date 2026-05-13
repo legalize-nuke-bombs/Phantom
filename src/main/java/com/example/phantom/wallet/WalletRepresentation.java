@@ -8,11 +8,9 @@ import java.math.BigDecimal;
 public class WalletRepresentation {
     private final Long id;
     private final BigDecimal balance;
-    private final BigDecimal depositsSum;
 
-    public WalletRepresentation(Long id, BigDecimal balance, BigDecimal depositsSum) {
+    public WalletRepresentation(Long id, BigDecimal balance) {
         this.id = id;
         this.balance = balance;
-        this.depositsSum = depositsSum;
     }
 }
