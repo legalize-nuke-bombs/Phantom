@@ -19,9 +19,9 @@ public class UsageLimiterConfig {
         ));
 
         usageLimiter.registerRules(UsageAction.CRYPTO, Map.of(
-                Plan.DEFAULT, new UsageLimitRule(5L, 60L),
-                Plan.PRO, new UsageLimitRule(10L, 60L),
-                Plan.MAX, new UsageLimitRule(20L, 60L)
+                Plan.DEFAULT, new UsageLimitRule(10L, 60L),
+                Plan.PRO, new UsageLimitRule(20L, 60L),
+                Plan.MAX, new UsageLimitRule(40L, 60L)
         ));
 
         return usageLimiter;
