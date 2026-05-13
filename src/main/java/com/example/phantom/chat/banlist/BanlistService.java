@@ -93,7 +93,10 @@ public class BanlistService {
             throw new NotFoundException("target not found");
         }
 
-        Ban ban = banRepository.findById(targetId).orElseThrow(() -> new BadRequestException("target not banned"));
+        Ban ban = banRepository.findById(targetId).orElseThrow(() -> new NotFoundException("target is not banned"));
+        if (!ban.isActive()) {
+            throw new NotFoundException("target is not banned");
+        }
 
         ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
         chatModeratorAction.setUser(user);
@@ -101,11 +104,7 @@ public class BanlistService {
         chatModeratorAction.setAction("unban");
         chatModeratorAction.setData(Map.of(
                 "user_id", String.valueOf(targetId),
-                "reason", reason,
-                "ban_moderator_id", ban.getModerator() != null ? String.valueOf(ban.getModerator().getId()) : "DELETED",
-                "ban_timestamp", String.valueOf(ban.getTimestamp()),
-                "ban_reason", ban.getReason(),
-                "ban_duration", String.valueOf(ban.getDuration())
+                "reason", reason
         ));
         chatModeratorActionRepository.save(chatModeratorAction);
 
