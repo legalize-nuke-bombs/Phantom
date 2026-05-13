@@ -9,7 +9,7 @@ public class ChatModeratorActionRepresentation {
     private final Long id;
     private final UserRepresentation user;
     private final Long timestamp;
-    private final String action;
+    private final ChatModeratorActionType type;
     private final Map<String, String> data;
 
     public ChatModeratorActionRepresentation(ChatModeratorAction chatModeratorAction) {
@@ -17,7 +17,7 @@ public class ChatModeratorActionRepresentation {
         if (chatModeratorAction.getUser() == null) this.user = null;
         else this.user = new UserRepresentation(chatModeratorAction.getUser());
         this.timestamp = chatModeratorAction.getTimestamp();
-        this.action = chatModeratorAction.getAction();
+        this.type = chatModeratorAction.getType();
         this.data = chatModeratorAction.getData();
     }
 }
