@@ -17,13 +17,18 @@ public class MasterWalletController {
         this.service = service;
     }
 
-    @GetMapping("/ton")
-    public ResponseEntity<MasterWalletRepresentation> getTon(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(service.getTon(userId));
+    @GetMapping("/{coin}")
+    public ResponseEntity<MasterWalletRepresentation> get(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable String coin) {
+        return ResponseEntity.ok(service.get(userId, coin));
     }
 
-    @PostMapping("/ton")
-    public ResponseEntity<Map<String, String>> setTon(@AuthenticationPrincipal Long userId, @Valid @RequestBody SetTonMasterWalletRequest request) {
-        return ResponseEntity.ok(service.setTon(userId, request));
+    @PostMapping("/{coin}")
+    public ResponseEntity<Map<String, String>> set(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable String coin,
+            @Valid @RequestBody SetMasterWalletRequest request) {
+        return ResponseEntity.ok(service.set(userId, coin, request));
     }
 }

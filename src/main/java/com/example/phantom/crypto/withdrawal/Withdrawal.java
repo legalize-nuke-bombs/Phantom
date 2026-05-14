@@ -1,7 +1,7 @@
-package com.example.phantom.ton.deposit;
+package com.example.phantom.crypto.withdrawal;
 
+import com.example.phantom.crypto.TransferStatus;
 import com.example.phantom.finance.FinanceConstants;
-import com.example.phantom.ton.TonConstants;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -13,11 +13,15 @@ import org.hibernate.annotations.OnDeleteAction;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "ton_deposits")
+@Table(name = "withdrawals", indexes = {
+        @Index(name = "idx_withdrawals_user_id", columnList = "user_id"),
+        @Index(name = "idx_withdrawals_status", columnList = "status"),
+        @Index(name = "idx_withdrawals_timestamp", columnList = "timestamp")
+})
 @Getter
 @Setter
 @NoArgsConstructor
-public class TonDeposit {
+public class Withdrawal {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -27,12 +31,25 @@ public class TonDeposit {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
+    @Column(nullable = false, length = 20)
+    private String coin;
+
     @Column(nullable = false)
     private Long timestamp;
 
-    @Column(nullable = false, unique = true, length = TonConstants.TX_HASH_MAX_LENGTH)
-    private String txHash;
+    @Column(nullable = false, length = 128)
+    private String receiver;
 
     @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
     private BigDecimal amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private TransferStatus status;
+
+    @Column(unique = true, length = 128)
+    private String hash;
+
+    @Column(nullable = false)
+    private boolean refunded;
 }

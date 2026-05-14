@@ -49,15 +49,16 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | GET    | `/api/usage-limit` | Get your limits |
 
 ### Wallets
-| Method | Endpoint                                    | Description                   |
-|--------|---------------------------------------------|-------------------------------|
-| GET    | `/api/wallets/me`                           | Get wallet info               |
-| GET    | `/api/wallets/me/stats`                     | Get wallet stats              |
-| GET    | `/api/wallet/me/history`                    | Get wallet history            |
-| GET    | `/api/wallets/stats`                        | Get wallets platform stats    |
-| POST   | `/api/wallet/ton/check-deposits`            | Check TON deposits            |
-| POST   | `/api/wallet/ton/withdraw`                  | Withdraw TON                  | 
-| POST   | `/api/wallet/ton/check-pending-withdrawals` | Check TON pending withdrawals | 
+| Method | Endpoint                                           | Description               |
+|--------|----------------------------------------------------|---------------------------|
+| GET    | `/api/wallets/me`                                  | Get wallet info           |
+| GET    | `/api/wallets/me/stats`                            | Get wallet stats          |
+| GET    | `/api/wallets/me/history`                          | Get wallet history        |
+| GET    | `/api/wallets/stats`                               | Get wallet platform stats |
+| GET    | `/api/wallets/me/crypto/{coin}`                    | Get crypto wallet info    |
+| POST   | `/api/wallets/me/crypto/{coin}/check-deposits`     | Check deposits            |
+| POST   | `/api/wallets/me/crypto/{coin}/withdraw`           | Withdraw                  |
+| POST   | `/api/wallets/me/crypto/check-pending-withdrawals` | Check pending withdrawals |
 
 ### Finances
 | Method | Endpoint               | Description        |
@@ -88,8 +89,8 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | GET    | `/api/owner/sweep/schedule`     | Get delay between sweeps in seconds             |
 | POST   | `/api/owner/sweep/schedule`     | Set delay between sweeps                        |
 | DELETE | `/api/owner/sweep/schedule`     | Disable sweeps                                  |
-| GET    | `/api/owner/master-wallets/ton` | Get TON master wallet address & balance         |
-| POST   | `/api/owner/master-wallets/ton` | Set TON master wallet mnemonic & wallet version |
+| GET    | `/api/owner/master-wallets/{coin}` | Get master wallet address & balance |
+| POST   | `/api/owner/master-wallets/{coin}` | Set master wallet mnemonic          |
 
 ### Chat
 | Method | Endpoint                                    | Description                           |

@@ -1,21 +1,23 @@
-package com.example.phantom.ton.withdrawal;
+package com.example.phantom.crypto.withdrawal;
 
-import com.example.phantom.ton.TonTransferStatus;
+import com.example.phantom.crypto.TransferStatus;
 import lombok.Getter;
 
 import java.math.BigDecimal;
 
 @Getter
-public class TonWithdrawalRepresentation {
+public class WithdrawalRepresentation {
     private final Long id;
+    private final String coin;
     private final Long timestamp;
     private final String receiver;
     private final BigDecimal amount;
-    private final TonTransferStatus status;
+    private final TransferStatus status;
     private final String hash;
 
-    public TonWithdrawalRepresentation(TonWithdrawal withdrawal) {
+    public WithdrawalRepresentation(Withdrawal withdrawal) {
         this.id = withdrawal.getId();
+        this.coin = withdrawal.getCoin();
         this.timestamp = withdrawal.getTimestamp();
         this.receiver = withdrawal.getReceiver();
         this.amount = withdrawal.getAmount();

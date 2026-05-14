@@ -1,17 +1,16 @@
 package com.example.phantom.owner.sweep;
 
+import com.example.phantom.crypto.CoinProvider;
+import com.example.phantom.crypto.CoinProviderRegistry;
 import com.example.phantom.crypto.CryptoException;
-import com.example.phantom.crypto.CryptoExchangeRateService;
+import com.example.phantom.crypto.CryptoWallet;
+import com.example.phantom.crypto.CryptoWalletRepository;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.ton.TonApiException;
-import com.example.phantom.ton.TonApiService;
-import com.example.phantom.ton.TonWallet;
-import com.example.phantom.ton.TonWalletRepository;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -35,33 +34,26 @@ import java.util.Map;
 public class SweepService {
 
     private final UserRepository userRepository;
-    private final TonWalletRepository tonWalletRepository;
+    private final CryptoWalletRepository cryptoWalletRepository;
     private final VariableRepository variableRepository;
     private final SweepLogRepository sweepLogRepository;
-
-    private final CryptoExchangeRateService cryptoExchangeRateService;
-    private final TonApiService tonApiService;
-
+    private final CoinProviderRegistry coinProviderRegistry;
     private final UsageLimiter usageLimiter;
     private volatile Instant lastSweep;
 
     public SweepService(
             UserRepository userRepository,
-            TonWalletRepository tonWalletRepository,
+            CryptoWalletRepository cryptoWalletRepository,
             VariableRepository variableRepository,
             SweepLogRepository sweepLogRepository,
-            CryptoExchangeRateService cryptoExchangeRateService,
-            TonApiService tonApiService,
+            CoinProviderRegistry coinProviderRegistry,
             UsageLimiter usageLimiter
     ) {
         this.userRepository = userRepository;
-        this.tonWalletRepository = tonWalletRepository;
+        this.cryptoWalletRepository = cryptoWalletRepository;
         this.variableRepository = variableRepository;
         this.sweepLogRepository = sweepLogRepository;
-
-        this.cryptoExchangeRateService = cryptoExchangeRateService;
-        this.tonApiService = tonApiService;
-
+        this.coinProviderRegistry = coinProviderRegistry;
         this.usageLimiter = usageLimiter;
         this.lastSweep = Instant.now();
     }
@@ -130,53 +122,41 @@ public class SweepService {
         lastSweep = now;
 
         List<SweepLog> sweepLogs = new ArrayList<>();
-        sweepTon(sweepLogs);
+        for (CoinProvider provider : coinProviderRegistry.getAll()) {
+            sweepCoin(provider, sweepLogs);
+        }
         sweepLogRepository.saveAll(sweepLogs);
     }
 
-    private void sweepTon(List<SweepLog> sweepLogs) {
-        Variable masterAddress = variableRepository.findById("TON_MASTER_WALLET_ADDRESS").orElse(null);
+    private void sweepCoin(CoinProvider provider, List<SweepLog> sweepLogs) {
+        Variable masterAddress = variableRepository.findById(provider.coin() + "_MASTER_WALLET_ADDRESS").orElse(null);
         if (masterAddress == null) {
             return;
         }
         String masterAddressValue = masterAddress.getValue();
 
-        BigDecimal tonUsdRate;
-        try {
-            tonUsdRate = cryptoExchangeRateService.getTonUsdt();
-        }
-        catch (CryptoException e) {
-            return;
-        }
+        List<CryptoWallet> wallets = cryptoWalletRepository.findByCoin(provider.coin());
 
-        List<TonWallet> tonWallets = tonWalletRepository.findAll();
-
-        for (TonWallet tonWallet : tonWallets) {
-            String address = tonWallet.getAddress();
-            String privateKey = tonWallet.getPrivateKey();
-
+        for (CryptoWallet wallet : wallets) {
             BigDecimal amount;
             try {
-                amount = tonApiService.getBalance(address).multiply(tonUsdRate);
-            }
-            catch (TonApiException e) {
+                amount = provider.getBalanceUsd(wallet.getAddress());
+            } catch (CryptoException e) {
                 amount = null;
             }
 
-
-            if (amount != null && amount.compareTo(SweepConstants.MIN_SWEEP_FOR_TON) >= 0) {
+            if (amount != null && amount.compareTo(provider.getMinSweepAmount()) >= 0) {
                 String hash = null;
                 try {
-                    hash = tonApiService.sendAll(privateKey, address, masterAddressValue);
-                }
-                catch (TonApiException e) {
-                    log.warn("sweep failed for {}: {}", address, e.getMessage());
+                    hash = provider.sendAll(wallet.getPrivateKey(), wallet.getAddress(), masterAddressValue);
+                } catch (CryptoException e) {
+                    log.warn("sweep failed for {}: {}", wallet.getAddress(), e.getMessage());
                 }
 
                 SweepLog sweepLog = new SweepLog();
                 sweepLog.setTimestamp(Instant.now().getEpochSecond());
-                sweepLog.setCoin("ton");
-                sweepLog.setSender(address);
+                sweepLog.setCoin(provider.coin());
+                sweepLog.setSender(wallet.getAddress());
                 sweepLog.setAmount(amount);
                 sweepLog.setReceiver(masterAddressValue);
                 sweepLog.setStatus(hash != null ? "ok" : "failed");

@@ -1,15 +1,15 @@
 package com.example.phantom.auth;
 
-import com.example.phantom.ton.TonKeyService;
-import com.example.phantom.ton.TonWalletVersion;
+import com.example.phantom.crypto.CoinProvider;
+import com.example.phantom.crypto.CoinProviderRegistry;
+import com.example.phantom.crypto.CryptoWallet;
+import com.example.phantom.crypto.CryptoWalletRepository;
 import com.example.phantom.owner.OwnerAccessDenied;
 import com.example.phantom.owner.OwnerAccessValidator;
 import com.example.phantom.owner.OwnerBadAccess;
 import com.example.phantom.user.*;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
-import com.example.phantom.ton.TonWallet;
-import com.example.phantom.ton.TonWalletRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,24 +23,24 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
-    private final TonWalletRepository tonWalletRepository;
+    private final CryptoWalletRepository cryptoWalletRepository;
 
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
     private final OwnerAccessValidator ownerAccessValidator;
     private final RecoveryKeyProvider recoveryKeyProvider;
-    private final TonKeyService tonKeyService;
+    private final CoinProviderRegistry coinProviderRegistry;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, TonWalletRepository tonWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, TonKeyService tonKeyService) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, CryptoWalletRepository cryptoWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
-        this.tonWalletRepository = tonWalletRepository;
+        this.cryptoWalletRepository = cryptoWalletRepository;
 
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
         this.ownerAccessValidator = ownerAccessValidator;
         this.recoveryKeyProvider = recoveryKeyProvider;
-        this.tonKeyService = tonKeyService;
+        this.coinProviderRegistry = coinProviderRegistry;
     }
 
     @Transactional
@@ -91,21 +91,22 @@ public class AuthService {
         wallet.setUser(user);
         walletRepository.save(wallet);
 
-        try {
-            String mnemonic = tonKeyService.generateMnemonic();
-            TonWalletVersion walletVersion = TonWalletVersion.V5;
-            TonKeyService.KeyPair keyPair = tonKeyService.deriveKeyPair(mnemonic, walletVersion);
+        for (CoinProvider provider : coinProviderRegistry.getAll()) {
+            try {
+                String mnemonic = provider.generateMnemonic();
+                CoinProvider.KeyPair keyPair = provider.deriveKeyPair(mnemonic);
 
-            TonWallet tonWallet = new TonWallet();
-            tonWallet.setUser(user);
-            tonWallet.setMnemonic(mnemonic);
-            tonWallet.setWalletVersion(walletVersion);
-            tonWallet.setAddress(keyPair.address());
-            tonWallet.setPrivateKey(keyPair.privateKey());
-            tonWalletRepository.save(tonWallet);
-        }
-        catch (Exception e) {
-            throw new RuntimeException("failed to create ton wallet");
+                CryptoWallet cryptoWallet = new CryptoWallet();
+                cryptoWallet.setUser(user);
+                cryptoWallet.setCoin(provider.coin());
+                cryptoWallet.setMnemonic(mnemonic);
+                cryptoWallet.setAddress(keyPair.address());
+                cryptoWallet.setPrivateKey(keyPair.privateKey());
+                cryptoWalletRepository.save(cryptoWallet);
+            }
+            catch (Exception e) {
+                throw new RuntimeException("failed to create " + provider.coin() + " wallet");
+            }
         }
 
         return Map.of("recoveryKey", recoveryKey);
