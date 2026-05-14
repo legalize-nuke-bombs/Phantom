@@ -80,6 +80,7 @@ public class AuthService {
         User user = new User();
         user.setUsername(username);
         user.setDisplayName(displayName);
+        user.setRegisteredAt(java.time.Instant.now().getEpochSecond());
         user.setRole(role);
         user.setPasswordHash(passwordEncoder.encode(password1));
         user.setPublicRecoveryKey(recoveryKeyPair.publicKey());

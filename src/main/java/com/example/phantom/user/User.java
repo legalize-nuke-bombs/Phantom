@@ -6,7 +6,9 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_users_registered_at", columnList = "registered_at")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,6 +22,9 @@ public class User {
 
     @Column(nullable = false, length = UserConstants.DISPLAY_NAME_MAX_LENGTH)
     private String displayName;
+
+    @Column(nullable = false)
+    private Long registeredAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

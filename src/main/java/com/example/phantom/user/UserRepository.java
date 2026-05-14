@@ -10,4 +10,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u WHERE u.publicRecoveryKey = ?1")
     Optional<User> findByPublicRecoveryKey(String publicRecoveryKey);
+
+    @Query("SELECT COUNT(u) FROM User u")
+    long countAll();
+
+    @Query("SELECT COUNT(u) FROM User u WHERE u.registeredAt >= ?1")
+    long countSince(long timestamp);
 }

@@ -4,6 +4,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.Instant;
 import java.util.Map;
 
 @RestController
@@ -11,9 +13,11 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, UserRepository userRepository) {
         this.userService = userService;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/me")
@@ -50,5 +54,14 @@ public class UserController {
     public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal Long userId, @Valid @RequestBody PasswordRequest request) {
         userService.deleteMe(userId, request);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<UserStatRepresentation> stats() {
+        long since24h = Instant.now().getEpochSecond() - 86400;
+        return ResponseEntity.ok(new UserStatRepresentation(
+                userRepository.countAll(),
+                userRepository.countSince(since24h)
+        ));
     }
 }

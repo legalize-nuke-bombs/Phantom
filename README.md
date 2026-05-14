@@ -42,6 +42,7 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | PATCH  | `/api/users/me/secure`              | Change username or password |
 | POST   | `/api/users/me/new-recovery-key`    | Regenerate recovery key     |
 | DELETE | `/api/users/me`                     | Delete account              |
+| GET    | `/api/users/stats`                  | Get users platform stats    |
 
 ### Usage limit
 | Method | Endpoint           | Description     |

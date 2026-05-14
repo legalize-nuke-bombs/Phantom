@@ -24,6 +24,20 @@ public class WalletController {
         this.balanceChangeRepository = balanceChangeRepository;
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<WalletRepresentation> get(@AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(walletService.get(userId));
+    }
+
+    @GetMapping("/me/history")
+    public ResponseEntity<List<BalanceChangeRepresentation>> getHistory(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam @Min(1) Integer limit,
+            @RequestParam(required = false) Long before
+    ) {
+        return ResponseEntity.ok(walletService.getHistory(userId, limit, before));
+    }
+
     @GetMapping("/stats")
     public ResponseEntity<PlatformWalletStatRepresentation> stats() {
         return ResponseEntity.ok(new PlatformWalletStatRepresentation(
@@ -34,11 +48,6 @@ public class WalletController {
         ));
     }
 
-    @GetMapping("/me")
-    public ResponseEntity<WalletRepresentation> get(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(walletService.get(userId));
-    }
-
     @GetMapping("/me/stats")
     public ResponseEntity<PersonalWalletStatRepresentation> myStats(@AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(new PersonalWalletStatRepresentation(
@@ -47,14 +56,5 @@ public class WalletController {
                         .add(balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL_REFUND))
                         .abs()
         ));
-    }
-
-    @GetMapping("/me/history")
-    public ResponseEntity<List<BalanceChangeRepresentation>> getHistory(
-            @AuthenticationPrincipal Long userId,
-            @RequestParam @Min(1) Integer limit,
-            @RequestParam(required = false) Long before
-    ) {
-        return ResponseEntity.ok(walletService.getHistory(userId, limit, before));
     }
 }
