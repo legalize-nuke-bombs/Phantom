@@ -26,7 +26,14 @@ public class UpgraderService extends GameService {
 
     @Override
     public Map<String, String> get() {
-        return objectMapper.convertValue(settings, new TypeReference<Map<String, String>>() {});
+        try {
+            return Map.of(
+                    "percents", objectMapper.writeValueAsString(settings.getPercents()),
+                    "minimalBet", settings.getMinimalBet().toPlainString()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
