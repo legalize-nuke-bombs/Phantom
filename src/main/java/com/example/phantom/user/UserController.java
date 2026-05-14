@@ -5,7 +5,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
 import java.util.Map;
 
 @RestController
@@ -13,11 +12,9 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
-    private final UserRepository userRepository;
 
-    public UserController(UserService userService, UserRepository userRepository) {
+    public UserController(UserService userService) {
         this.userService = userService;
-        this.userRepository = userRepository;
     }
 
     @GetMapping("/me")
@@ -46,7 +43,7 @@ public class UserController {
     }
 
     @PostMapping("/me/new-recovery-key")
-    public ResponseEntity<Map<String, String>> neyMyRecoveryKey(@AuthenticationPrincipal Long userId, @Valid @RequestBody PasswordRequest passwordRequest) {
+    public ResponseEntity<Map<String, String>> newMyRecoveryKey(@AuthenticationPrincipal Long userId, @Valid @RequestBody PasswordRequest passwordRequest) {
         return ResponseEntity.ok(userService.newMyRecoveryKey(userId, passwordRequest));
     }
 
@@ -58,10 +55,6 @@ public class UserController {
 
     @GetMapping("/stats")
     public ResponseEntity<UserStatRepresentation> stats() {
-        long since24h = Instant.now().getEpochSecond() - 86400;
-        return ResponseEntity.ok(new UserStatRepresentation(
-                userRepository.countAll(),
-                userRepository.countSince(since24h)
-        ));
+        return ResponseEntity.ok(userService.getStats());
     }
 }

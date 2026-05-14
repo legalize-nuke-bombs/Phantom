@@ -1,8 +1,6 @@
 package com.example.phantom.wallet;
 
 import com.example.phantom.wallet.balancechange.BalanceChangeRepresentation;
-import com.example.phantom.wallet.balancechange.BalanceChangeRepository;
-import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,11 +15,9 @@ import java.util.List;
 public class WalletController {
 
     private final WalletService walletService;
-    private final BalanceChangeRepository balanceChangeRepository;
 
-    public WalletController(WalletService walletService, BalanceChangeRepository balanceChangeRepository) {
+    public WalletController(WalletService walletService) {
         this.walletService = walletService;
-        this.balanceChangeRepository = balanceChangeRepository;
     }
 
     @GetMapping("/me")
@@ -40,21 +36,11 @@ public class WalletController {
 
     @GetMapping("/stats")
     public ResponseEntity<PlatformWalletStatRepresentation> stats() {
-        return ResponseEntity.ok(new PlatformWalletStatRepresentation(
-                balanceChangeRepository.sumByType(BalanceChangeType.DEPOSIT),
-                balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL)
-                        .add(balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL_REFUND))
-                        .abs()
-        ));
+        return ResponseEntity.ok(walletService.getStats());
     }
 
     @GetMapping("/me/stats")
     public ResponseEntity<PersonalWalletStatRepresentation> myStats(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(new PersonalWalletStatRepresentation(
-                balanceChangeRepository.sumByType(userId, BalanceChangeType.DEPOSIT),
-                balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL)
-                        .add(balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL_REFUND))
-                        .abs()
-        ));
+        return ResponseEntity.ok(walletService.getMyStats(userId));
     }
 }

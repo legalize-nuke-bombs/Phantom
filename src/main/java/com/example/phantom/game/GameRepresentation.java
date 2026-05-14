@@ -8,7 +8,7 @@ import java.util.Map;
 
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class GameRoundRepresentation {
+public class GameRepresentation {
     private final Long id;
     private final GameType gameType;
     private final Long timestamp;
@@ -18,7 +18,7 @@ public class GameRoundRepresentation {
     private final String clientSeed;
     private final Map<String, String> data;
 
-    public GameRoundRepresentation(GameRound round) {
+    public GameRepresentation(Game round) {
         this.id = round.getId();
         this.gameType = round.getGameType();
         this.timestamp = round.getTimestamp();

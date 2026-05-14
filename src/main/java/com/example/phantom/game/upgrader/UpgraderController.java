@@ -1,7 +1,7 @@
 package com.example.phantom.game.upgrader;
 
 import com.example.phantom.game.GameInitRepresentation;
-import com.example.phantom.game.GameRoundRepresentation;
+import com.example.phantom.game.GameRepresentation;
 import com.example.phantom.game.GameRunRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -40,14 +40,14 @@ public class UpgraderController {
     }
 
     @PostMapping("/run")
-    public ResponseEntity<GameRoundRepresentation> run(@AuthenticationPrincipal Long userId, @Valid @RequestBody GameRunRequest request) {
+    public ResponseEntity<GameRepresentation> run(@AuthenticationPrincipal Long userId, @Valid @RequestBody GameRunRequest request) {
         return ResponseEntity.ok(upgraderService.run(userId, request));
     }
 
     @GetMapping("/history")
-    public ResponseEntity<List<GameRoundRepresentation>> getHistory(@AuthenticationPrincipal Long userId,
-                                                                     @RequestParam(defaultValue = "20") @Min(1) Integer limit,
-                                                                     @RequestParam(required = false) Long before) {
+    public ResponseEntity<List<GameRepresentation>> getHistory(@AuthenticationPrincipal Long userId,
+                                                               @RequestParam(defaultValue = "20") @Min(1) Integer limit,
+                                                               @RequestParam(required = false) Long before) {
         return ResponseEntity.ok(upgraderService.getHistory(userId, limit, before));
     }
 }

@@ -17,8 +17,8 @@ public class UpgraderService extends GameService<UpgraderInitRequest> {
 
     private final UpgraderSettings settings;
 
-    public UpgraderService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRoundRepository gameRoundRepository, UpgraderSettings settings) {
-        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRoundRepository);
+    public UpgraderService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, UpgraderSettings settings) {
+        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository);
         this.settings = settings;
     }
 
@@ -30,7 +30,7 @@ public class UpgraderService extends GameService<UpgraderInitRequest> {
     protected GameType gameType() { return GameType.UPGRADER; }
 
     @Override
-    protected GameRound createRound(User user, UpgraderInitRequest request) {
+    protected Game createRound(User user, UpgraderInitRequest request) {
         BigDecimal bet = request.getBet();
         Integer percent = request.getPercent();
 
@@ -46,7 +46,7 @@ public class UpgraderService extends GameService<UpgraderInitRequest> {
             throw new BadRequestException("option not available");
         }
 
-        GameRound round = new GameRound();
+        Game round = new Game();
         round.setUser(user);
         round.setGameType(GameType.UPGRADER);
         round.setBet(bet);
@@ -56,7 +56,7 @@ public class UpgraderService extends GameService<UpgraderInitRequest> {
     }
 
     @Override
-    protected BigDecimal play(GameRound round, Random random) {
+    protected BigDecimal play(Game round, Random random) {
         int percent = Integer.parseInt(round.getData().get("percent"));
         int randomResult = random.nextInt(100) + 1;
         return percent >= randomResult ? new BigDecimal(round.getData().get("possibleResult")) : BigDecimal.ZERO;

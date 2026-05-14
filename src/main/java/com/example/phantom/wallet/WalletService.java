@@ -60,6 +60,24 @@ public class WalletService {
         return new WalletRepresentation(userId, balance);
     }
 
+    public PlatformWalletStatRepresentation getStats() {
+        return new PlatformWalletStatRepresentation(
+                balanceChangeRepository.sumByType(BalanceChangeType.DEPOSIT),
+                balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL)
+                        .add(balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL_REFUND))
+                        .abs()
+        );
+    }
+
+    public PersonalWalletStatRepresentation getMyStats(Long userId) {
+        return new PersonalWalletStatRepresentation(
+                balanceChangeRepository.sumByType(userId, BalanceChangeType.DEPOSIT),
+                balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL)
+                        .add(balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL_REFUND))
+                        .abs()
+        );
+    }
+
     public List<BalanceChangeRepresentation> getHistory(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 

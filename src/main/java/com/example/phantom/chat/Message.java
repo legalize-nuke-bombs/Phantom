@@ -9,7 +9,9 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
-@Table(name = "messages")
+@Table(name = "messages", indexes = {
+        @Index(name = "idx_messages_timestamp", columnList = "timestamp")
+})
 @Getter
 @Setter
 @NoArgsConstructor

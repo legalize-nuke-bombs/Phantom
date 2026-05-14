@@ -6,36 +6,35 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/games")
 public class GameController {
 
-    private static final long SECONDS_IN_DAY = 86400;
+    private final GameRepository gameRepository;
 
-    private final GameRoundRepository gameRoundRepository;
-
-    public GameController(GameRoundRepository gameRoundRepository) {
-        this.gameRoundRepository = gameRoundRepository;
+    public GameController(GameRepository gameRepository) {
+        this.gameRepository = gameRepository;
     }
 
     @GetMapping("/stats")
     public ResponseEntity<PlatformGameStatRepresentation> stats() {
-        long since24h = Instant.now().getEpochSecond() - SECONDS_IN_DAY;
+        long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
         return ResponseEntity.ok(new PlatformGameStatRepresentation(
-                gameRoundRepository.countCompleted(),
-                gameRoundRepository.countCompletedSince(since24h),
-                gameRoundRepository.maxResult(),
-                gameRoundRepository.maxResultSince(since24h)
+                gameRepository.countCompleted(),
+                gameRepository.countCompletedSince(since24h),
+                gameRepository.maxResult(),
+                gameRepository.maxResultSince(since24h)
         ));
     }
 
     @GetMapping("/stats/me")
     public ResponseEntity<PersonalGameStatRepresentation> myStats(@AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(new PersonalGameStatRepresentation(
-                gameRoundRepository.countCompletedByUserId(userId),
-                gameRoundRepository.maxResultByUserId(userId)
+                gameRepository.countCompletedByUserId(userId),
+                gameRepository.maxResultByUserId(userId)
         ));
     }
 }

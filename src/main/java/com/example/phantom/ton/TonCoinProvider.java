@@ -4,6 +4,7 @@ import com.example.phantom.crypto.CoinProvider;
 import com.example.phantom.crypto.CryptoException;
 import com.example.phantom.crypto.CryptoExchangeRateService;
 import com.example.phantom.crypto.TransferStatus;
+import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.finance.FinanceConstants;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,7 +75,7 @@ public class TonCoinProvider implements CoinProvider {
     @Override
     public void validateAddress(String address) {
         if (address == null || !ADDRESS_PATTERN.matcher(address).matches()) {
-            throw new com.example.phantom.exception.BadRequestException("invalid TON address");
+            throw new BadRequestException("invalid TON address");
         }
     }
 

@@ -25,28 +25,28 @@ public abstract class GameService<T> {
     protected final WalletService walletService;
     protected final ProvablyFairProvider provablyFairProvider;
     protected final UsageLimiter usageLimiter;
-    protected final GameRoundRepository gameRoundRepository;
+    protected final GameRepository gameRepository;
 
-    protected GameService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRoundRepository gameRoundRepository) {
+    protected GameService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.provablyFairProvider = provablyFairProvider;
         this.usageLimiter = usageLimiter;
-        this.gameRoundRepository = gameRoundRepository;
+        this.gameRepository = gameRepository;
     }
 
     protected abstract GameType gameType();
 
-    protected abstract GameRound createRound(User user, T request);
+    protected abstract Game createRound(User user, T request);
 
-    protected abstract BigDecimal play(GameRound round, Random random);
+    protected abstract BigDecimal play(Game round, Random random);
 
     @Transactional
     public GameInitRepresentation init(Long userId, T request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        GameRound round = createRound(user, request);
-        gameRoundRepository.deleteActiveRound(userId, gameType());
-        gameRoundRepository.save(round);
+        Game round = createRound(user, request);
+        gameRepository.deleteActiveRound(userId, gameType());
+        gameRepository.save(round);
 
         GameInitRepresentation representation = new GameInitRepresentation();
         representation.setServerHash(provablyFairProvider.generateHash(round.getServerSeed()));
@@ -55,10 +55,10 @@ public abstract class GameService<T> {
     }
 
     @Transactional
-    public GameRoundRepresentation run(Long userId, GameRunRequest request) {
+    public GameRepresentation run(Long userId, GameRunRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
         walletService.lock(userId);
-        GameRound round = gameRoundRepository.findActiveRound(userId, gameType()).orElseThrow(() -> new NotFoundException("game not found"));
+        Game round = gameRepository.findActiveRound(userId, gameType()).orElseThrow(() -> new NotFoundException("game not found"));
 
         if (walletService.getBalance(userId).compareTo(round.getBet()) < 0) {
             throw new BadRequestException("insufficient balance");
@@ -75,17 +75,17 @@ public abstract class GameService<T> {
         round.setClientSeed(request.getClientSeed());
         round.setResult(result);
         round.setTimestamp(Instant.now().getEpochSecond());
-        gameRoundRepository.save(round);
+        gameRepository.save(round);
 
-        return new GameRoundRepresentation(round);
+        return new GameRepresentation(round);
     }
 
     @Transactional
     public void delete(Long userId) {
-        gameRoundRepository.deleteActiveRound(userId, gameType());
+        gameRepository.deleteActiveRound(userId, gameType());
     }
 
-    public List<GameRoundRepresentation> getHistory(Long userId, Integer limit, Long before) {
+    public List<GameRepresentation> getHistory(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
         try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
@@ -93,10 +93,10 @@ public abstract class GameService<T> {
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<GameRound> rounds = before != null
-                ? gameRoundRepository.findHistoryBefore(userId, gameType(), before, pageable)
-                : gameRoundRepository.findHistory(userId, gameType(), pageable);
+        List<Game> rounds = before != null
+                ? gameRepository.findHistoryBefore(userId, gameType(), before, pageable)
+                : gameRepository.findHistory(userId, gameType(), pageable);
 
-        return rounds.stream().map(GameRoundRepresentation::new).toList();
+        return rounds.stream().map(GameRepresentation::new).toList();
     }
 }

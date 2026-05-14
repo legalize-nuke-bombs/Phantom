@@ -5,6 +5,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 
 @Service
@@ -18,6 +21,14 @@ public class UserService {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.recoveryKeyProvider = recoveryKeyProvider;
+    }
+
+    public UserStatRepresentation getStats() {
+        long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
+        return new UserStatRepresentation(
+                userRepository.countAll(),
+                userRepository.countSince(since24h)
+        );
     }
 
     public UserRepresentation getUserRepresentationById(Long userId) {

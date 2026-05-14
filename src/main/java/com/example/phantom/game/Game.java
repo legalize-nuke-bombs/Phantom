@@ -15,15 +15,15 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 @Entity
-@Table(name = "game_rounds", indexes = {
-        @Index(name = "idx_game_rounds_user_id", columnList = "user_id"),
-        @Index(name = "idx_game_rounds_timestamp", columnList = "timestamp"),
-        @Index(name = "idx_game_rounds_result", columnList = "result")
+@Table(name = "games", indexes = {
+        @Index(name = "idx_games_user_id", columnList = "user_id"),
+        @Index(name = "idx_games_timestamp", columnList = "timestamp"),
+        @Index(name = "idx_games_result", columnList = "result")
 })
 @Getter
 @Setter
 @NoArgsConstructor
-public class GameRound {
+public class Game {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -18,8 +18,8 @@ public class CaseService extends GameService<CaseInitRequest> {
 
     private final CaseSettings settings;
 
-    public CaseService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRoundRepository gameRoundRepository, CaseSettings settings) {
-        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRoundRepository);
+    public CaseService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, CaseSettings settings) {
+        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository);
         this.settings = settings;
     }
 
@@ -31,14 +31,14 @@ public class CaseService extends GameService<CaseInitRequest> {
     protected GameType gameType() { return GameType.CASE; }
 
     @Override
-    protected GameRound createRound(User user, CaseInitRequest request) {
+    protected Game createRound(User user, CaseInitRequest request) {
         Case thecase = findCase(request.getCaseName());
 
         if (walletService.getBalance(user.getId()).compareTo(thecase.getCost()) < 0) {
             throw new BadRequestException("insufficient balance");
         }
 
-        GameRound round = new GameRound();
+        Game round = new Game();
         round.setUser(user);
         round.setGameType(GameType.CASE);
         round.setBet(thecase.getCost());
@@ -48,7 +48,7 @@ public class CaseService extends GameService<CaseInitRequest> {
     }
 
     @Override
-    protected BigDecimal play(GameRound round, Random random) {
+    protected BigDecimal play(Game round, Random random) {
         Case thecase = findCase(round.getData().get("caseName"));
         return thecase.get(random.nextInt(thecase.getSize()));
     }

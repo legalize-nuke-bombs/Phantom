@@ -141,7 +141,8 @@ public class SweepService {
             BigDecimal amount;
             try {
                 amount = provider.getBalanceUsd(wallet.getAddress());
-            } catch (CryptoException e) {
+            }
+            catch (CryptoException e) {
                 amount = null;
             }
 
@@ -149,7 +150,8 @@ public class SweepService {
                 String hash = null;
                 try {
                     hash = provider.sendAll(wallet.getPrivateKey(), wallet.getAddress(), masterAddressValue);
-                } catch (CryptoException e) {
+                }
+                catch (CryptoException e) {
                     log.warn("sweep failed for {}: {}", wallet.getAddress(), e.getMessage());
                 }
 

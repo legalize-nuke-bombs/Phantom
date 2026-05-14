@@ -1,5 +1,6 @@
 package com.example.phantom.auth;
 
+import com.example.phantom.config.JwtTokenProvider;
 import com.example.phantom.crypto.CoinProvider;
 import com.example.phantom.crypto.CoinProviderRegistry;
 import com.example.phantom.crypto.CryptoWallet;
@@ -15,6 +16,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.example.phantom.exception.*;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 
@@ -80,7 +82,7 @@ public class AuthService {
         User user = new User();
         user.setUsername(username);
         user.setDisplayName(displayName);
-        user.setRegisteredAt(java.time.Instant.now().getEpochSecond());
+        user.setRegisteredAt(Instant.now().getEpochSecond());
         user.setRole(role);
         user.setPasswordHash(passwordEncoder.encode(password1));
         user.setPublicRecoveryKey(recoveryKeyPair.publicKey());
