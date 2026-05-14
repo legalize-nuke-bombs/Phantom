@@ -22,11 +22,14 @@ import java.util.stream.Collectors;
 public class GameController {
 
     private final GameRepository gameRepository;
+
+    private final GameStatService statService;
     private final Map<GameType, GameService> services;
 
-    public GameController(GameRepository gameRepository, List<GameService> services) {
+    public GameController(GameRepository gameRepository, GameStatService statService, List<GameService> services) {
         this.gameRepository = gameRepository;
 
+        this.statService = statService;
         this.services = services.stream().collect(Collectors.toMap(GameService::gameType, Function.identity()));
     }
 
@@ -84,20 +87,11 @@ public class GameController {
 
     @GetMapping("/stats")
     public ResponseEntity<PlatformGameStatRepresentation> stats() {
-        long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
-        return ResponseEntity.ok(new PlatformGameStatRepresentation(
-                gameRepository.countCompleted(),
-                gameRepository.countCompletedSince(since24h),
-                gameRepository.maxResult(),
-                gameRepository.maxResultSince(since24h)
-        ));
+        return ResponseEntity.ok(statService.getStats());
     }
 
     @GetMapping("/stats/me")
     public ResponseEntity<PersonalGameStatRepresentation> myStats(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(new PersonalGameStatRepresentation(
-                gameRepository.countCompletedByUserId(userId),
-                gameRepository.maxResultByUserId(userId)
-        ));
+        return ResponseEntity.ok(statService.getMyStats(userId));
     }
 }
