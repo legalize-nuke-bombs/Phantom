@@ -1,5 +1,7 @@
-package com.example.phantom.config;
+package com.example.phantom.security;
 
+import com.example.phantom.auth.jwt.JwtAuthEntryPoint;
+import com.example.phantom.auth.jwt.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;

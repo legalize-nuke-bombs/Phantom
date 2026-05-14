@@ -1,6 +1,6 @@
 package com.example.phantom.auth;
 
-import com.example.phantom.config.JwtTokenProvider;
+import com.example.phantom.auth.jwt.JwtTokenProvider;
 import com.example.phantom.crypto.CoinProvider;
 import com.example.phantom.crypto.CoinProviderRegistry;
 import com.example.phantom.crypto.CryptoWallet;
