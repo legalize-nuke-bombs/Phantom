@@ -30,7 +30,7 @@ public class UpgraderService extends GameService<UpgraderInitRequest> {
     protected GameType gameType() { return GameType.UPGRADER; }
 
     @Override
-    protected Game createRound(User user, UpgraderInitRequest request) {
+    protected Game initGame(User user, UpgraderInitRequest request) {
         BigDecimal bet = request.getBet();
         Integer percent = request.getPercent();
 
@@ -56,7 +56,7 @@ public class UpgraderService extends GameService<UpgraderInitRequest> {
     }
 
     @Override
-    protected BigDecimal play(Game round, Random random) {
+    protected BigDecimal runGame(Game round, Random random) {
         int percent = Integer.parseInt(round.getData().get("percent"));
         int randomResult = random.nextInt(100) + 1;
         return percent >= randomResult ? new BigDecimal(round.getData().get("possibleResult")) : BigDecimal.ZERO;

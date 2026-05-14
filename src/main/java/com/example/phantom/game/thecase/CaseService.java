@@ -31,7 +31,7 @@ public class CaseService extends GameService<CaseInitRequest> {
     protected GameType gameType() { return GameType.CASE; }
 
     @Override
-    protected Game createRound(User user, CaseInitRequest request) {
+    protected Game initGame(User user, CaseInitRequest request) {
         Case thecase = findCase(request.getCaseName());
 
         if (walletService.getBalance(user.getId()).compareTo(thecase.getCost()) < 0) {
@@ -48,7 +48,7 @@ public class CaseService extends GameService<CaseInitRequest> {
     }
 
     @Override
-    protected BigDecimal play(Game round, Random random) {
+    protected BigDecimal runGame(Game round, Random random) {
         Case thecase = findCase(round.getData().get("caseName"));
         return thecase.get(random.nextInt(thecase.getSize()));
     }

@@ -37,14 +37,14 @@ public abstract class GameService<T> {
 
     protected abstract GameType gameType();
 
-    protected abstract Game createRound(User user, T request);
+    protected abstract Game initGame(User user, T request);
 
-    protected abstract BigDecimal play(Game round, Random random);
+    protected abstract BigDecimal runGame(Game round, Random random);
 
     @Transactional
     public GameInitRepresentation init(Long userId, T request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        Game round = createRound(user, request);
+        Game round = initGame(user, request);
         gameRepository.deleteActiveRound(userId, gameType());
         gameRepository.save(round);
 
@@ -65,7 +65,7 @@ public abstract class GameService<T> {
         }
 
         Random random = provablyFairProvider.fairRandom(round.getServerSeed(), request.getClientSeed());
-        BigDecimal result = play(round, random);
+        BigDecimal result = runGame(round, random);
 
         walletService.addChange(user, round.getBet().negate(), BalanceChangeType.GAME_BET);
         if (result.compareTo(BigDecimal.ZERO) > 0) {
