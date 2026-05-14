@@ -1,4 +1,4 @@
-package com.example.phantom.ton;
+package com.example.phantom.crypto.ton;
 
 import com.example.phantom.crypto.CoinProvider;
 import com.example.phantom.crypto.CryptoException;

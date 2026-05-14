@@ -1,4 +1,4 @@
-package com.example.phantom.ton;
+package com.example.phantom.crypto.ton;
 
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
