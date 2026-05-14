@@ -21,7 +21,7 @@ public class MasterWalletController {
     public ResponseEntity<MasterWalletRepresentation> get(
             @AuthenticationPrincipal Long userId,
             @PathVariable String coin) {
-        return ResponseEntity.ok(service.get(userId, coin));
+        return ResponseEntity.ok(service.get(userId, coin.toUpperCase()));
     }
 
     @PostMapping("/{coin}")
@@ -29,6 +29,6 @@ public class MasterWalletController {
             @AuthenticationPrincipal Long userId,
             @PathVariable String coin,
             @Valid @RequestBody SetMasterWalletRequest request) {
-        return ResponseEntity.ok(service.set(userId, coin, request));
+        return ResponseEntity.ok(service.set(userId, coin.toUpperCase(), request));
     }
 }
