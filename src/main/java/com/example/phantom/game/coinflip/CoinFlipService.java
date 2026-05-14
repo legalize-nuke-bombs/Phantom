@@ -56,7 +56,7 @@ public class CoinFlipService extends GameService {
         Game game = new Game();
         game.setGameType(GameType.COINFLIP);
         game.setBet(bet);
-        game.getData().put("possibleResult", bet.multiply(settings.getMultiplier()).toString());
+        game.setData(Map.of("possibleResult", bet.multiply(settings.getMultiplier()).toString()));
         return game;
     }
 

@@ -27,7 +27,11 @@ public class CaseService extends GameService {
 
     @Override
     public Map<String, String> get() {
-        return objectMapper.convertValue(settings, new TypeReference<Map<String, String>>() {});
+        try {
+            return Map.of("cases", objectMapper.writeValueAsString(settings.getCases()));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

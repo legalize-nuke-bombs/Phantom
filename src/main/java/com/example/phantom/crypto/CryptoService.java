@@ -7,6 +7,7 @@ import com.example.phantom.crypto.withdrawal.WithdrawRequest;
 import com.example.phantom.crypto.withdrawal.Withdrawal;
 import com.example.phantom.crypto.withdrawal.WithdrawalRepresentation;
 import com.example.phantom.crypto.withdrawal.WithdrawalService;
+import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.usagelimit.UsageAction;
@@ -42,7 +43,7 @@ public class CryptoService {
     }
 
     public CryptoWalletRepresentation getWallet(Long userId, String coin) {
-        CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(userId, coin).orElseThrow(() -> new NotFoundException("wallet not found"));
+        CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(userId, coinToUpperCase(coin)).orElseThrow(() -> new NotFoundException("wallet not found"));
         return new CryptoWalletRepresentation(wallet);
     }
 
@@ -50,7 +51,7 @@ public class CryptoService {
         User user = getUser(userId);
         rateLimit(user);
 
-        List<Deposit> deposits = depositService.fetchDeposits(user, coin);
+        List<Deposit> deposits = depositService.fetchDeposits(user, coinToUpperCase(coin));
         depositService.applyDeposits(user, deposits);
         return deposits.stream().map(DepositRepresentation::new).toList();
     }
@@ -59,7 +60,7 @@ public class CryptoService {
         User user = getUser(userId);
         rateLimit(user);
 
-        Withdrawal withdrawal = withdrawalService.reserveFinances(user, coin, request.getAddress(), request.getAmount());
+        Withdrawal withdrawal = withdrawalService.reserveFinances(user, coinToUpperCase(coin), request.getAddress(), request.getAmount());
         withdrawal = withdrawalService.send(withdrawal);
         return new WithdrawalRepresentation(withdrawal);
     }
@@ -71,6 +72,15 @@ public class CryptoService {
         List<Withdrawal> checked = withdrawalService.checkPendingStatuses(userId);
         withdrawalService.applyCheckedStatuses(userId, checked);
         return checked.stream().map(WithdrawalRepresentation::new).toList();
+    }
+
+    private String coinToUpperCase(String coin) {
+        try {
+            return coin.toUpperCase();
+        }
+        catch (Exception e) {
+            throw new BadRequestException("invalid coin");
+        }
     }
 
     private User getUser(Long userId) {

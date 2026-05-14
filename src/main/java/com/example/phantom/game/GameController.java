@@ -70,6 +70,12 @@ public class GameController {
     }
 
     private GameService getService(String game) {
+        try {
+            game = game.toUpperCase();
+        }
+        catch (BadRequestException e) {
+            throw new BadRequestException("invalid game type");
+        }
         GameService service = services.get(GameType.valueOf(game));
         if (service == null) {
             throw new NotFoundException("game not found");
