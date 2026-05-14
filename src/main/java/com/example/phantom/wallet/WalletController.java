@@ -28,7 +28,9 @@ public class WalletController {
     public ResponseEntity<PlatformWalletStatRepresentation> stats() {
         return ResponseEntity.ok(new PlatformWalletStatRepresentation(
                 balanceChangeRepository.sumByType(BalanceChangeType.DEPOSIT),
-                balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL).abs()
+                balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL)
+                        .add(balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL_REFUND))
+                        .abs()
         ));
     }
 
@@ -41,7 +43,9 @@ public class WalletController {
     public ResponseEntity<PersonalWalletStatRepresentation> myStats(@AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(new PersonalWalletStatRepresentation(
                 balanceChangeRepository.sumByType(userId, BalanceChangeType.DEPOSIT),
-                balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL).abs()
+                balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL)
+                        .add(balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL_REFUND))
+                        .abs()
         ));
     }
 
