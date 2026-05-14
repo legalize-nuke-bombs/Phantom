@@ -46,9 +46,6 @@ public class UpgraderService extends GameService {
             throw new BadRequestException("invalid bet or percent");
         }
 
-        if (bet.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BadRequestException("bet must be positive");
-        }
         if (bet.compareTo(settings.getMinimalBet()) < 0) {
             throw new BadRequestException("insufficient bet");
         }

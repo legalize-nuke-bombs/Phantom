@@ -10,7 +10,7 @@ REST API for a gambling platform.
 * Usage limit
 * Wallets
 * Deposits & withdrawals via crypto: TON
-* Games: Upgrader, Cases
+* Games: Upgrader, Cases, Coinflip
 * Provably fair
 * Sweep scheduling
 * Sweep history
@@ -79,6 +79,11 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/games/cases/run`        | Open the case                |
 | GET    | `/api/games/cases/history`    | Get case game history        |
 | DELETE | `/api/games/cases`            | Cancel active case game      |
+| GET    | `/api/games/coinflip`         | Get coinflip setting         |
+| POST   | `/api/games/coinflip/init`    | Start a conflip game         |
+| POST   | `/api/games/coinflip/run`     | Run a conflip game           |
+| GET    | `/api/games/coinflip/history` | Get conflip game history     |
+| DELETE | `/api/games/cases`            | Cancel active coinflip game  |
 | GET    | `/api/games/stats`            | Get games platform stats     |
 | GET    | `/api/games/stats/me`         | Get games personal stats     |
 

@@ -1,4 +1,4 @@
-package com.example.phantom.game.thecase;
+package com.example.phantom.game.coinflip;
 
 import com.example.phantom.game.GameInitRepresentation;
 import com.example.phantom.game.GameInitRequest;
@@ -15,17 +15,16 @@ import java.util.List;
 
 @RestController
 @Validated
-@RequestMapping("/api/games/cases")
-public class CaseController {
+@RequestMapping("/api/games/coinflip")
+public class CoinFlipController {
+    private final CoinFlipService service;
 
-    private final CaseService service;
-
-    public CaseController(CaseService service) {
+    public CoinFlipController(CoinFlipService service) {
         this.service = service;
     }
 
     @GetMapping
-    public ResponseEntity<CaseSettings> get() {
+    public ResponseEntity<CoinFlipSettings> get() {
         return ResponseEntity.ok(service.get());
     }
 

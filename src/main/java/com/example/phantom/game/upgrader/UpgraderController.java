@@ -18,37 +18,37 @@ import java.util.List;
 @RequestMapping("/api/games/upgrader")
 public class UpgraderController {
 
-    private final UpgraderService upgraderService;
+    private final UpgraderService service;
 
-    public UpgraderController(UpgraderService upgraderService) {
-        this.upgraderService = upgraderService;
+    public UpgraderController(UpgraderService service) {
+        this.service = service;
     }
 
     @GetMapping
     public ResponseEntity<UpgraderSettings> get() {
-        return ResponseEntity.ok(upgraderService.get());
+        return ResponseEntity.ok(service.get());
     }
 
     @PostMapping("/init")
     public ResponseEntity<GameInitRepresentation> init(@AuthenticationPrincipal Long userId, @Valid @RequestBody GameInitRequest request) {
-        return ResponseEntity.ok(upgraderService.init(userId, request));
+        return ResponseEntity.ok(service.init(userId, request));
     }
 
     @DeleteMapping
     public ResponseEntity<Void> delete(@AuthenticationPrincipal Long userId) {
-        upgraderService.delete(userId);
+        service.delete(userId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/run")
     public ResponseEntity<GameRepresentation> run(@AuthenticationPrincipal Long userId, @Valid @RequestBody GameRunRequest request) {
-        return ResponseEntity.ok(upgraderService.run(userId, request));
+        return ResponseEntity.ok(service.run(userId, request));
     }
 
     @GetMapping("/history")
     public ResponseEntity<List<GameRepresentation>> getHistory(@AuthenticationPrincipal Long userId,
                                                                @RequestParam(defaultValue = "20") @Min(1) Integer limit,
                                                                @RequestParam(required = false) Long before) {
-        return ResponseEntity.ok(upgraderService.getHistory(userId, limit, before));
+        return ResponseEntity.ok(service.getHistory(userId, limit, before));
     }
 }
