@@ -1,6 +1,7 @@
 package com.example.phantom.game.thecase;
 
 import com.example.phantom.game.GameInitRepresentation;
+import com.example.phantom.game.GameInitRequest;
 import com.example.phantom.game.GameRepresentation;
 import com.example.phantom.game.GameRunRequest;
 import jakarta.validation.Valid;
@@ -29,7 +30,7 @@ public class CaseController {
     }
 
     @PostMapping("/init")
-    public ResponseEntity<GameInitRepresentation> init(@AuthenticationPrincipal Long userId, @Valid @RequestBody CaseInitRequest request) {
+    public ResponseEntity<GameInitRepresentation> init(@AuthenticationPrincipal Long userId, @Valid @RequestBody GameInitRequest request) {
         return ResponseEntity.ok(caseService.init(userId, request));
     }
 

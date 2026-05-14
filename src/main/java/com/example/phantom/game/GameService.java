@@ -17,15 +17,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
-public abstract class GameService<T> {
+public abstract class GameService {
 
-    protected final UserRepository userRepository;
-    protected final WalletService walletService;
-    protected final ProvablyFairProvider provablyFairProvider;
-    protected final UsageLimiter usageLimiter;
-    protected final GameRepository gameRepository;
+    private final UserRepository userRepository;
+    private final WalletService walletService;
+    private final ProvablyFairProvider provablyFairProvider;
+    private final UsageLimiter usageLimiter;
+    private final GameRepository gameRepository;
 
     protected GameService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository) {
         this.userRepository = userRepository;
@@ -37,14 +38,21 @@ public abstract class GameService<T> {
 
     protected abstract GameType gameType();
 
-    protected abstract Game initGame(User user, T request);
+    protected abstract Game initGame(Map<String, String> data);
 
     protected abstract BigDecimal runGame(Game round, Random random);
 
     @Transactional
-    public GameInitRepresentation init(Long userId, T request) {
+    public GameInitRepresentation init(Long userId, GameInitRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        Game round = initGame(user, request);
+        Game round = initGame(request.getData());
+        round.setUser(user);
+        round.setServerSeed(provablyFairProvider.generateSeed());
+
+        if (walletService.getBalance(userId).compareTo(round.getBet()) < 0) {
+            throw new BadRequestException("insufficient balance");
+        }
+
         gameRepository.deleteActiveRound(userId, gameType());
         gameRepository.save(round);
 

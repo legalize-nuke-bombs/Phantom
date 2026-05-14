@@ -3,7 +3,6 @@ package com.example.phantom.game.thecase;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.game.*;
 import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
@@ -14,7 +13,7 @@ import java.util.Objects;
 import java.util.Random;
 
 @Service
-public class CaseService extends GameService<CaseInitRequest> {
+public class CaseService extends GameService {
 
     private final CaseSettings settings;
 
@@ -31,19 +30,18 @@ public class CaseService extends GameService<CaseInitRequest> {
     protected GameType gameType() { return GameType.CASE; }
 
     @Override
-    protected Game initGame(User user, CaseInitRequest request) {
-        Case thecase = findCase(request.getCaseName());
-
-        if (walletService.getBalance(user.getId()).compareTo(thecase.getCost()) < 0) {
-            throw new BadRequestException("insufficient balance");
+    protected Game initGame(Map<String, String> data) {
+        String caseName = data.get("caseName");
+        if (caseName == null) {
+            throw new BadRequestException("caseName is required");
         }
 
+        Case thecase = findCase(caseName);
+
         Game round = new Game();
-        round.setUser(user);
         round.setGameType(GameType.CASE);
         round.setBet(thecase.getCost());
-        round.setServerSeed(provablyFairProvider.generateSeed());
-        round.setData(Map.of("caseName", request.getCaseName()));
+        round.setData(Map.of("caseName", caseName));
         return round;
     }
 
