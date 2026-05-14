@@ -49,7 +49,4 @@ public class Withdrawal {
 
     @Column(unique = true, length = 128)
     private String hash;
-
-    @Column(nullable = false)
-    private boolean refunded;
 }

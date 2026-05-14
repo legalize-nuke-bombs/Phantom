@@ -25,17 +25,20 @@ public class WithdrawalService {
 
     private final WalletService walletService;
     private final WithdrawalRepository withdrawalRepository;
+    private final RefundRepository refundRepository;
     private final VariableRepository variableRepository;
     private final CoinProviderRegistry coinProviderRegistry;
 
     public WithdrawalService(
             WalletService walletService,
             WithdrawalRepository withdrawalRepository,
+            RefundRepository refundRepository,
             VariableRepository variableRepository,
             CoinProviderRegistry coinProviderRegistry
     ) {
         this.walletService = walletService;
         this.withdrawalRepository = withdrawalRepository;
+        this.refundRepository = refundRepository;
         this.variableRepository = variableRepository;
         this.coinProviderRegistry = coinProviderRegistry;
     }
@@ -65,7 +68,6 @@ public class WithdrawalService {
         withdrawal.setReceiver(receiver);
         withdrawal.setAmount(amount);
         withdrawal.setStatus(TransferStatus.PENDING);
-        withdrawal.setRefunded(false);
         return withdrawalRepository.save(withdrawal);
     }
 
@@ -123,8 +125,8 @@ public class WithdrawalService {
 
         for (Withdrawal w : checked) {
             log.info("applying withdrawal {} status={}", w.getId(), w.getStatus());
-            if (w.getStatus() == TransferStatus.REJECTED && !w.isRefunded()) {
-                w.setRefunded(true);
+
+            if (w.getStatus() == TransferStatus.REJECTED && refundRepository.insertIfNotExists(w.getId()) == 1) {
                 walletService.addChange(w.getUser(), w.getAmount(), BalanceChangeType.WITHDRAWAL_REFUND);
                 log.info("withdrawal {} refund {}", w.getId(), w.getAmount());
             }
