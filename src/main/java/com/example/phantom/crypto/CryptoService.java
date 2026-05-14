@@ -42,8 +42,7 @@ public class CryptoService {
     }
 
     public CryptoWalletRepresentation getWallet(Long userId, String coin) {
-        CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(userId, coin)
-                .orElseThrow(() -> new NotFoundException("wallet not found"));
+        CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(userId, coin).orElseThrow(() -> new NotFoundException("wallet not found"));
         return new CryptoWalletRepresentation(wallet);
     }
 

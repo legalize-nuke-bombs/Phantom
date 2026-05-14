@@ -5,6 +5,8 @@ import com.example.phantom.game.*;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -15,14 +17,16 @@ import java.util.Random;
 public class CoinFlipService extends GameService {
 
     private final CoinFlipSettings settings;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CoinFlipService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, CoinFlipSettings settings) {
         super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository);
         this.settings = settings;
     }
 
-    public CoinFlipSettings get() {
-        return settings;
+    @Override
+    public Map<String, String> get() {
+        return objectMapper.convertValue(settings, new TypeReference<Map<String, String>>() {});
     }
 
     @Override

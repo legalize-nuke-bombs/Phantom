@@ -36,6 +36,8 @@ public abstract class GameService {
         this.gameRepository = gameRepository;
     }
 
+    protected abstract Map<String, String> get();
+
     protected abstract GameType gameType();
 
     protected abstract Game initGame(Map<String, String> data);
