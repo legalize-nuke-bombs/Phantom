@@ -31,7 +31,7 @@ public class CaseService extends GameService {
     }
 
     @Override
-    protected GameType gameType() { return GameType.CASE; }
+    protected GameType gameType() { return GameType.CASES; }
 
     @Override
     protected Game initGame(Map<String, String> data) {
@@ -43,7 +43,7 @@ public class CaseService extends GameService {
         Case thecase = findCase(caseName);
 
         Game round = new Game();
-        round.setGameType(GameType.CASE);
+        round.setGameType(GameType.CASES);
         round.setBet(thecase.getCost());
         round.setData(Map.of("caseName", caseName));
         return round;
