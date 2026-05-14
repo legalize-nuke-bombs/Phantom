@@ -1,6 +1,7 @@
 package com.example.phantom.game.thecase;
 
 import com.example.phantom.finance.FinanceColors;
+import com.example.phantom.game.GameSettings;
 import lombok.Getter;
 import org.springframework.stereotype.Component;
 
@@ -8,7 +9,7 @@ import java.util.List;
 
 @Getter
 @Component
-public class CaseSettings {
+public class CaseSettings implements GameSettings {
     private final List<Case> cases;
 
     public CaseSettings(FinanceColors financeColors) {

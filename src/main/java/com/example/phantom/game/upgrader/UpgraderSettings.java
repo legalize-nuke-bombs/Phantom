@@ -1,5 +1,6 @@
 package com.example.phantom.game.upgrader;
 
+import com.example.phantom.game.GameSettings;
 import lombok.Getter;
 import org.springframework.stereotype.Component;
 
@@ -8,7 +9,7 @@ import java.util.Map;
 
 @Getter
 @Component
-public class UpgraderSettings {
+public class UpgraderSettings implements GameSettings {
     private final Map<Integer, BigDecimal> percents = Map.ofEntries(
             Map.entry(75, new BigDecimal("1.2")),
             Map.entry(50, new BigDecimal("1.8")),

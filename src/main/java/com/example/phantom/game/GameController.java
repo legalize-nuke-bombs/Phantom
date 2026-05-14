@@ -2,7 +2,6 @@ package com.example.phantom.game;
 
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.game.upgrader.UpgraderSettings;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
@@ -32,7 +31,7 @@ public class GameController {
     }
 
     @GetMapping("/{game}")
-    public ResponseEntity<Map<String, String>> get(
+    public ResponseEntity<GameSettings> get(
             @PathVariable String game) {
         return ResponseEntity.ok(getService(game).get());
     }

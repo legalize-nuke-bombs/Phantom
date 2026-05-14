@@ -5,8 +5,6 @@ import com.example.phantom.game.*;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -17,7 +15,6 @@ import java.util.Random;
 public class UpgraderService extends GameService {
 
     private final UpgraderSettings settings;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public UpgraderService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, UpgraderSettings settings) {
         super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository);
@@ -25,15 +22,8 @@ public class UpgraderService extends GameService {
     }
 
     @Override
-    public Map<String, String> get() {
-        try {
-            return Map.of(
-                    "percents", objectMapper.writeValueAsString(settings.getPercents()),
-                    "minimalBet", settings.getMinimalBet().toPlainString()
-            );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public GameSettings get() {
+        return settings;
     }
 
     @Override
