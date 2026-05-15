@@ -9,8 +9,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -21,14 +19,10 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/games")
 public class GameController {
 
-    private final GameRepository gameRepository;
-
     private final GameStatService statService;
     private final Map<GameType, GameService> services;
 
-    public GameController(GameRepository gameRepository, GameStatService statService, List<GameService> services) {
-        this.gameRepository = gameRepository;
-
+    public GameController(GameStatService statService, List<GameService> services) {
         this.statService = statService;
         this.services = services.stream().collect(Collectors.toMap(GameService::gameType, Function.identity()));
     }
