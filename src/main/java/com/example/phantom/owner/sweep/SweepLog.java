@@ -8,9 +8,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "sweep_logs", indexes = {
-        @Index(name = "idx_sweep_logs_timestamp", columnList = "timestamp")
-})
+@Table(name = "sweep_logs")
 @Getter
 @Setter
 public class SweepLog {
