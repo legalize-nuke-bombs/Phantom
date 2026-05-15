@@ -39,6 +39,6 @@ public class BalanceChange {
     @Column(nullable = false)
     private Long timestamp;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = BalanceChangeConstants.MAX_DETAILS_LENGTH)
     private String details;
 }

@@ -85,6 +85,9 @@ public class WalletService {
         }
 
         BigDecimal amount = request.getAmount();
+        String message = request.getMessage();
+
+        if (message == null) message = "";
 
         lock(Math.min(user.getId(), target.getId())); // locks being done by specified order to prevent deadlock problem
         lock(Math.max(user.getId(), target.getId()));
@@ -95,8 +98,8 @@ public class WalletService {
 
         lock(target.getId());
 
-        BalanceChange bc = addChange(user, amount.negate(), BalanceChangeType.INTERUSER_SEND, "to " + target.getId());
-        addChange(target, amount, BalanceChangeType.INTERUSER_RECEIVE, "from " + user.getId());
+        BalanceChange bc = addChange(user, amount.negate(), BalanceChangeType.INTERUSER_SEND, message);
+        addChange(target, amount, BalanceChangeType.INTERUSER_RECEIVE, message);
 
         return new BalanceChangeRepresentation(bc);
     }
