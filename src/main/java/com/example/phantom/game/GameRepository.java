@@ -55,12 +55,11 @@ public interface GameRepository extends JpaRepository<Game, Long> {
     @Query("SELECT COUNT(r) FROM Game r WHERE r.user.id = ?1 AND r.clientSeed IS NOT NULL")
     long countCompletedByUserId(Long userId);
 
-
-
-
-
     @Query("SELECT COUNT(r) FROM Game r WHERE r.user.id = ?1 AND r.gameType = ?2 AND r.clientSeed IS NOT NULL")
     long countCompletedByUserIdAndGameType(Long userId, GameType gameType);
+
+
+
 
     @Query("SELECT MAX(r.result) FROM Game r WHERE r.clientSeed IS NOT NULL")
     BigDecimal maxResult();
