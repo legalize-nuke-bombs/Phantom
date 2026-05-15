@@ -13,11 +13,10 @@ import com.example.phantom.wallet.balancechange.BalanceChange;
 import com.example.phantom.wallet.balancechange.BalanceChangeRepository;
 import com.example.phantom.wallet.balancechange.BalanceChangeRepresentation;
 import com.example.phantom.wallet.balancechange.BalanceChangeType;
-import jakarta.transaction.Transactional;
-import lombok.val;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
