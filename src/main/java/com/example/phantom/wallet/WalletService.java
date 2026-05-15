@@ -68,8 +68,8 @@ public class WalletService {
 
         privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletBalancePrivacySetting());
 
-        BigDecimal balance = getBalance(userId);
-        return new WalletRepresentation(userId, balance);
+        BigDecimal balance = getBalance(target.getId());
+        return new WalletRepresentation(target.getId(), balance);
     }
 
     @Transactional

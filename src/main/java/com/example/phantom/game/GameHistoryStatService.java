@@ -44,8 +44,8 @@ public class GameHistoryStatService {
         Pageable pageable = PageRequest.of(0, limit);
 
         List<Game> games = before != null
-                ? gameRepository.findHistoryByUserBefore(userId, before, pageable)
-                : gameRepository.findHistoryByUser(userId, pageable);
+                ? gameRepository.findHistoryByUserBefore(target.getId(), before, pageable)
+                : gameRepository.findHistoryByUser(target.getId(), pageable);
         return games.stream().map(GameRepresentation::new).toList();
     }
 
@@ -70,8 +70,8 @@ public class GameHistoryStatService {
         privacySettingValidator.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
 
         return new UserGameStatRepresentation(
-                gameRepository.countCompletedByUserId(userId),
-                gameRepository.maxResultByUserId(userId)
+                gameRepository.countCompletedByUserId(target.getId()),
+                gameRepository.maxResultByUserId(target.getId())
         );
     }
 
