@@ -1,6 +1,7 @@
 package com.example.phantom.wallet;
 
 import com.example.phantom.wallet.balancechange.BalanceChangeRepresentation;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,6 +26,15 @@ public class WalletController {
             @AuthenticationPrincipal Long userId,
             @PathVariable Long targetId) {
         return ResponseEntity.ok(walletService.get(userId, targetId));
+    }
+
+    @PostMapping("/me/send/{targetId}")
+    public ResponseEntity<BalanceChangeRepresentation> send(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long targetId,
+            @Valid @RequestBody SendRequest request
+    ) {
+        return ResponseEntity.ok(walletService.send(userId, targetId, request));
     }
 
     @GetMapping("/{targetId}/history")

@@ -1,5 +1,6 @@
 package com.example.phantom.wallet;
 
+import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.usagelimit.UsageAction;
@@ -12,6 +13,7 @@ import com.example.phantom.wallet.balancechange.BalanceChange;
 import com.example.phantom.wallet.balancechange.BalanceChangeRepository;
 import com.example.phantom.wallet.balancechange.BalanceChangeRepresentation;
 import com.example.phantom.wallet.balancechange.BalanceChangeType;
+import jakarta.transaction.Transactional;
 import lombok.val;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -50,13 +52,13 @@ public class WalletService {
         return balanceChangeRepository.sumByType(userId, BalanceChangeType.DEPOSIT);
     }
 
-    public void addChange(User user, BigDecimal amount, BalanceChangeType type) {
+    public BalanceChange addChange(User user, BigDecimal amount, BalanceChangeType type) {
         BalanceChange change = new BalanceChange();
         change.setUser(user);
         change.setAmount(amount);
         change.setType(type);
         change.setTimestamp(Instant.now().getEpochSecond());
-        balanceChangeRepository.save(change);
+        return balanceChangeRepository.save(change);
     }
 
     public WalletRepresentation get(Long userId, Long targetId) {
@@ -67,6 +69,27 @@ public class WalletService {
 
         BigDecimal balance = getBalance(userId);
         return new WalletRepresentation(userId, balance);
+    }
+
+    @Transactional
+    public BalanceChangeRepresentation send(Long userId, Long targetId, SendRequest request) {
+        User user = getUser(userId);
+        User target = getUser(targetId);
+
+        BigDecimal amount = request.getAmount();
+
+        lock(user.getId());
+
+        if (getBalance(userId).compareTo(amount) < 0) {
+            throw new BadRequestException("insufficient balance");
+        }
+
+        lock(target.getId());
+
+        BalanceChange bc = addChange(user, amount.negate(), BalanceChangeType.INTERUSER_SEND);
+        addChange(target, amount, BalanceChangeType.INTERUSER_RECEIVE);
+
+        return new BalanceChangeRepresentation(bc);
     }
 
     public PlatformWalletStatRepresentation getStats() {

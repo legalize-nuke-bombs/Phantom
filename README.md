@@ -11,6 +11,7 @@ REST API for a gambling platform.
 * Rate limit
 * Usage limit
 * Wallets
+* Interuser balance transfers
 * Deposits & withdrawals via crypto: TON
 * Games: Upgrader, Cases, Coinflip
 * Provably fair
@@ -55,6 +56,7 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | Method | Endpoint                                           | Description               |
 |--------|----------------------------------------------------|---------------------------|
 | GET    | `/api/wallets/{targetId}`                          | Get wallet info           |
+| POST   | `/api/wallets/me/send/{targetId}`                  | Send to another user      |
 | GET    | `/api/wallets/{targetId}/stats`                    | Get wallet stats          |
 | GET    | `/api/wallets/{targetId}/history`                  | Get wallet history        |
 | GET    | `/api/wallets/stats`                               | Get wallet platform stats |

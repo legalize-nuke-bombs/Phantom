@@ -5,5 +5,7 @@ public enum BalanceChangeType {
     WITHDRAWAL,
     WITHDRAWAL_REFUND,
     GAME_BET,
-    GAME_WIN
+    GAME_WIN,
+    INTERUSER_SEND,
+    INTERUSER_RECEIVE
 }
