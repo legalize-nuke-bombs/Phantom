@@ -38,4 +38,7 @@ public class BalanceChange {
 
     @Column(nullable = false)
     private Long timestamp;
+
+    @Column(nullable = false)
+    private String details;
 }

@@ -80,9 +80,9 @@ public abstract class GameService {
         Random random = provablyFairProvider.fairRandom(round.getServerSeed(), request.getClientSeed());
         BigDecimal result = runGame(round, random);
 
-        walletService.addChange(user, round.getBet().negate(), BalanceChangeType.GAME_BET);
+        walletService.addChange(user, round.getBet().negate(), BalanceChangeType.GAME_BET, gameType().name());
         if (result.compareTo(BigDecimal.ZERO) > 0) {
-            walletService.addChange(user, result, BalanceChangeType.GAME_WIN);
+            walletService.addChange(user, result, BalanceChangeType.GAME_WIN, gameType().name());
         }
 
         round.setClientSeed(request.getClientSeed());

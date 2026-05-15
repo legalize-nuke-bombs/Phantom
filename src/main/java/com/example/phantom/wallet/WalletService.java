@@ -52,12 +52,13 @@ public class WalletService {
         return balanceChangeRepository.sumByType(userId, BalanceChangeType.DEPOSIT);
     }
 
-    public BalanceChange addChange(User user, BigDecimal amount, BalanceChangeType type) {
+    public BalanceChange addChange(User user, BigDecimal amount, BalanceChangeType type, String details) {
         BalanceChange change = new BalanceChange();
         change.setUser(user);
         change.setAmount(amount);
         change.setType(type);
         change.setTimestamp(Instant.now().getEpochSecond());
+        change.setDetails(details);
         return balanceChangeRepository.save(change);
     }
 
@@ -86,8 +87,8 @@ public class WalletService {
 
         lock(target.getId());
 
-        BalanceChange bc = addChange(user, amount.negate(), BalanceChangeType.INTERUSER_SEND);
-        addChange(target, amount, BalanceChangeType.INTERUSER_RECEIVE);
+        BalanceChange bc = addChange(user, amount.negate(), BalanceChangeType.INTERUSER_SEND, "to " + target.getId());
+        addChange(target, amount, BalanceChangeType.INTERUSER_RECEIVE, "from " + user.getId());
 
         return new BalanceChangeRepresentation(bc);
     }

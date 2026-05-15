@@ -92,7 +92,7 @@ public class DepositService {
 
         walletService.lock(user.getId());
         for (Deposit deposit : deposits) {
-            walletService.addChange(user, deposit.getAmount(), BalanceChangeType.DEPOSIT);
+            walletService.addChange(user, deposit.getAmount(), BalanceChangeType.DEPOSIT, deposit.getCoin());
         }
     }
 }

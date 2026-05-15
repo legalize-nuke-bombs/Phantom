@@ -59,7 +59,7 @@ public class WithdrawalService {
             throw new BadRequestException("insufficient balance");
         }
 
-        walletService.addChange(user, amount.negate(), BalanceChangeType.WITHDRAWAL);
+        walletService.addChange(user, amount.negate(), BalanceChangeType.WITHDRAWAL, coin);
 
         Withdrawal withdrawal = new Withdrawal();
         withdrawal.setUser(user);
@@ -127,7 +127,7 @@ public class WithdrawalService {
             log.info("applying withdrawal {} status={}", w.getId(), w.getStatus());
 
             if (w.getStatus() == TransferStatus.REJECTED && refundRepository.insertIfNotExists(w.getId()) == 1) {
-                walletService.addChange(w.getUser(), w.getAmount(), BalanceChangeType.WITHDRAWAL_REFUND);
+                walletService.addChange(w.getUser(), w.getAmount(), BalanceChangeType.WITHDRAWAL_REFUND, w.getCoin());
                 log.info("withdrawal {} refund {}", w.getId(), w.getAmount());
             }
         }
