@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class WalletService {
@@ -77,9 +78,14 @@ public class WalletService {
         User user = getUser(userId);
         User target = getUser(targetId);
 
+        if (Objects.equals(user.getId(), target.getId())) {
+            throw new BadRequestException("can't self send");
+        }
+
         BigDecimal amount = request.getAmount();
 
-        lock(user.getId());
+        lock(Math.min(user.getId(), target.getId())); // locks being done by specified order to prevent deadlock problem
+        lock(Math.max(user.getId(), target.getId()));
 
         if (getBalance(userId).compareTo(amount) < 0) {
             throw new BadRequestException("insufficient balance");
