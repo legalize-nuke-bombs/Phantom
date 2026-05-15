@@ -24,6 +24,12 @@ public class UsageLimiterConfig {
                 Plan.MAX, new UsageLimitRule(40L, 60L)
         ));
 
+        usageLimiter.registerRules(UsageAction.INTERUSER_SEND, Map.of(
+                Plan.DEFAULT, new UsageLimitRule(5L, 60L),
+                Plan.PRO, new UsageLimitRule(20L, 60L),
+                Plan.MAX, new UsageLimitRule(100L, 60L)
+        ));
+
         return usageLimiter;
     }
 }

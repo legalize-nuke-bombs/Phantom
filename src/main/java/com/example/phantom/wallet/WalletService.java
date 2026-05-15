@@ -77,6 +77,9 @@ public class WalletService {
         User user = getUser(userId);
         User target = getUser(targetId);
 
+        try { usageLimiter.startAction(user, UsageAction.INTERUSER_SEND, 1L); }
+        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+
         if (Objects.equals(user.getId(), target.getId())) {
             throw new BadRequestException("can't self send");
         }
