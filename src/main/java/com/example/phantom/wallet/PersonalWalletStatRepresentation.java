@@ -9,5 +9,4 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class PersonalWalletStatRepresentation {
     private final BigDecimal totalDeposits;
-    private final BigDecimal totalWithdrawals;
 }

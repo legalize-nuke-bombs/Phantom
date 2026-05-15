@@ -117,10 +117,7 @@ public class WalletService {
         privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletStatsPrivacySetting());
 
         return new PersonalWalletStatRepresentation(
-                balanceChangeRepository.sumByType(target.getId(), BalanceChangeType.DEPOSIT),
-                balanceChangeRepository.sumByType(target.getId(), BalanceChangeType.WITHDRAWAL)
-                        .add(balanceChangeRepository.sumByType(target.getId(), BalanceChangeType.WITHDRAWAL_REFUND))
-                        .abs()
+                balanceChangeRepository.sumByType(target.getId(), BalanceChangeType.DEPOSIT)
         );
     }
 
