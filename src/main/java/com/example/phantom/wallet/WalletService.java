@@ -5,12 +5,14 @@ import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.balancechange.BalanceChange;
 import com.example.phantom.wallet.balancechange.BalanceChangeRepository;
 import com.example.phantom.wallet.balancechange.BalanceChangeRepresentation;
 import com.example.phantom.wallet.balancechange.BalanceChangeType;
+import lombok.val;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,12 +28,14 @@ public class WalletService {
     private final BalanceChangeRepository balanceChangeRepository;
     private final UserRepository userRepository;
     private final UsageLimiter usageLimiter;
+    private final PrivacySettingValidator privacySettingValidator;
 
-    public WalletService(WalletRepository walletRepository, BalanceChangeRepository balanceChangeRepository, UserRepository userRepository, UsageLimiter usageLimiter) {
+    public WalletService(WalletRepository walletRepository, BalanceChangeRepository balanceChangeRepository, UserRepository userRepository, UsageLimiter usageLimiter, PrivacySettingValidator privacySettingValidator) {
         this.walletRepository = walletRepository;
         this.balanceChangeRepository = balanceChangeRepository;
         this.userRepository = userRepository;
         this.usageLimiter = usageLimiter;
+        this.privacySettingValidator = privacySettingValidator;
     }
 
     public void lock(Long userId) {
@@ -55,7 +59,12 @@ public class WalletService {
         balanceChangeRepository.save(change);
     }
 
-    public WalletRepresentation get(Long userId) {
+    public WalletRepresentation get(Long userId, Long targetId) {
+        User user = getUser(userId);
+        User target = getUser(targetId);
+
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletBalancePrivacySetting());
+
         BigDecimal balance = getBalance(userId);
         return new WalletRepresentation(userId, balance);
     }
@@ -69,17 +78,25 @@ public class WalletService {
         );
     }
 
-    public PersonalWalletStatRepresentation getMyStats(Long userId) {
+    public PersonalWalletStatRepresentation getStats(Long userId, Long targetId) {
+        User user = getUser(userId);
+        User target = getUser(targetId);
+
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletStatsPrivacySetting());
+
         return new PersonalWalletStatRepresentation(
-                balanceChangeRepository.sumByType(userId, BalanceChangeType.DEPOSIT),
-                balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL)
-                        .add(balanceChangeRepository.sumByType(userId, BalanceChangeType.WITHDRAWAL_REFUND))
+                balanceChangeRepository.sumByType(target.getId(), BalanceChangeType.DEPOSIT),
+                balanceChangeRepository.sumByType(target.getId(), BalanceChangeType.WITHDRAWAL)
+                        .add(balanceChangeRepository.sumByType(target.getId(), BalanceChangeType.WITHDRAWAL_REFUND))
                         .abs()
         );
     }
 
-    public List<BalanceChangeRepresentation> getHistory(Long userId, Integer limit, Long before) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+    public List<BalanceChangeRepresentation> getHistory(Long userId, Long targetId, Integer limit, Long before) {
+        User user = getUser(userId);
+        User target = getUser(targetId);
+
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletHistoryPrivacySetting());
 
         try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
@@ -87,9 +104,13 @@ public class WalletService {
         Pageable pageable = PageRequest.of(0, limit);
 
         List<BalanceChange> changes = before != null
-                ? balanceChangeRepository.findByUserIdBeforePageable(userId, before, pageable)
-                : balanceChangeRepository.findByUserIdPageable(userId, pageable);
+                ? balanceChangeRepository.findByUserIdBeforePageable(target.getId(), before, pageable)
+                : balanceChangeRepository.findByUserIdPageable(target.getId(), pageable);
 
         return changes.stream().map(BalanceChangeRepresentation::new).toList();
+    }
+
+    private User getUser(Long userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
     }
 }

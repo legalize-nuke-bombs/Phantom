@@ -6,6 +6,8 @@ REST API for a gambling platform.
 * JWT authentication
 * Recovery keys
 * User profiles (view, edit, delete)
+* Stats & history
+* User privacy settings
 * Rate limit
 * Usage limit
 * Wallets
@@ -33,16 +35,16 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/auth/recover`  | Recover account credentials                  |
 
 ### Users
-| Method | Endpoint                            | Description                 |
-|--------|-------------------------------------|-----------------------------|
-| GET    | `/api/users/me`                     | Get current user profile    |
-| GET    | `/api/users/by-id/{id}`             | Get user by ID              |
-| GET    | `/api/users/by-username/{username}` | Get user by username        |
-| PATCH  | `/api/users/me`                     | Update display name         |
-| PATCH  | `/api/users/me/secure`              | Change username or password |
-| POST   | `/api/users/me/new-recovery-key`    | Regenerate recovery key     |
-| DELETE | `/api/users/me`                     | Delete account              |
-| GET    | `/api/users/stats`                  | Get users platform stats    |
+| Method | Endpoint                            | Description                             |
+|--------|-------------------------------------|-----------------------------------------|
+| GET    | `/api/users/me`                     | Get current user                        |
+| GET    | `/api/users/by-id/{id}`             | Get user by ID                          |
+| GET    | `/api/users/by-username/{username}` | Get user by username                    |
+| PATCH  | `/api/users/me`                     | Update display name or privacy settings |
+| PATCH  | `/api/users/me/secure`              | Change username or password             |
+| POST   | `/api/users/me/new-recovery-key`    | Regenerate recovery key                 |
+| DELETE | `/api/users/me`                     | Delete account                          |
+| GET    | `/api/users/stats`                  | Get users platform stats                |
 
 ### Usage limit
 | Method | Endpoint           | Description     |
@@ -52,9 +54,9 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 ### Wallets
 | Method | Endpoint                                           | Description               |
 |--------|----------------------------------------------------|---------------------------|
-| GET    | `/api/wallets/me`                                  | Get wallet info           |
-| GET    | `/api/wallets/me/stats`                            | Get wallet stats          |
-| GET    | `/api/wallets/me/history`                          | Get wallet history        |
+| GET    | `/api/wallets/{targetId}`                          | Get wallet info           |
+| GET    | `/api/wallets/{targetId}/stats`                    | Get wallet stats          |
+| GET    | `/api/wallets/{targetId}/history`                  | Get wallet history        |
 | GET    | `/api/wallets/stats`                               | Get wallet platform stats |
 | GET    | `/api/wallets/me/crypto/{coin}`                    | Get crypto wallet info    |
 | POST   | `/api/wallets/me/crypto/{coin}/check-deposits`     | Check deposits            |
@@ -67,15 +69,18 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | GET    | `/api/finances/colors` | Get finance colors |
 
 ### Games
-| Method | Endpoint                    | Description              |
-|--------|-----------------------------|--------------------------|
-| GET    | `/api/games/{game}`         | Get game settings        |
-| POST   | `/api/games/{game}/init`    | Init game                |
-| POST   | `/api/games/{game}/run`     | Run game                 |
-| GET    | `/api/games/{game}/history` | Get game history         |
-| DELETE | `/api/games/{game}`         | Cancel active game       |
-| GET    | `/api/games/stats`          | Get games platform stats |
-| GET    | `/api/games/stats/me`       | Get games personal stats |
+| Method | Endpoint                               | Description           |
+|--------|----------------------------------------|-----------------------|
+| GET    | `/api/games/{game}`                    | Get game settings     |
+| POST   | `/api/games/{game}/init`               | Init game             |
+| POST   | `/api/games/{game}/run`                | Run game              |
+| GET    | `/api/games/{game}/history/{targetId}` | Get game user history |
+| GET    | `/api/games/{game}/stats/{targetId}`   | Get game user stats   |
+| DELETE | `/api/games/{game}`                    | Cancel active game    |
+| GET    | `/api/games/history/{targetId}`        | Get user history      |
+| GET    | `/api/games/history`                   | Get platform history  |
+| GET    | `/api/games/stats/{targetId}`          | Get user stats        |
+| GET    | `/api/games/stats`                     | Get platform stats    |
 
 ### Owner
 | Method | Endpoint                        | Description                                     |

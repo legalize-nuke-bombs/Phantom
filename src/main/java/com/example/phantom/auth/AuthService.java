@@ -84,6 +84,11 @@ public class AuthService {
         user.setDisplayName(displayName);
         user.setRegisteredAt(Instant.now().getEpochSecond());
         user.setRole(role);
+        user.setWalletBalancePrivacySetting(PrivacySetting.EVERYONE);
+        user.setWalletStatsPrivacySetting(PrivacySetting.EVERYONE);
+        user.setWalletHistoryPrivacySetting(PrivacySetting.EVERYONE);
+        user.setGameHistoryPrivacySetting(PrivacySetting.EVERYONE);
+        user.setGameStatsPrivacySetting(PrivacySetting.EVERYONE);
         user.setPasswordHash(passwordEncoder.encode(password1));
         user.setPublicRecoveryKey(recoveryKeyPair.publicKey());
         user.setPrivateRecoveryKeyHash(passwordEncoder.encode(recoveryKeyPair.privateKey()));

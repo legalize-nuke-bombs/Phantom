@@ -3,6 +3,7 @@ package com.example.phantom.game.upgrader;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.game.*;
 import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
@@ -16,8 +17,8 @@ public class UpgraderService extends GameService {
 
     private final UpgraderSettings settings;
 
-    public UpgraderService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, UpgraderSettings settings) {
-        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository);
+    public UpgraderService(UpgraderSettings settings, UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
         this.settings = settings;
     }
 

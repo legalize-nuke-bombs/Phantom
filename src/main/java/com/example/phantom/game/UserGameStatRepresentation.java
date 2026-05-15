@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 
 @Getter
 @AllArgsConstructor
-public class PersonalGameStatRepresentation {
+public class UserGameStatRepresentation {
     private final Long totalGames;
     private final BigDecimal maxWin;
 }

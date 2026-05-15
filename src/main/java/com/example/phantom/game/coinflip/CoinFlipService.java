@@ -3,6 +3,7 @@ package com.example.phantom.game.coinflip;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.game.*;
 import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
@@ -16,8 +17,8 @@ public class CoinFlipService extends GameService {
 
     private final CoinFlipSettings settings;
 
-    public CoinFlipService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, CoinFlipSettings settings) {
-        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository);
+    public CoinFlipService(CoinFlipSettings settings, UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
         this.settings = settings;
     }
 

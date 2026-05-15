@@ -3,6 +3,7 @@ package com.example.phantom.game.thecase;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.game.*;
 import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
@@ -17,8 +18,8 @@ public class CaseService extends GameService {
 
     private final CaseSettings settings;
 
-    public CaseService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, CaseSettings settings) {
-        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository);
+    public CaseService(CaseSettings settings, UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
         this.settings = settings;
     }
 

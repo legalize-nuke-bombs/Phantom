@@ -6,6 +6,7 @@ import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
@@ -27,13 +28,15 @@ public abstract class GameService {
     private final ProvablyFairProvider provablyFairProvider;
     private final UsageLimiter usageLimiter;
     private final GameRepository gameRepository;
+    private final PrivacySettingValidator privacySettingValidator;
 
-    protected GameService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository) {
+    protected GameService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.provablyFairProvider = provablyFairProvider;
         this.usageLimiter = usageLimiter;
         this.gameRepository = gameRepository;
+        this.privacySettingValidator = privacySettingValidator;
     }
 
     protected abstract GameSettings get();
@@ -46,7 +49,7 @@ public abstract class GameService {
 
     @Transactional
     public GameInitRepresentation init(Long userId, GameInitRequest request) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = getUser(userId);
         Game round = initGame(request.getData());
         round.setUser(user);
         round.setServerSeed(provablyFairProvider.generateSeed());
@@ -66,7 +69,7 @@ public abstract class GameService {
 
     @Transactional
     public GameRepresentation run(Long userId, GameRunRequest request) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = getUser(userId);
         walletService.lock(userId);
         Game round = gameRepository.findActiveRound(userId, gameType()).orElseThrow(() -> new NotFoundException("game not found"));
 
@@ -95,8 +98,11 @@ public abstract class GameService {
         gameRepository.deleteActiveRound(userId, gameType());
     }
 
-    public List<GameRepresentation> getHistory(Long userId, Integer limit, Long before) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+    public List<GameRepresentation> getGameUserHistory(Long userId, Long targetId, Integer limit, Long before) {
+        User user = getUser(userId);
+        User target = getUser(targetId);
+
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getGameHistoryPrivacySetting());
 
         try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
@@ -104,9 +110,25 @@ public abstract class GameService {
         Pageable pageable = PageRequest.of(0, limit);
 
         List<Game> rounds = before != null
-                ? gameRepository.findHistoryBefore(userId, gameType(), before, pageable)
-                : gameRepository.findHistory(userId, gameType(), pageable);
+                ? gameRepository.findHistoryByUserAndGameTypeBefore(target.getId(), gameType(), before, pageable)
+                : gameRepository.findHistoryByUserAndGameType(target.getId(), gameType(), pageable);
 
         return rounds.stream().map(GameRepresentation::new).toList();
+    }
+
+    public UserGameStatRepresentation getGameUserStats(Long userId, Long targetId) {
+        User user = getUser(userId);
+        User target = getUser(targetId);
+
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
+
+        return new UserGameStatRepresentation(
+                gameRepository.countCompletedByUserIdAndGameType(targetId, gameType()),
+                gameRepository.maxResultByUserIdAndGameType(targetId, gameType())
+        );
+    }
+
+    private User getUser(Long userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
     }
 }

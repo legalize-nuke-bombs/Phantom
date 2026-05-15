@@ -30,6 +30,26 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PrivacySetting walletBalancePrivacySetting;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PrivacySetting walletStatsPrivacySetting;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PrivacySetting walletHistoryPrivacySetting;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PrivacySetting gameHistoryPrivacySetting;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PrivacySetting gameStatsPrivacySetting;
+
     @Column(nullable = false, length = UserConstants.BCRYPT_HASH_LENGTH)
     private String passwordHash;
 

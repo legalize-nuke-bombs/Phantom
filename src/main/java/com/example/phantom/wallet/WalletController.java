@@ -20,18 +20,21 @@ public class WalletController {
         this.walletService = walletService;
     }
 
-    @GetMapping("/me")
-    public ResponseEntity<WalletRepresentation> get(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(walletService.get(userId));
+    @GetMapping("/{targetId}")
+    public ResponseEntity<WalletRepresentation> get(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long targetId) {
+        return ResponseEntity.ok(walletService.get(userId, targetId));
     }
 
-    @GetMapping("/me/history")
+    @GetMapping("/{targetId}/history")
     public ResponseEntity<List<BalanceChangeRepresentation>> getHistory(
             @AuthenticationPrincipal Long userId,
+            @PathVariable Long targetId,
             @RequestParam @Min(1) Integer limit,
             @RequestParam(required = false) Long before
     ) {
-        return ResponseEntity.ok(walletService.getHistory(userId, limit, before));
+        return ResponseEntity.ok(walletService.getHistory(userId, targetId, limit, before));
     }
 
     @GetMapping("/stats")
@@ -39,8 +42,10 @@ public class WalletController {
         return ResponseEntity.ok(walletService.getStats());
     }
 
-    @GetMapping("/me/stats")
-    public ResponseEntity<PersonalWalletStatRepresentation> myStats(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(walletService.getMyStats(userId));
+    @GetMapping("/{targetId}/stats")
+    public ResponseEntity<PersonalWalletStatRepresentation> stats(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long targetId) {
+        return ResponseEntity.ok(walletService.getStats(userId, targetId));
     }
 }
