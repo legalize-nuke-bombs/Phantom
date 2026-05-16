@@ -150,7 +150,7 @@ public class SimpleSlots implements Slots {
                 for (Map.Entry<String, Long> entry : map.entrySet()) {
                     System.out.println(entry.getKey() + ": " + new BigDecimal(entry.getValue()).multiply(new BigDecimal(100)).divide(new BigDecimal(i + 1), FinanceConstants.SCALE, RoundingMode.DOWN) + "%");
                 }
-                System.out.println("average k: " + kSum.divide(new BigDecimal(i), FinanceConstants.SCALE, RoundingMode.DOWN));
+                System.out.println("average k: " + kSum.divide(new BigDecimal(i + 1), FinanceConstants.SCALE, RoundingMode.DOWN));
                 System.out.print("\n");
             }
         }
