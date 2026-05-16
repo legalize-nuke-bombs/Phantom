@@ -65,9 +65,13 @@ public class UpgraderService extends GameService {
     }
 
     @Override
-    protected BigDecimal runGame(Game round, Random random) {
-        int percent = Integer.parseInt(round.getData().get("percent"));
+    protected Game runGame(Game game, Random random) {
+        int percent = Integer.parseInt(game.getData().get("percent").toString());
         int randomResult = random.nextInt(100) + 1;
-        return percent >= randomResult ? new BigDecimal(round.getData().get("possibleResult")) : BigDecimal.ZERO;
+        game.setResult(percent >= randomResult
+                ? new BigDecimal(game.getData().get("possibleResult").toString())
+                : BigDecimal.ZERO
+        );
+        return game;
     }
 }

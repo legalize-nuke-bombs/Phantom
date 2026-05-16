@@ -53,5 +53,5 @@ public class Game {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
-    private Map<String, String> data;
+    private Map<String, Object> data;
 }

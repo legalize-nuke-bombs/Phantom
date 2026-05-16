@@ -1,6 +1,5 @@
 package com.example.phantom.game.fruits;
 
-import com.example.phantom.game.GameSettings;
 import com.example.phantom.game.util.slot.*;
 import com.example.phantom.game.util.slot.phantomslots.SimpleSlots;
 import lombok.Getter;
@@ -10,46 +9,46 @@ import java.math.BigDecimal;
 
 @Component
 @Getter
-public class FruitSlots implements GameSettings {
-    private final Slots slots;
+public class FruitSlots {
+    private final Slots data;
 
     public FruitSlots() {
-        this.slots = new SimpleSlots(3, 5);
+        this.data = new SimpleSlots(3, 5);
 
-        this.slots.registerSlot(new Slot("plum", new BigDecimal("0.35"), new BigDecimal("1")));
-        this.slots.registerSlot(new Slot("grape", new BigDecimal("0.35"), new BigDecimal("1")));
-        this.slots.registerSlot(new Slot("seven", new BigDecimal("0.15"), new BigDecimal("10")));
-        this.slots.registerSlot(new Slot(Slot.WILD_NAME, new BigDecimal("0.15"), new BigDecimal("10")));
+        this.data.registerSlot(new Slot("plum", new BigDecimal("0.35"), new BigDecimal("1")));
+        this.data.registerSlot(new Slot("grape", new BigDecimal("0.35"), new BigDecimal("1")));
+        this.data.registerSlot(new Slot("seven", new BigDecimal("0.15"), new BigDecimal("10")));
+        this.data.registerSlot(new Slot(Slot.WILD_NAME, new BigDecimal("0.15"), new BigDecimal("10")));
 
-        this.slots.registerPattern(new Pattern("column1", new BigDecimal("0.05"),
+        this.data.registerPattern(new Pattern("column1", new BigDecimal("0.05"),
                 new int[][]{
                         {1, 0, 0, 0, 0},
                         {1, 0, 0, 0, 0},
                         {1, 0, 0, 0, 0}
                 }
         ));
-        this.slots.registerPattern(new Pattern("column2", new BigDecimal("0.05"),
+        this.data.registerPattern(new Pattern("column2", new BigDecimal("0.05"),
                 new int[][]{
                         {0, 1, 0, 0, 0},
                         {0, 1, 0, 0, 0},
                         {0, 1, 0, 0, 0}
                 }
         ));
-        this.slots.registerPattern(new Pattern("column3", new BigDecimal("0.05"),
+        this.data.registerPattern(new Pattern("column3", new BigDecimal("0.05"),
                 new int[][]{
                         {0, 0, 1, 0, 0},
                         {0, 0, 1, 0, 0},
                         {0, 0, 1, 0, 0}
                 }
         ));
-        this.slots.registerPattern(new Pattern("column4", new BigDecimal("0.05"),
+        this.data.registerPattern(new Pattern("column4", new BigDecimal("0.05"),
                 new int[][]{
                         {0, 0, 0, 1, 0},
                         {0, 0, 0, 1, 0},
                         {0, 0, 0, 1, 0}
                 }
         ));
-        this.slots.registerPattern(new Pattern("column5", new BigDecimal("0.05"),
+        this.data.registerPattern(new Pattern("column5", new BigDecimal("0.05"),
                 new int[][]{
                         {0, 0, 0, 0, 1},
                         {0, 0, 0, 0, 1},
@@ -57,21 +56,21 @@ public class FruitSlots implements GameSettings {
                 }
         ));
 
-        this.slots.registerPattern(new Pattern("row1", new BigDecimal("0.1"),
+        this.data.registerPattern(new Pattern("row1", new BigDecimal("0.1"),
                 new int[][]{
                         {1, 1, 1, 1, 1},
                         {0, 0, 0, 0, 0},
                         {0, 0, 0, 0, 0}
                 }
         ));
-        this.slots.registerPattern(new Pattern("row2", new BigDecimal("0.1"),
+        this.data.registerPattern(new Pattern("row2", new BigDecimal("0.1"),
                 new int[][]{
                         {0, 0, 0, 0, 0},
                         {1, 1, 1, 1, 1},
                         {0, 0, 0, 0, 0}
                 }
         ));
-        this.slots.registerPattern(new Pattern("row3", new BigDecimal("0.1"),
+        this.data.registerPattern(new Pattern("row3", new BigDecimal("0.1"),
                 new int[][]{
                         {0, 0, 0, 0, 0},
                         {0, 0, 0, 0, 0},
@@ -79,14 +78,14 @@ public class FruitSlots implements GameSettings {
                 }
         ));
 
-        this.slots.registerPattern(new Pattern("arrowUp", new BigDecimal("2"),
+        this.data.registerPattern(new Pattern("arrowUp", new BigDecimal("2"),
                 new int[][]{
                         {0, 0, 1, 0, 0},
                         {0, 1, 0, 1, 0},
                         {1, 0, 0, 0, 1}
                 }
         ));
-        this.slots.registerPattern(new Pattern("arrowDown", new BigDecimal("2"),
+        this.data.registerPattern(new Pattern("arrowDown", new BigDecimal("2"),
                 new int[][]{
                         {1, 0, 0, 0, 1},
                         {0, 1, 0, 1, 0},
@@ -94,7 +93,7 @@ public class FruitSlots implements GameSettings {
                 }
         ));
 
-        this.slots.registerPattern(new Pattern("eye", new BigDecimal("20"),
+        this.data.registerPattern(new Pattern("eye", new BigDecimal("20"),
                 new int[][] {
                         {0, 1, 1, 1, 0},
                         {1, 0, 0, 0, 1},
@@ -102,14 +101,14 @@ public class FruitSlots implements GameSettings {
                 }
         ));
 
-        this.slots.registerPattern(new Pattern("triangleUp", new BigDecimal("25"),
+        this.data.registerPattern(new Pattern("triangleUp", new BigDecimal("25"),
                 new int[][]{
                         {0, 0, 1, 0, 0},
                         {0, 1, 1, 1, 0},
                         {1, 1, 1, 1, 1}
                 }
         ));
-        this.slots.registerPattern(new Pattern("triangleDown", new BigDecimal("25"),
+        this.data.registerPattern(new Pattern("triangleDown", new BigDecimal("25"),
                 new int[][]{
                         {1, 1, 1, 1, 1},
                         {0, 1, 1, 1, 0},
@@ -117,7 +116,7 @@ public class FruitSlots implements GameSettings {
                 }
         ));
 
-        this.slots.registerPattern(new Pattern("jackpot", new BigDecimal("500"),
+        this.data.registerPattern(new Pattern("jackpot", new BigDecimal("500"),
                 new int[][] {
                         {1, 1, 1, 1, 1},
                         {1, 1, 1, 1, 1},
@@ -125,7 +124,7 @@ public class FruitSlots implements GameSettings {
                 }
         ));
 
-        this.slots.validate();
+        this.data.validate();
 
         // this.slots.estimate(10_000_000);
     }

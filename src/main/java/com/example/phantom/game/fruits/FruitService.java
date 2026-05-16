@@ -1,11 +1,15 @@
-package com.example.phantom.game.coinflip;
+package com.example.phantom.game.fruits;
 
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.game.*;
+import com.example.phantom.game.util.slot.PatternMatch;
+import com.example.phantom.game.util.slot.Slot;
+import com.example.phantom.game.util.slot.SpinRepresentation;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
+import com.google.gson.JsonArray;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -13,23 +17,23 @@ import java.util.Map;
 import java.util.Random;
 
 @Service
-public class CoinFlipService extends GameService {
+public class FruitService extends GameService {
 
-    private final CoinFlipSettings settings;
+    private final FruitSettings settings;
 
-    public CoinFlipService(CoinFlipSettings settings, UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+    public FruitService(FruitSettings settings, UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
         super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
         this.settings = settings;
     }
 
     @Override
-    public GameSettings get() {
+    protected GameSettings get() {
         return settings;
     }
 
     @Override
     protected GameType gameType() {
-        return GameType.COINFLIP;
+        return GameType.FRUITS;
     }
 
     @Override
@@ -47,23 +51,23 @@ public class CoinFlipService extends GameService {
             throw new BadRequestException("bet is not a number");
         }
 
-        if (bet.compareTo(settings.getMinimalBet()) < 0) {
+        if (bet.compareTo(new BigDecimal(settings.getMinBet())) < 0) {
             throw new BadRequestException("insufficient bet");
         }
 
         Game game = new Game();
         game.setBet(bet);
-        game.setData(Map.of("possibleResult", bet.multiply(settings.getMultiplier()).toString()));
         return game;
     }
 
     @Override
     protected Game runGame(Game game, Random random) {
-        game.setResult(
-                (random.nextInt() % 2 == 1)
-                ? new BigDecimal(game.getData().get("possibleResult").toString())
-                : BigDecimal.ZERO
-        );
+        SpinRepresentation spin = settings.getSlots().getData().spin(random);
+
+        game.setResult(game.getBet().multiply(spin.k()));
+        game.getData().put("data", spin.data());
+        game.getData().put("patternMatches", spin.patternMatches());
+
         return game;
     }
 }

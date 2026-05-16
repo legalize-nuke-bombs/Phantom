@@ -18,7 +18,7 @@ public class GameRepresentation {
     private final BigDecimal result;
     private final String serverSeed;
     private final String clientSeed;
-    private final Map<String, String> data;
+    private final Map<String, Object> data;
 
     public GameRepresentation(Game game) {
         this.id = game.getId();

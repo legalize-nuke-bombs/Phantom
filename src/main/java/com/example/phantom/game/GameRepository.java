@@ -16,11 +16,11 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
 
     @Query("SELECT r FROM Game r WHERE r.user.id = ?1 AND r.gameType = ?2 AND r.clientSeed IS NULL")
-    Optional<Game> findActiveRound(Long userId, GameType gameType);
+    Optional<Game> findActiveGame(Long userId, GameType gameType);
 
     @Modifying
     @Query("DELETE FROM Game r WHERE r.user.id = ?1 AND r.gameType = ?2 AND r.clientSeed IS NULL")
-    void deleteActiveRound(Long userId, GameType gameType);
+    void deleteActiveGame(Long userId, GameType gameType);
 
 
 

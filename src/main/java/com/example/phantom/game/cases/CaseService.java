@@ -8,7 +8,6 @@ import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
@@ -41,16 +40,16 @@ public class CaseService extends GameService {
         Case thecase = findCase(caseName);
 
         Game round = new Game();
-        round.setGameType(GameType.CASES);
         round.setBet(thecase.getCost());
         round.setData(Map.of("caseName", caseName));
         return round;
     }
 
     @Override
-    protected BigDecimal runGame(Game round, Random random) {
-        Case thecase = findCase(round.getData().get("caseName"));
-        return thecase.get(random.nextInt(thecase.getSize()));
+    protected Game runGame(Game game, Random random) {
+        Case thecase = findCase(game.getData().get("caseName").toString());
+        game.setResult(thecase.get(random.nextInt(thecase.getSize())));
+        return game;
     }
 
     private Case findCase(String caseName) {

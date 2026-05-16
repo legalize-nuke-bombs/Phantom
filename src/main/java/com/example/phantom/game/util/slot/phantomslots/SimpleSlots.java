@@ -56,7 +56,7 @@ public class SimpleSlots implements Slots {
 
     @Override
     public SpinRepresentation spin(Random random) {
-        Slot[][] data = randomData(random);
+        String[][] data = randomData(random);
         List<PatternMatch> patternMatches = patternMatches(data);
         return new SpinRepresentation(
                 data,
@@ -65,35 +65,35 @@ public class SimpleSlots implements Slots {
         );
     }
 
-    private Slot[][] randomData(Random random) {
-        Slot[][] data = new Slot[height][width];
+    private String[][] randomData(Random random) {
+        String[][] data = new String[height][width];
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                data[y][x] = randomSlot(random);
+                data[y][x] = randomSlotName(random);
             }
         }
 
         return data;
     }
 
-    private Slot randomSlot(Random random) {
+    private String randomSlotName(Random random) {
         int value = random.nextInt(P9_UNIT);
 
-        Slot last = null;
+        String last = null;
         for (Slot slot : slots.values()) {
             int p9 = slot.probability().multiply(new BigDecimal(P9_UNIT)).intValue();
             if (p9 > value) {
-                return slot;
+                return slot.name();
             }
             value -= p9;
-            last = slot;
+            last = slot.name();
         }
 
         return last;
     }
 
-    private List<PatternMatch> patternMatches(Slot[][] data) {
+    private List<PatternMatch> patternMatches(String[][] data) {
         List<PatternMatch> patternMatches = new ArrayList<>();
 
         for (Pattern pattern : patterns.values()) {
@@ -103,7 +103,7 @@ public class SimpleSlots implements Slots {
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
                     if (patternData[y][x] > 0) {
-                        patternSlots.put(data[y][x].name(), data[y][x]);
+                        patternSlots.put(data[y][x], slots.get(data[y][x]));
                     }
                 }
             }
@@ -117,12 +117,12 @@ public class SimpleSlots implements Slots {
                 String slotName = patternSlots.keySet().iterator().next();
                 BigDecimal patternK = pattern.k();
                 BigDecimal slotK = patternSlots.values().iterator().next().k();
-                patternMatches.add(new PatternMatch(patternName, slotName, patternK.multiply(slotK)));
+                patternMatches.add(new PatternMatch(patternName, slotName, patternK, slotK, patternK.multiply(slotK)));
             }
 
         }
 
-        patternMatches.sort(Comparator.comparing(PatternMatch::k));
+        patternMatches.sort(Comparator.comparing(PatternMatch::patternK).thenComparing(PatternMatch::slotK));
 
         return patternMatches;
     }

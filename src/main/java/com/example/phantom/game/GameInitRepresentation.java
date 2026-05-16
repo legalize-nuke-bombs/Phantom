@@ -11,5 +11,5 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class GameInitRepresentation {
     private String serverHash;
-    private Map<String, String> data;
+    private Map<String, Object> data;
 }

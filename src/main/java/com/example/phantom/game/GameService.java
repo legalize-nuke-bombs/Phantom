@@ -45,25 +45,27 @@ public abstract class GameService {
 
     protected abstract Game initGame(Map<String, String> data);
 
-    protected abstract BigDecimal runGame(Game round, Random random);
+    protected abstract Game runGame(Game game, Random random);
 
     @Transactional
     public GameInitRepresentation init(Long userId, GameInitRequest request) {
         User user = getUser(userId);
-        Game round = initGame(request.getData());
-        round.setUser(user);
-        round.setServerSeed(provablyFairProvider.generateSeed());
+        Game game = initGame(request.getData());
+        game.setGameType(gameType());
+        game.setUser(user);
+        game.setServerSeed(provablyFairProvider.generateSeed());
+        if (game.getData() == null) game.setData(Map.of());
 
-        if (walletService.getBalance(userId).compareTo(round.getBet()) < 0) {
+        if (walletService.getBalance(userId).compareTo(game.getBet()) < 0) {
             throw new BadRequestException("insufficient balance");
         }
 
-        gameRepository.deleteActiveRound(userId, gameType());
-        gameRepository.save(round);
+        gameRepository.deleteActiveGame(userId, gameType());
+        gameRepository.save(game);
 
         GameInitRepresentation representation = new GameInitRepresentation();
-        representation.setServerHash(provablyFairProvider.generateHash(round.getServerSeed()));
-        representation.setData(round.getData());
+        representation.setServerHash(provablyFairProvider.generateHash(game.getServerSeed()));
+        representation.setData(game.getData());
         return representation;
     }
 
@@ -71,31 +73,32 @@ public abstract class GameService {
     public GameRepresentation run(Long userId, GameRunRequest request) {
         User user = getUser(userId);
         walletService.lock(userId);
-        Game round = gameRepository.findActiveRound(userId, gameType()).orElseThrow(() -> new NotFoundException("game not found"));
+        Game game = gameRepository.findActiveGame(userId, gameType()).orElseThrow(() -> new NotFoundException("game not found"));
 
-        if (walletService.getBalance(userId).compareTo(round.getBet()) < 0) {
+        if (walletService.getBalance(userId).compareTo(game.getBet()) < 0) {
             throw new BadRequestException("insufficient balance");
         }
 
-        Random random = provablyFairProvider.fairRandom(round.getServerSeed(), request.getClientSeed());
-        BigDecimal result = runGame(round, random);
+        Random random = provablyFairProvider.fairRandom(game.getServerSeed(), request.getClientSeed());
+        game = runGame(game, random);
+        BigDecimal result = game.getResult();
 
-        walletService.addChange(user, round.getBet().negate(), BalanceChangeType.GAME_BET, gameType().name());
+        walletService.addChange(user, game.getBet().negate(), BalanceChangeType.GAME_BET, gameType().name());
         if (result.compareTo(BigDecimal.ZERO) > 0) {
             walletService.addChange(user, result, BalanceChangeType.GAME_WIN, gameType().name());
         }
 
-        round.setClientSeed(request.getClientSeed());
-        round.setResult(result);
-        round.setTimestamp(Instant.now().getEpochSecond());
-        gameRepository.save(round);
+        game.setClientSeed(request.getClientSeed());
+        game.setResult(result);
+        game.setTimestamp(Instant.now().getEpochSecond());
+        gameRepository.save(game);
 
-        return new GameRepresentation(round);
+        return new GameRepresentation(game);
     }
 
     @Transactional
     public void delete(Long userId) {
-        gameRepository.deleteActiveRound(userId, gameType());
+        gameRepository.deleteActiveGame(userId, gameType());
     }
 
     public List<GameRepresentation> getGameUserHistory(Long userId, Long targetId, Integer limit, Long before) {
