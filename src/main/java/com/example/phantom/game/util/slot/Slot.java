@@ -15,21 +15,13 @@ public record Slot(String name, BigDecimal probability, BigDecimal k) {
             throw new SlotsException("slot provability must be in (0, 1]");
         }
 
-        if (!name.equals("wild")) {
-            if (k == null) {
-                throw new SlotsException("slot k is null");
-            }
-            if (k.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new SlotsException("slot k must be positive");
-            }
+        if (k == null) {
+            throw new SlotsException("slot k is null");
+        }
+        if (k.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new SlotsException("slot k must be positive");
         }
     }
 
-    public static Slot buildWildSlot(BigDecimal probability) {
-        return new Slot(
-                "wild",
-                probability,
-                null
-        );
-    }
+    public static final String WILD_NAME = "wild";
 }

@@ -19,7 +19,7 @@ public class FruitSlots implements GameSettings {
         this.slots.registerSlot(new Slot("plum", new BigDecimal("0.35"), new BigDecimal("1")));
         this.slots.registerSlot(new Slot("grape", new BigDecimal("0.35"), new BigDecimal("1")));
         this.slots.registerSlot(new Slot("seven", new BigDecimal("0.15"), new BigDecimal("10")));
-        this.slots.registerSlot(Slot.buildWildSlot(new BigDecimal("0.15")));
+        this.slots.registerSlot(new Slot(Slot.WILD_NAME, new BigDecimal("0.15"), new BigDecimal("10")));
 
         this.slots.registerPattern(new Pattern("column1", new BigDecimal("0.05"),
                 new int[][]{
@@ -59,8 +59,8 @@ public class FruitSlots implements GameSettings {
 
         this.slots.registerPattern(new Pattern("row1", new BigDecimal("0.1"),
                 new int[][]{
-                        {0, 0, 0, 0, 0},
                         {1, 1, 1, 1, 1},
+                        {0, 0, 0, 0, 0},
                         {0, 0, 0, 0, 0}
                 }
         ));
@@ -117,7 +117,7 @@ public class FruitSlots implements GameSettings {
                 }
         ));
 
-        this.slots.registerPattern(new Pattern("jackpot", new BigDecimal("1000"),
+        this.slots.registerPattern(new Pattern("jackpot", new BigDecimal("500"),
                 new int[][] {
                         {1, 1, 1, 1, 1},
                         {1, 1, 1, 1, 1},

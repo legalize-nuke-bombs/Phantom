@@ -27,8 +27,8 @@ public class SimpleSlots implements Slots {
 
         this.height = height;
         this.width = width;
-        this.slots = new HashMap<>();
-        this.patterns = new HashMap<>();
+        this.slots = new LinkedHashMap<>();
+        this.patterns = new LinkedHashMap<>();
     }
 
     @Override
@@ -108,7 +108,9 @@ public class SimpleSlots implements Slots {
                 }
             }
 
-            patternSlots.remove("wild");
+            if (patternSlots.size() > 1) {
+                patternSlots.remove(Slot.WILD_NAME);
+            }
 
             if (patternSlots.size() == 1) {
                 String patternName = pattern.name();
@@ -119,6 +121,8 @@ public class SimpleSlots implements Slots {
             }
 
         }
+
+        patternMatches.sort(Comparator.comparing(PatternMatch::k));
 
         return patternMatches;
     }
@@ -131,20 +135,20 @@ public class SimpleSlots implements Slots {
 
         Random random = new Random();
 
-        Map<String, Long> map = new HashMap<>();
+        Map<String, Long> map = new LinkedHashMap<>();
         BigDecimal kSum = BigDecimal.ZERO;
 
         for (int i = 0; i < spins; i++) {
             SpinRepresentation spin = spin(random);
             for (PatternMatch patternMatch : spin.patternMatches()) {
-                String key = patternMatch.patternName();
+                String key = patternMatch.patternName() + "." + patternMatch.slotName();
                 map.put(key, map.getOrDefault(key, 0L) + 1);
             }
             kSum = kSum.add(spin.k());
 
             if ((i + 1) % 1_000_000 == 0) {
                 for (Map.Entry<String, Long> entry : map.entrySet()) {
-                    System.out.println(entry.getKey() + ": " + new BigDecimal(entry.getValue()).multiply(new BigDecimal(100)).divide(new BigDecimal(i), FinanceConstants.SCALE, RoundingMode.DOWN) + "%");
+                    System.out.println(entry.getKey() + ": " + new BigDecimal(entry.getValue()).multiply(new BigDecimal(100)).divide(new BigDecimal(i + 1), FinanceConstants.SCALE, RoundingMode.DOWN) + "%");
                 }
                 System.out.println("average k: " + kSum.divide(new BigDecimal(i), FinanceConstants.SCALE, RoundingMode.DOWN));
                 System.out.print("\n");
