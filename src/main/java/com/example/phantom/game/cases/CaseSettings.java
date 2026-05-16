@@ -1,4 +1,4 @@
-package com.example.phantom.game.thecase;
+package com.example.phantom.game.cases;
 
 import com.example.phantom.finance.FinanceColors;
 import com.example.phantom.game.GameSettings;
