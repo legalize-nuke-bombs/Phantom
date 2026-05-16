@@ -13,7 +13,7 @@ REST API for a gambling platform.
 * Wallets
 * Interuser balance transfers
 * Deposits & withdrawals via crypto: TON
-* Games: Upgrader, Cases, Coinflip
+* Games: Upgrader, Cases, Coinflip, Fruits (Slots)
 * Provably fair
 * Sweep scheduling
 * Sweep history
