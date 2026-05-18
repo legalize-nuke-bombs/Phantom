@@ -3,6 +3,8 @@ package com.example.phantom.game;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.experience.ExperienceService;
+import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -25,14 +28,16 @@ public abstract class GameService {
 
     private final UserRepository userRepository;
     private final WalletService walletService;
+    private final ExperienceService experienceService;
     private final ProvablyFairProvider provablyFairProvider;
     private final UsageLimiter usageLimiter;
     private final GameRepository gameRepository;
     private final PrivacySettingValidator privacySettingValidator;
 
-    protected GameService(UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+    protected GameService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
         this.walletService = walletService;
+        this.experienceService = experienceService;
         this.provablyFairProvider = provablyFairProvider;
         this.usageLimiter = usageLimiter;
         this.gameRepository = gameRepository;
@@ -73,6 +78,7 @@ public abstract class GameService {
     public GameRepresentation run(Long userId, GameRunRequest request) {
         User user = getUser(userId);
         walletService.lock(userId);
+        experienceService.lock(userId);
         Game game = gameRepository.findActiveGame(userId, gameType()).orElseThrow(() -> new NotFoundException("game not found"));
 
         if (walletService.getBalance(userId).compareTo(game.getBet()) < 0) {
@@ -87,6 +93,8 @@ public abstract class GameService {
         if (result.compareTo(BigDecimal.ZERO) > 0) {
             walletService.addChange(user, result, BalanceChangeType.GAME_WIN, gameType().name());
         }
+
+        experienceService.addChange(user, game.getBet().multiply(new BigDecimal(100)).setScale(0, RoundingMode.DOWN).longValue(), ExperienceChangeType.BET, gameType().name());
 
         game.setClientSeed(request.getClientSeed());
         game.setResult(result);

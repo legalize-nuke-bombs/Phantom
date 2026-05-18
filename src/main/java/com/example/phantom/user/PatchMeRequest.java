@@ -15,4 +15,5 @@ public class PatchMeRequest {
     private PrivacySetting walletStatsPrivacySetting;
     private PrivacySetting gameHistoryPrivacySetting;
     private PrivacySetting gameStatsPrivacySetting;
+    private PrivacySetting experiencePrivacySetting;
 }

@@ -48,10 +48,6 @@ public class WalletService {
         return balanceChangeRepository.getBalance(userId);
     }
 
-    public BigDecimal getDepositsSum(Long userId) {
-        return balanceChangeRepository.sumByType(userId, BalanceChangeType.DEPOSIT);
-    }
-
     public BalanceChange addChange(User user, BigDecimal amount, BalanceChangeType type, String details) {
         BalanceChange change = new BalanceChange();
         change.setUser(user);

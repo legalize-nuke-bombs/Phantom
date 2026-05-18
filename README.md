@@ -6,6 +6,7 @@ REST API for a gambling platform.
 * JWT authentication
 * Recovery keys
 * User profiles (view, edit, delete)
+* User experience system
 * Stats & history
 * User privacy settings
 * Rate limit
@@ -46,6 +47,12 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/users/me/new-recovery-key`    | Regenerate recovery key                 |
 | DELETE | `/api/users/me`                     | Delete account                          |
 | GET    | `/api/users/stats`                  | Get users platform stats                |
+
+### Experience
+| Method | Endpoint                             | Description                       |
+|--------|--------------------------------------|-----------------------------------|
+| GET    | `/api/experience/{targetId}`         | Get user experience by id         |
+| GET    | `/api/experience/{targetId}/history` | Get user experience history by id |
 
 ### Usage limit
 | Method | Endpoint           | Description     |

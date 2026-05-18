@@ -15,6 +15,7 @@ public class UserRepresentation {
     private final PrivacySetting walletStatsPrivacySetting;
     private final PrivacySetting gameHistoryPrivacySetting;
     private final PrivacySetting gameStatsPrivacySetting;
+    private final PrivacySetting experiencePrivacySetting;
 
     public UserRepresentation(User user) {
         this.id = user.getId();
@@ -28,5 +29,6 @@ public class UserRepresentation {
         this.walletStatsPrivacySetting = user.getWalletStatsPrivacySetting();
         this.gameHistoryPrivacySetting = user.getGameHistoryPrivacySetting();
         this.gameStatsPrivacySetting = user.getGameStatsPrivacySetting();
+        this.experiencePrivacySetting = user.getExperiencePrivacySetting();
     }
 }

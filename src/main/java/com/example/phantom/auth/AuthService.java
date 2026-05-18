@@ -5,6 +5,8 @@ import com.example.phantom.crypto.CoinProvider;
 import com.example.phantom.crypto.CoinProviderRegistry;
 import com.example.phantom.crypto.CryptoWallet;
 import com.example.phantom.crypto.CryptoWalletRepository;
+import com.example.phantom.experience.Experience;
+import com.example.phantom.experience.ExperienceRepository;
 import com.example.phantom.owner.OwnerAccessDenied;
 import com.example.phantom.owner.OwnerAccessValidator;
 import com.example.phantom.owner.OwnerBadAccess;
@@ -25,6 +27,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final ExperienceRepository experienceRepository;
     private final CryptoWalletRepository cryptoWalletRepository;
 
     private final JwtTokenProvider jwtTokenProvider;
@@ -33,9 +36,10 @@ public class AuthService {
     private final RecoveryKeyProvider recoveryKeyProvider;
     private final CoinProviderRegistry coinProviderRegistry;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, CryptoWalletRepository cryptoWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
+        this.experienceRepository = experienceRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
 
         this.jwtTokenProvider = jwtTokenProvider;
@@ -89,6 +93,7 @@ public class AuthService {
         user.setWalletHistoryPrivacySetting(PrivacySetting.ONLY_YOU);
         user.setGameHistoryPrivacySetting(PrivacySetting.EVERYONE);
         user.setGameStatsPrivacySetting(PrivacySetting.EVERYONE);
+        user.setExperiencePrivacySetting(PrivacySetting.EVERYONE);
         user.setPasswordHash(passwordEncoder.encode(password1));
         user.setPublicRecoveryKey(recoveryKeyPair.publicKey());
         user.setPrivateRecoveryKeyHash(passwordEncoder.encode(recoveryKeyPair.privateKey()));
@@ -98,6 +103,10 @@ public class AuthService {
         Wallet wallet = new Wallet();
         wallet.setUser(user);
         walletRepository.save(wallet);
+
+        Experience experience = new Experience();
+        experience.setUser(user);
+        experienceRepository.save(experience);
 
         for (CoinProvider provider : coinProviderRegistry.getAll()) {
             try {

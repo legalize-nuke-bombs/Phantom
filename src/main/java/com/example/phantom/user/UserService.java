@@ -49,6 +49,7 @@ public class UserService {
         PrivacySetting walletStatsPrivacySetting = request.getWalletStatsPrivacySetting();
         PrivacySetting gameHistoryPrivacySetting = request.getGameHistoryPrivacySetting();
         PrivacySetting gameStatsPrivacySetting = request.getGameStatsPrivacySetting();
+        PrivacySetting experiencePrivacySetting = request.getExperiencePrivacySetting();
 
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
@@ -58,6 +59,7 @@ public class UserService {
         if (walletStatsPrivacySetting != null) user.setWalletStatsPrivacySetting(walletStatsPrivacySetting);
         if (gameHistoryPrivacySetting != null) user.setGameHistoryPrivacySetting(gameHistoryPrivacySetting);
         if (gameStatsPrivacySetting != null) user.setGameStatsPrivacySetting(gameStatsPrivacySetting);
+        if (experiencePrivacySetting != null) user.setExperiencePrivacySetting(experiencePrivacySetting);
 
         userRepository.save(user);
 

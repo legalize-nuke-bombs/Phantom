@@ -9,12 +9,12 @@ import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.exception.UnauthorizedException;
+import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.wallet.WalletService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,16 +28,16 @@ import java.util.Objects;
 public class ChatService {
 
     private final UserRepository userRepository;
-    private final WalletService walletService;
+    private final ExperienceService experienceService;
     private final MessageRepository messageRepository;
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
 
     private final UsageLimiter usageLimiter;
 
-    public ChatService(UserRepository userRepository, WalletService walletService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, UsageLimiter usageLimiter) {
+    public ChatService(UserRepository userRepository, ExperienceService experienceService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, UsageLimiter usageLimiter) {
         this.userRepository = userRepository;
-        this.walletService = walletService;
+        this.experienceService = experienceService;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
@@ -70,8 +70,8 @@ public class ChatService {
         }
 
         if (!user.getRole().chatModeratorAccess()) {
-            if (walletService.getDepositsSum(userId).compareTo(ChatConstants.MIN_DEPOSITS_SUM) < 0) {
-                throw new ForbiddenException("min deposits sum = " + ChatConstants.MIN_DEPOSITS_SUM);
+            if (experienceService.getAmount(userId) < ChatConstants.MIN_EXPERIENCE) {
+                throw new ForbiddenException("min experience = " + ChatConstants.MIN_EXPERIENCE);
             }
         }
 
