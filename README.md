@@ -37,22 +37,16 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/auth/recover`  | Recover account credentials                  |
 
 ### Users
-| Method | Endpoint                            | Description                 |
-|--------|-------------------------------------|-----------------------------|
-| GET    | `/api/users/me`                     | Get current user            |
-| GET    | `/api/users/by-id/{id}`             | Get user by ID              |
-| GET    | `/api/users/by-username/{username}` | Get user by username        |
-| PATCH  | `/api/users/me`                     | Update display name         |
-| PATCH  | `/api/users/me/secure`              | Change username or password |
-| POST   | `/api/users/me/new-recovery-key`    | Regenerate recovery key     |
-| DELETE | `/api/users/me`                     | Delete account              |
-| GET    | `/api/users/stats`                  | Get users platform stats    |
-
-### Privacy settings
-| Method | Endpoint                           | Description                |
-|--------|------------------------------------|----------------------------|
-| DELETE | `/api/privacy-settings/{targetId}` | Get privacy settings by ID |
-| GET    | `/api/privacy-settings/me`         | Update privacy settings    |
+| Method | Endpoint                            | Description                             |
+|--------|-------------------------------------|-----------------------------------------|
+| GET    | `/api/users/me`                     | Get current user                        |
+| GET    | `/api/users/by-id/{id}`             | Get user by ID                          |
+| GET    | `/api/users/by-username/{username}` | Get user by username                    |
+| PATCH  | `/api/users/me`                     | Update display name or privacy settings |
+| PATCH  | `/api/users/me/secure`              | Change username or password             |
+| POST   | `/api/users/me/new-recovery-key`    | Regenerate recovery key                 |
+| DELETE | `/api/users/me`                     | Delete account                          |
+| GET    | `/api/users/stats`                  | Get users platform stats                |
 
 ### Experience
 | Method | Endpoint                             | Description                       |

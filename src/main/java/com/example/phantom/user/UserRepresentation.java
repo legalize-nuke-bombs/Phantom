@@ -10,6 +10,12 @@ public class UserRepresentation {
     private final Long registeredAt;
     private final Role role;
     private final Plan plan;
+    private final PrivacySetting walletBalancePrivacySetting;
+    private final PrivacySetting walletHistoryPrivacySetting;
+    private final PrivacySetting walletStatsPrivacySetting;
+    private final PrivacySetting gameHistoryPrivacySetting;
+    private final PrivacySetting gameStatsPrivacySetting;
+    private final PrivacySetting experiencePrivacySetting;
 
     public UserRepresentation(User user) {
         this.id = user.getId();
@@ -18,5 +24,11 @@ public class UserRepresentation {
         this.registeredAt = user.getRegisteredAt();
         this.role = user.getRole();
         this.plan = user.getPlan();
+        this.walletBalancePrivacySetting = user.getWalletBalancePrivacySetting();
+        this.walletHistoryPrivacySetting = user.getWalletHistoryPrivacySetting();
+        this.walletStatsPrivacySetting = user.getWalletStatsPrivacySetting();
+        this.gameHistoryPrivacySetting = user.getGameHistoryPrivacySetting();
+        this.gameStatsPrivacySetting = user.getGameStatsPrivacySetting();
+        this.experiencePrivacySetting = user.getExperiencePrivacySetting();
     }
 }

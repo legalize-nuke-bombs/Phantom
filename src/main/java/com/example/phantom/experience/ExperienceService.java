@@ -6,12 +6,10 @@ import com.example.phantom.experience.experiencechange.ExperienceChange;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepository;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepresentation;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
-import com.example.phantom.privacysetting.PrivacySetting;
-import com.example.phantom.privacysetting.PrivacySettingRepository;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.privacysetting.PrivacyParamValidator;
+import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
@@ -26,15 +24,13 @@ import java.util.List;
 public class ExperienceService {
 
     private final UserRepository userRepository;
-    private final PrivacySettingRepository privacySettingRepository;
     private final ExperienceRepository experienceRepository;
     private final ExperienceChangeRepository experienceChangeRepository;
-    private final PrivacyParamValidator privacySettingValidator;
+    private final PrivacySettingValidator privacySettingValidator;
     private final UsageLimiter usageLimiter;
 
-    public ExperienceService(UserRepository userRepository, PrivacySettingRepository privacySettingRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacyParamValidator privacySettingValidator, UsageLimiter usageLimiter) {
+    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingValidator privacySettingValidator, UsageLimiter usageLimiter) {
         this.userRepository = userRepository;
-        this.privacySettingRepository = privacySettingRepository;
         this.experienceRepository = experienceRepository;
         this.experienceChangeRepository = experienceChangeRepository;
         this.privacySettingValidator = privacySettingValidator;
@@ -68,9 +64,8 @@ public class ExperienceService {
     public ExperienceRepresentation get(Long userId, Long targetId) {
         User user = getUser(userId);
         User target = getUser(targetId);
-        PrivacySetting targetPrivacySetting = getPrivacySetting(target.getId());
 
-        privacySettingValidator.validate(user.getId(), target.getId(), targetPrivacySetting.getExperiencePrivacyParam());
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
 
         return new ExperienceRepresentation(getAmount(target.getId()));
     }
@@ -78,9 +73,8 @@ public class ExperienceService {
     public List<ExperienceChangeRepresentation> getHistory(Long userId, Long targetId, Integer limit, Long before) {
         User user = getUser(userId);
         User target = getUser(targetId);
-        PrivacySetting targetPrivacySetting = getPrivacySetting(target.getId());
 
-        privacySettingValidator.validate(user.getId(), target.getId(), targetPrivacySetting.getExperiencePrivacyParam());
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
 
         try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
@@ -96,9 +90,5 @@ public class ExperienceService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-    }
-
-    private PrivacySetting getPrivacySetting(Long userId) {
-        return privacySettingRepository.findById(userId).orElseThrow(() -> new NotFoundException("privacy setting record not found"));
     }
 }

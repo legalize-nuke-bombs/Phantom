@@ -3,12 +3,14 @@ package com.example.phantom.game.fruits;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
+import com.example.phantom.game.util.slot.PatternMatch;
+import com.example.phantom.game.util.slot.Slot;
 import com.example.phantom.game.util.slot.SpinRepresentation;
-import com.example.phantom.privacysetting.PrivacySettingRepository;
 import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.privacysetting.PrivacyParamValidator;
+import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
+import com.google.gson.JsonArray;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,8 +22,8 @@ public class FruitService extends GameService {
 
     private final FruitSettings settings;
 
-    protected FruitService(FruitSettings settings, UserRepository userRepository, PrivacySettingRepository privacySettingRepository, WalletService walletService, ExperienceService experienceService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacyParamValidator privacySettingValidator) {
-        super(userRepository, privacySettingRepository, walletService, experienceService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
+    protected FruitService(FruitSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+        super(userRepository, walletService, experienceService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
         this.settings = settings;
     }
 

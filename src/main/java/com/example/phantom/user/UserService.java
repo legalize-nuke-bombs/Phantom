@@ -1,7 +1,6 @@
 package com.example.phantom.user;
 
 import com.example.phantom.exception.*;
-import com.example.phantom.privacysetting.PrivacyParam;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,11 +43,23 @@ public class UserService {
 
     @Transactional
     public Map<String, String> patchMe(Long userId, PatchMeRequest request) {
+        String displayName = request.getDisplayName();
+        PrivacySetting walletBalancePrivacySetting = request.getWalletBalancePrivacySetting();
+        PrivacySetting walletHistoryPrivacySetting = request.getWalletHistoryPrivacySetting();
+        PrivacySetting walletStatsPrivacySetting = request.getWalletStatsPrivacySetting();
+        PrivacySetting gameHistoryPrivacySetting = request.getGameHistoryPrivacySetting();
+        PrivacySetting gameStatsPrivacySetting = request.getGameStatsPrivacySetting();
+        PrivacySetting experiencePrivacySetting = request.getExperiencePrivacySetting();
+
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
-        String displayName = request.getDisplayName();
-
         if (displayName != null) user.setDisplayName(displayName);
+        if (walletBalancePrivacySetting != null) user.setWalletBalancePrivacySetting(walletBalancePrivacySetting);
+        if (walletHistoryPrivacySetting != null) user.setWalletHistoryPrivacySetting(walletHistoryPrivacySetting);
+        if (walletStatsPrivacySetting != null) user.setWalletStatsPrivacySetting(walletStatsPrivacySetting);
+        if (gameHistoryPrivacySetting != null) user.setGameHistoryPrivacySetting(gameHistoryPrivacySetting);
+        if (gameStatsPrivacySetting != null) user.setGameStatsPrivacySetting(gameStatsPrivacySetting);
+        if (experiencePrivacySetting != null) user.setExperiencePrivacySetting(experiencePrivacySetting);
 
         userRepository.save(user);
 

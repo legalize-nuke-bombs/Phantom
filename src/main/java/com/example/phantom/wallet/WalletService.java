@@ -3,12 +3,10 @@ package com.example.phantom.wallet;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
-import com.example.phantom.privacysetting.PrivacySetting;
-import com.example.phantom.privacysetting.PrivacySettingRepository;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.privacysetting.PrivacyParamValidator;
+import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.balancechange.BalanceChange;
@@ -28,15 +26,13 @@ import java.util.Objects;
 @Service
 public class WalletService {
 
-    private final PrivacySettingRepository privacySettingRepository;
     private final WalletRepository walletRepository;
     private final BalanceChangeRepository balanceChangeRepository;
     private final UserRepository userRepository;
     private final UsageLimiter usageLimiter;
-    private final PrivacyParamValidator privacySettingValidator;
+    private final PrivacySettingValidator privacySettingValidator;
 
-    public WalletService(PrivacySettingRepository privacySettingRepository, WalletRepository walletRepository, BalanceChangeRepository balanceChangeRepository, UserRepository userRepository, UsageLimiter usageLimiter, PrivacyParamValidator privacySettingValidator) {
-        this.privacySettingRepository = privacySettingRepository;
+    public WalletService(WalletRepository walletRepository, BalanceChangeRepository balanceChangeRepository, UserRepository userRepository, UsageLimiter usageLimiter, PrivacySettingValidator privacySettingValidator) {
         this.walletRepository = walletRepository;
         this.balanceChangeRepository = balanceChangeRepository;
         this.userRepository = userRepository;
@@ -65,9 +61,8 @@ public class WalletService {
     public WalletRepresentation get(Long userId, Long targetId) {
         User user = getUser(userId);
         User target = getUser(targetId);
-        PrivacySetting targetPrivacySetting = getPrivacySetting(target.getId());
 
-        privacySettingValidator.validate(user.getId(), target.getId(), targetPrivacySetting.getWalletBalancePrivacyParam());
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletBalancePrivacySetting());
 
         BigDecimal balance = getBalance(target.getId());
         return new WalletRepresentation(target.getId(), balance);
@@ -117,9 +112,8 @@ public class WalletService {
     public PersonalWalletStatRepresentation getStats(Long userId, Long targetId) {
         User user = getUser(userId);
         User target = getUser(targetId);
-        PrivacySetting targetPrivacySetting = getPrivacySetting(target.getId());
 
-        privacySettingValidator.validate(user.getId(), target.getId(), targetPrivacySetting.getWalletStatsPrivacyParam());
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletStatsPrivacySetting());
 
         return new PersonalWalletStatRepresentation(
                 balanceChangeRepository.sumByType(target.getId(), BalanceChangeType.DEPOSIT)
@@ -129,9 +123,8 @@ public class WalletService {
     public List<BalanceChangeRepresentation> getHistory(Long userId, Long targetId, Integer limit, Long before) {
         User user = getUser(userId);
         User target = getUser(targetId);
-        PrivacySetting targetPrivacySetting = getPrivacySetting(target.getId());
 
-        privacySettingValidator.validate(user.getId(), target.getId(), targetPrivacySetting.getWalletHistoryPrivacyParam());
+        privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletHistoryPrivacySetting());
 
         try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
@@ -147,9 +140,5 @@ public class WalletService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-    }
-
-    private PrivacySetting getPrivacySetting(Long userId) {
-        return privacySettingRepository.findById(userId).orElseThrow(() -> new NotFoundException("privacy setting record not found"));
     }
 }
