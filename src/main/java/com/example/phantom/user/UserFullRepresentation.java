@@ -3,7 +3,7 @@ package com.example.phantom.user;
 import lombok.Getter;
 
 @Getter
-public class UserRepresentation {
+public class UserFullRepresentation {
     private final Long id;
     private final String username;
     private final String displayName;
@@ -17,7 +17,7 @@ public class UserRepresentation {
     private final PrivacySetting gameStatsPrivacySetting;
     private final PrivacySetting experiencePrivacySetting;
 
-    public UserRepresentation(User user) {
+    public UserFullRepresentation(User user) {
         this.id = user.getId();
         this.username = user.getUsername();
         this.displayName = user.getDisplayName();

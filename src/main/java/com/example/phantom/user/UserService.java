@@ -31,14 +31,14 @@ public class UserService {
         );
     }
 
-    public UserRepresentation getUserRepresentationById(Long userId) {
+    public UserFullRepresentation getUserFullRepresentationById(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        return new UserRepresentation(user);
+        return new UserFullRepresentation(user);
     }
 
-    public UserRepresentation getUserRepresentationByUsername(String username) {
+    public UserFullRepresentation getUserFullRepresentationByUsername(String username) {
         User user = userRepository.findByUsername(username).orElseThrow(() -> new NotFoundException("user not found"));
-        return new UserRepresentation(user);
+        return new UserFullRepresentation(user);
     }
 
     @Transactional

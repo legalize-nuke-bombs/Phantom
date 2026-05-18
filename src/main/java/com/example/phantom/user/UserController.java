@@ -18,18 +18,18 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UserRepresentation> getMe(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(userService.getUserRepresentationById(userId));
+    public ResponseEntity<UserFullRepresentation> getMe(@AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(userService.getUserFullRepresentationById(userId));
     }
 
     @GetMapping("/by-id/{userId}")
-    public ResponseEntity<UserRepresentation> getById(@PathVariable Long userId) {
-        return ResponseEntity.ok(userService.getUserRepresentationById(userId));
+    public ResponseEntity<UserFullRepresentation> getById(@PathVariable Long userId) {
+        return ResponseEntity.ok(userService.getUserFullRepresentationById(userId));
     }
 
     @GetMapping("/by-username/{username}")
-    public ResponseEntity<UserRepresentation> getByUsername(@PathVariable String username) {
-        return ResponseEntity.ok(userService.getUserRepresentationByUsername(username));
+    public ResponseEntity<UserFullRepresentation> getByUsername(@PathVariable String username) {
+        return ResponseEntity.ok(userService.getUserFullRepresentationByUsername(username));
     }
 
     @PatchMapping("/me")
