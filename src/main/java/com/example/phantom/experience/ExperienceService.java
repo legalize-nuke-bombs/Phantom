@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -56,8 +57,8 @@ public class ExperienceService {
         return experienceChangeRepository.getAmount(userId);
     }
 
-    public Level[] getLevels() {
-        return Level.values();
+    public List<LevelRepresentation> getLevels() {
+        return Arrays.stream(Level.values()).map(LevelRepresentation::new).toList();
     }
 
     public ExperienceRepresentation get(Long userId, Long targetId) {

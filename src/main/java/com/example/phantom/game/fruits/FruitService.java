@@ -1,6 +1,7 @@
 package com.example.phantom.game.fruits;
 
 import com.example.phantom.exception.BadRequestException;
+import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
 import com.example.phantom.game.util.slot.PatternMatch;
 import com.example.phantom.game.util.slot.Slot;
@@ -21,10 +22,11 @@ public class FruitService extends GameService {
 
     private final FruitSettings settings;
 
-    public FruitService(FruitSettings settings, UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
-        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
+    protected FruitService(FruitSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+        super(userRepository, walletService, experienceService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
         this.settings = settings;
     }
+
 
     @Override
     protected GameSettings get() {

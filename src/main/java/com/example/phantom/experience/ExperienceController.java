@@ -21,7 +21,7 @@ public class ExperienceController {
     }
 
     @GetMapping("/levels")
-    public ResponseEntity<Level[]> getLevels() {
+    public ResponseEntity<List<LevelRepresentation>> getLevels() {
         return ResponseEntity.ok(service.getLevels());
     };
 

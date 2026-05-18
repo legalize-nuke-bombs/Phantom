@@ -1,6 +1,7 @@
 package com.example.phantom.game.upgrader;
 
 import com.example.phantom.exception.BadRequestException;
+import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySettingValidator;
@@ -17,10 +18,11 @@ public class UpgraderService extends GameService {
 
     private final UpgraderSettings settings;
 
-    public UpgraderService(UpgraderSettings settings, UserRepository userRepository, WalletService walletService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
-        super(userRepository, walletService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
+    protected UpgraderService(UpgraderSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+        super(userRepository, walletService, experienceService, provablyFairProvider, usageLimiter, gameRepository, privacySettingValidator);
         this.settings = settings;
     }
+
 
     @Override
     public GameSettings get() {
