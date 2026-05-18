@@ -15,22 +15,22 @@ public class CaseSettings implements GameSettings {
     public CaseSettings(FinanceColors financeColors) {
         this.cases = List.of(
                 new Case(
-                        "Nox",
+                        "Crypt",
                         90, 0, 9, 1, 0,
                         financeColors
                 ),
                 new Case(
-                        "Selene",
+                        "Vault",
                         0, 45, 4, 1, 0,
                         financeColors
                 ),
                 new Case(
-                        "Caligo",
+                        "Sanctum",
                         180, 0, 19, 0, 1,
                         financeColors
                 ),
                 new Case(
-                        "Phantom",
+                        "Reliquary",
                         0, 90, 9, 0, 1,
                         financeColors
                 )
