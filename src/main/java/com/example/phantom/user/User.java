@@ -6,7 +6,11 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users",
+        indexes = {
+                @Index(name = "idx_users_gameHistoryPrivacySetting", columnList = "gameHistoryPrivacySetting")
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
