@@ -5,10 +5,12 @@ import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
+import com.example.phantom.privacysetting.PrivacySetting;
+import com.example.phantom.privacysetting.PrivacySettingRepository;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.user.PrivacySettingValidator;
+import com.example.phantom.privacysetting.PrivacyParamValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
@@ -27,15 +29,17 @@ import java.util.Random;
 public abstract class GameService {
 
     private final UserRepository userRepository;
+    private final PrivacySettingRepository privacySettingRepository;
     private final WalletService walletService;
     private final ExperienceService experienceService;
     private final ProvablyFairProvider provablyFairProvider;
     private final UsageLimiter usageLimiter;
     private final GameRepository gameRepository;
-    private final PrivacySettingValidator privacySettingValidator;
+    private final PrivacyParamValidator privacySettingValidator;
 
-    protected GameService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+    protected GameService(UserRepository userRepository, PrivacySettingRepository privacySettingRepository, WalletService walletService, ExperienceService experienceService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacyParamValidator privacySettingValidator) {
         this.userRepository = userRepository;
+        this.privacySettingRepository = privacySettingRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
         this.provablyFairProvider = provablyFairProvider;
@@ -112,8 +116,9 @@ public abstract class GameService {
     public List<GameRepresentation> getGameUserHistory(Long userId, Long targetId, Integer limit, Long before) {
         User user = getUser(userId);
         User target = getUser(targetId);
+        PrivacySetting targetPrivacySetting = getPrivacySetting(target.getId());
 
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getGameHistoryPrivacySetting());
+        privacySettingValidator.validate(user.getId(), target.getId(), targetPrivacySetting.getGameHistoryPrivacyParam());
 
         try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
@@ -130,8 +135,9 @@ public abstract class GameService {
     public UserGameStatRepresentation getGameUserStats(Long userId, Long targetId) {
         User user = getUser(userId);
         User target = getUser(targetId);
+        PrivacySetting targetPrivacySetting = getPrivacySetting(target.getId());
 
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
+        privacySettingValidator.validate(user.getId(), target.getId(), targetPrivacySetting.getGameStatsPrivacyParam());
 
         return new UserGameStatRepresentation(
                 gameRepository.countCompletedByUserIdAndGameType(targetId, gameType()),
@@ -141,5 +147,9 @@ public abstract class GameService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+    }
+
+    private PrivacySetting getPrivacySetting(Long userId) {
+        return privacySettingRepository.findById(userId).orElseThrow(() -> new NotFoundException("privacy setting record not found"));
     }
 }

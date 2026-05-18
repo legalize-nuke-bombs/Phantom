@@ -1,6 +1,5 @@
 package com.example.phantom.game;
 
-import com.example.phantom.user.PrivacySetting;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -25,22 +24,22 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
 
 
-    @Query("SELECT r FROM Game r WHERE r.user.gameHistoryPrivacySetting = ?1 AND r.clientSeed IS NOT NULL ORDER BY r.id DESC")
-    List<Game> findHistoryByUserGameHistoryPrivacySetting(PrivacySetting setting, Pageable pageable);
+    @Query("SELECT g FROM Game g JOIN FETCH g.user WHERE g.clientSeed IS NOT NULL ORDER BY g.id DESC")
+    List<Game> findHistoryWithUsers(Pageable pageable);
 
-    @Query("SELECT r FROM Game r WHERE r.user.gameHistoryPrivacySetting = ?1 AND r.clientSeed IS NOT NULL AND r.id < ?2 ORDER BY r.id DESC")
-    List<Game> findHistoryByUserGameHistoryPrivacySettingBefore(PrivacySetting setting, Long before, Pageable pageable);
+    @Query("SELECT g FROM Game g JOIN FETCH g.user WHERE g.clientSeed IS NOT NULL AND g.id < ?1 ORDER BY g.id DESC")
+    List<Game> findHistoryWithUsersBefore(Long before, Pageable pageable);
 
-    @Query("SELECT r FROM Game r WHERE r.user.id = ?1 AND r.clientSeed IS NOT NULL ORDER BY r.id DESC")
+    @Query("SELECT g FROM Game g WHERE g.user.id = ?1 AND g.clientSeed IS NOT NULL ORDER BY g.id DESC")
     List<Game> findHistoryByUser(Long userId, Pageable pageable);
 
-    @Query("SELECT r FROM Game r WHERE r.user.id = ?1 AND r.clientSeed IS NOT NULL AND r.id < ?2 ORDER BY r.id DESC")
+    @Query("SELECT g FROM Game g WHERE g.user.id = ?1 AND g.clientSeed IS NOT NULL AND g.id < ?2 ORDER BY g.id DESC")
     List<Game> findHistoryByUserBefore(Long userId, Long before, Pageable pageable);
 
-    @Query("SELECT r FROM Game r WHERE r.user.id = ?1 AND r.gameType = ?2 AND r.clientSeed IS NOT NULL ORDER BY r.id DESC")
+    @Query("SELECT g FROM Game g WHERE g.user.id = ?1 AND g.gameType = ?2 AND g.clientSeed IS NOT NULL ORDER BY g.id DESC")
     List<Game> findHistoryByUserAndGameType(Long userId, GameType gameType, Pageable pageable);
 
-    @Query("SELECT r FROM Game r WHERE r.user.id = ?1 AND r.gameType = ?2 AND r.clientSeed IS NOT NULL AND r.id < ?3 ORDER BY r.id DESC")
+    @Query("SELECT g FROM Game g WHERE g.user.id = ?1 AND g.gameType = ?2 AND g.clientSeed IS NOT NULL AND g.id < ?3 ORDER BY g.id DESC")
     List<Game> findHistoryByUserAndGameTypeBefore(Long userId, GameType gameType, Long before, Pageable pageable);
 
 
