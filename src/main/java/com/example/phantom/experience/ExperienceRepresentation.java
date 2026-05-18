@@ -14,7 +14,7 @@ public class ExperienceRepresentation {
         Long next = null;
 
         for (int i = levels.length - 1; i >= 0; i--) {
-            if (levels[i].getAmount() >= amount) {
+            if (amount >= levels[i].getAmount()) {
                 level = levels[i];
                 next = (i + 1 >= levels.length) ? null : levels[i + 1].getAmount();
             }
