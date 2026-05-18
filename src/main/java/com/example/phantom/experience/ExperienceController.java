@@ -20,6 +20,11 @@ public class ExperienceController {
         this.service = service;
     }
 
+    @GetMapping("/levels")
+    public ResponseEntity<Level[]> getLevels() {
+        return ResponseEntity.ok(service.getLevels());
+    };
+
     @GetMapping("/{targetId}")
     public ResponseEntity<ExperienceRepresentation> get(
             @AuthenticationPrincipal Long userId,

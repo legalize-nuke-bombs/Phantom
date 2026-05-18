@@ -56,6 +56,10 @@ public class ExperienceService {
         return experienceChangeRepository.getAmount(userId);
     }
 
+    public Level[] getLevels() {
+        return Level.values();
+    }
+
     public ExperienceRepresentation get(Long userId, Long targetId) {
         User user = getUser(userId);
         User target = getUser(targetId);

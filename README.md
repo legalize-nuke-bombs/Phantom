@@ -51,6 +51,7 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 ### Experience
 | Method | Endpoint                             | Description                       |
 |--------|--------------------------------------|-----------------------------------|
+| GET    | `/api/experience/levels`             | Get levels                        |
 | GET    | `/api/experience/{targetId}`         | Get user experience by id         |
 | GET    | `/api/experience/{targetId}/history` | Get user experience history by id |
 
