@@ -9,7 +9,9 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
-@Table(name = "experiences")
+@Table(name = "experiences", indexes = {
+        @Index(name = "idx_experiences_amountCached", columnList = "amountCached")
+})
 @Getter
 @Setter
 @NoArgsConstructor

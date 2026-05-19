@@ -6,9 +6,11 @@ import com.example.phantom.experience.experiencechange.ExperienceChange;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepository;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepresentation;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
+import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.user.PrivacySetting;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -92,6 +94,21 @@ public class ExperienceService {
                 : experienceChangeRepository.findByUserIdPageable(target.getId(), pageable);
 
         return changes.stream().map(ExperienceChangeRepresentation::new).toList();
+    }
+
+    public List<ProfileCardRepresentation> getLeaderboard(Long userId, Integer limit, Long beforeAmount) {
+        User user = getUser(userId);
+
+        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
+        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+
+        Pageable pageable = PageRequest.of(0, limit);
+
+        List<Experience> experiences = beforeAmount != null
+                ? experienceRepository.findLeaderboardWithUsersBefore(PrivacySetting.EVERYONE, beforeAmount, pageable)
+                : experienceRepository.findLeaderboardWithUsers(PrivacySetting.EVERYONE, pageable);
+
+        return experiences.stream().map(experience -> new ProfileCardRepresentation(experience.getUser(), experience)).toList();
     }
 
     private User getUser(Long userId) {
