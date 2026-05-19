@@ -11,8 +11,8 @@ public class ProfileCardRepresentation {
     private final UserShortRepresentation user;
     private final ExperienceRepresentation experience;
 
-    public ProfileCardRepresentation(User user, Experience experience) {
+    ProfileCardRepresentation(User user, Experience experience) {
         this.user = new UserShortRepresentation(user);
-        this.experience = new ExperienceRepresentation(experience);
+        this.experience = experience != null ? new ExperienceRepresentation(experience) : null;
     }
 }

@@ -8,6 +8,7 @@ import com.example.phantom.experience.experiencechange.ExperienceChangeRepositor
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepresentation;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.profile.ProfileCardRepresentation;
+import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ExperienceService {
@@ -33,13 +35,15 @@ public class ExperienceService {
     private final ExperienceChangeRepository experienceChangeRepository;
     private final PrivacySettingValidator privacySettingValidator;
     private final UsageLimiter usageLimiter;
+    private final ProfileService profileService;
 
-    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingValidator privacySettingValidator, UsageLimiter usageLimiter) {
+    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingValidator privacySettingValidator, UsageLimiter usageLimiter, ProfileService profileService) {
         this.userRepository = userRepository;
         this.experienceRepository = experienceRepository;
         this.experienceChangeRepository = experienceChangeRepository;
         this.privacySettingValidator = privacySettingValidator;
         this.usageLimiter = usageLimiter;
+        this.profileService = profileService;
     }
 
     public Experience lock(Long experienceId) {
@@ -110,11 +114,12 @@ public class ExperienceService {
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<Experience> experiences = beforeAmount != null
-                ? experienceRepository.findLeaderboardWithUsersBefore(PrivacySetting.EVERYONE, beforeAmount, beforeUserId, pageable)
-                : experienceRepository.findLeaderboardWithUsers(PrivacySetting.EVERYONE, pageable);
+        List<User> users = beforeAmount != null
+                ? experienceRepository.findLeaderboardUsersBefore(PrivacySetting.EVERYONE, beforeAmount, beforeUserId, pageable)
+                : experienceRepository.findLeaderboardUsers(PrivacySetting.EVERYONE, pageable);
 
-        return experiences.stream().map(e -> new ProfileCardRepresentation(e.getUser(), e)).toList();
+        Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
+        return users.stream().map(u -> cardsByUserId.get(u.getId())).toList();
     }
 
     private User getUser(Long userId) {

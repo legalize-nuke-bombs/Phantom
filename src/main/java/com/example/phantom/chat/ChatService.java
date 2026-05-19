@@ -8,28 +8,25 @@ import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
 import com.example.phantom.exception.ForbiddenException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
-import com.example.phantom.exception.UnauthorizedException;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceRepository;
-import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.profile.ProfileCardRepresentation;
+import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import org.hibernate.annotations.NotFound;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 public class ChatService {
@@ -39,15 +36,17 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
+    private final ProfileService profileService;
 
     private final UsageLimiter usageLimiter;
 
-    public ChatService(UserRepository userRepository, ExperienceRepository experienceRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, UsageLimiter usageLimiter) {
+    public ChatService(UserRepository userRepository, ExperienceRepository experienceRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, UsageLimiter usageLimiter) {
         this.userRepository = userRepository;
         this.experienceRepository = experienceRepository;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
+        this.profileService = profileService;
 
         this.usageLimiter = usageLimiter;
     }
@@ -64,19 +63,14 @@ public class ChatService {
                 ? messageRepository.findAllBeforeWithUsersPageable(before, pageable)
                 : messageRepository.findAllWithUsersPageable(pageable);
 
-        List<Long> userIds = messages.stream().map(message -> message.getUser().getId()).toList();
-
-        List<Experience> experiences = experienceRepository.findAllById(userIds);
-        Map<Long, Experience> experienceMap = experiences.stream().collect(Collectors.toMap(Experience::getId, Function.identity()));
+        List<User> users = messages.stream().map(Message::getUser).toList();
+        Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
 
         List<MessageRepresentation> messageRepresentations = new ArrayList<>();
         for (Message message : messages) {
             messageRepresentations.add(new MessageRepresentation(
                     message,
-                    new ProfileCardRepresentation(
-                            message.getUser(),
-                            experienceMap.get(message.getUser().getId())
-                    )
+                    cardsByUserId.get(message.getUser().getId())
             ));
         }
         return messageRepresentations;
@@ -105,12 +99,7 @@ public class ChatService {
         message.setContent(content);
         message = messageRepository.save(message);
 
-        ProfileCardRepresentation profileCard = new ProfileCardRepresentation(
-                user,
-                getExperience(user.getId())
-        );
-
-        return new MessageRepresentation(message, profileCard);
+        return new MessageRepresentation(message, profileService.getCardForUser(userId, user));
     }
 
     @Transactional

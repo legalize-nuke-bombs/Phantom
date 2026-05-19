@@ -9,12 +9,12 @@ import java.util.Objects;
 public class PrivacySettingValidator {
 
     public void validate(Long user1Id, Long user2Id, PrivacySetting setting) {
-        if (!ok(user1Id, user2Id, setting)) {
+        if (!isVisible(user1Id, user2Id, setting)) {
             throw new ForbiddenException("user hid this information");
         }
     }
 
-    private boolean ok(Long user1Id, Long user2Id, PrivacySetting setting) {
+    public boolean isVisible(Long user1Id, Long user2Id, PrivacySetting setting) {
         return switch(setting) {
             case EVERYONE -> true;
             case ONLY_YOU -> Objects.equals(user1Id, user2Id);

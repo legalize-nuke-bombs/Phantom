@@ -6,7 +6,7 @@ import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
-import com.example.phantom.profile.ProfileCardRepresentation;
+import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
@@ -32,15 +32,17 @@ public abstract class GameService {
     private final UserRepository userRepository;
     private final WalletService walletService;
     private final ExperienceService experienceService;
+    private final ProfileService profileService;
     private final ProvablyFairProvider provablyFairProvider;
     private final UsageLimiter usageLimiter;
     private final GameRepository gameRepository;
     private final PrivacySettingValidator privacySettingValidator;
 
-    protected GameService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+    protected GameService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
+        this.profileService = profileService;
         this.provablyFairProvider = provablyFairProvider;
         this.usageLimiter = usageLimiter;
         this.gameRepository = gameRepository;
@@ -109,10 +111,7 @@ public abstract class GameService {
         game.setTimestamp(Instant.now().getEpochSecond());
         gameRepository.save(game);
 
-        return new GameRepresentation(game, new ProfileCardRepresentation(
-                user,
-                experience
-        ));
+        return new GameRepresentation(game, profileService.getCardForUser(userId, user));
     }
 
     @Transactional
