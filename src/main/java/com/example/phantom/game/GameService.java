@@ -3,6 +3,7 @@ package com.example.phantom.game;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.usagelimit.UsageAction;
@@ -79,7 +80,7 @@ public abstract class GameService {
     public GameRepresentation run(Long userId, GameRunRequest request) {
         User user = getUser(userId);
         Wallet wallet = walletService.lock(userId);
-        experienceService.lock(userId);
+        Experience experience = experienceService.lock(userId);
         Game game = gameRepository.findActiveGame(userId, gameType()).orElseThrow(() -> new NotFoundException("game not found"));
 
         if (wallet.getBalanceCached().compareTo(game.getBet()) < 0) {
@@ -95,7 +96,12 @@ public abstract class GameService {
             walletService.addChange(user, wallet, result, BalanceChangeType.GAME_WIN, gameType().name());
         }
 
-        experienceService.addChange(user, game.getBet().multiply(new BigDecimal(100)).setScale(0, RoundingMode.DOWN).longValue(), ExperienceChangeType.BET, gameType().name());
+        experienceService.addChange(user,
+                experience,
+                game.getBet().multiply(new BigDecimal(100)).setScale(0, RoundingMode.DOWN).longValue(),
+                ExperienceChangeType.BET,
+                gameType().name()
+        );
 
         game.setClientSeed(request.getClientSeed());
         game.setResult(result);

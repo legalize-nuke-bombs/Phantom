@@ -70,7 +70,7 @@ public class ChatService {
         }
 
         if (!user.getRole().chatModeratorAccess()) {
-            if (experienceService.getAmount(userId) < ChatConstants.MIN_EXPERIENCE) {
+            if (experienceService.getExperience(userId).getAmountCached() < ChatConstants.MIN_EXPERIENCE) {
                 throw new ForbiddenException("min experience = " + ChatConstants.MIN_EXPERIENCE);
             }
         }

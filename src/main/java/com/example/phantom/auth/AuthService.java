@@ -109,6 +109,7 @@ public class AuthService {
 
         Experience experience = new Experience();
         experience.setUser(user);
+        experience.setAmountCached(0L);
         experienceRepository.save(experience);
 
         for (CoinProvider provider : coinProviderRegistry.getAll()) {

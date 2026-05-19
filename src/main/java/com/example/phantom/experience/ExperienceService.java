@@ -15,6 +15,7 @@ import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -37,12 +38,20 @@ public class ExperienceService {
         this.usageLimiter = usageLimiter;
     }
 
-    public void lock(Long experienceId) {
-        experienceRepository.findByIdForPessimisticWrite(experienceId).orElseThrow(() -> new NotFoundException("experience record not found"));
+    public Experience lock(Long experienceId) {
+        return experienceRepository.findByIdForPessimisticWrite(experienceId).orElseThrow(() -> new NotFoundException("experience record not found"));
     }
 
-    public void addChange(User user, Long amount, ExperienceChangeType type, String details) {
+    public Experience getExperience(Long experienceId) {
+        return experienceRepository.findById(experienceId).orElseThrow(() -> new NotFoundException("experience record not found"));
+    }
+
+    @Transactional
+    public ExperienceChange addChange(User user, Experience experience, Long amount, ExperienceChangeType type, String details) {
         if (details == null) details = "";
+
+        experience.setAmountCached(experience.getAmountCached() + amount);
+        experienceRepository.save(experience);
 
         ExperienceChange experienceChange = new ExperienceChange();
         experienceChange.setUser(user);
@@ -50,11 +59,7 @@ public class ExperienceService {
         experienceChange.setType(type);
         experienceChange.setTimestamp(Instant.now().getEpochSecond());
         experienceChange.setDetails(details);
-        experienceChangeRepository.save(experienceChange);
-    }
-
-    public Long getAmount(Long userId) {
-        return experienceChangeRepository.getAmount(userId);
+        return experienceChangeRepository.save(experienceChange);
     }
 
     public List<LevelRepresentation> getLevels() {
@@ -67,7 +72,8 @@ public class ExperienceService {
 
         privacySettingValidator.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
 
-        return new ExperienceRepresentation(getAmount(target.getId()));
+        Experience experience = getExperience(target.getId());
+        return new ExperienceRepresentation(experience);
     }
 
     public List<ExperienceChangeRepresentation> getHistory(Long userId, Long targetId, Integer limit, Long before) {

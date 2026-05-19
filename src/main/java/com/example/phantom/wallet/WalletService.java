@@ -48,6 +48,7 @@ public class WalletService {
         return walletRepository.findById(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
     }
 
+    @Transactional
     public BalanceChange addChange(User user, Wallet wallet, BigDecimal amount, BalanceChangeType type, String details) {
         wallet.setBalanceCached(wallet.getBalanceCached().add(amount));
         walletRepository.save(wallet);
