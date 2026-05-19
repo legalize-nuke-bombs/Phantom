@@ -18,6 +18,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.example.phantom.exception.*;
+
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
@@ -102,6 +104,7 @@ public class AuthService {
 
         Wallet wallet = new Wallet();
         wallet.setUser(user);
+        wallet.setBalanceCached(BigDecimal.ZERO);
         walletRepository.save(wallet);
 
         Experience experience = new Experience();

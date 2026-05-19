@@ -9,6 +9,7 @@ import com.example.phantom.exception.ServiceUnavailable;
 import com.example.phantom.user.User;
 import com.example.phantom.variable.Variable;
 import com.example.phantom.variable.VariableRepository;
+import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import lombok.extern.slf4j.Slf4j;
@@ -53,13 +54,13 @@ public class WithdrawalService {
             throw new BadRequestException("amount must be greater than commission");
         }
 
-        walletService.lock(user.getId());
+        Wallet wallet = walletService.lock(user.getId());
 
-        if (walletService.getBalance(user.getId()).compareTo(amount) < 0) {
+        if (wallet.getBalanceCached().compareTo(amount) < 0) {
             throw new BadRequestException("insufficient balance");
         }
 
-        walletService.addChange(user, amount.negate(), BalanceChangeType.WITHDRAWAL, coin);
+        walletService.addChange(user, wallet, amount.negate(), BalanceChangeType.WITHDRAWAL, coin);
 
         Withdrawal withdrawal = new Withdrawal();
         withdrawal.setUser(user);
@@ -121,13 +122,13 @@ public class WithdrawalService {
 
     @Transactional
     public void applyCheckedStatuses(Long userId, List<Withdrawal> checked) {
-        walletService.lock(userId);
+        Wallet wallet = walletService.lock(userId);
 
         for (Withdrawal w : checked) {
             log.info("applying withdrawal {} status={}", w.getId(), w.getStatus());
 
             if (w.getStatus() == TransferStatus.REJECTED && refundRepository.insertIfNotExists(w.getId()) == 1) {
-                walletService.addChange(w.getUser(), w.getAmount(), BalanceChangeType.WITHDRAWAL_REFUND, w.getCoin());
+                walletService.addChange(w.getUser(), wallet, w.getAmount(), BalanceChangeType.WITHDRAWAL_REFUND, w.getCoin());
                 log.info("withdrawal {} refund {}", w.getId(), w.getAmount());
             }
         }

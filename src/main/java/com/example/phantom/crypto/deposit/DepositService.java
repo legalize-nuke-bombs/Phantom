@@ -8,6 +8,7 @@ import com.example.phantom.crypto.CryptoWalletRepository;
 import com.example.phantom.exception.BadGatewayException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.user.User;
+import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import org.springframework.stereotype.Service;
@@ -90,9 +91,9 @@ public class DepositService {
     public void applyDeposits(User user, List<Deposit> deposits) {
         depositRepository.saveAll(deposits);
 
-        walletService.lock(user.getId());
+        Wallet wallet = walletService.lock(user.getId());
         for (Deposit deposit : deposits) {
-            walletService.addChange(user, deposit.getAmount(), BalanceChangeType.DEPOSIT, deposit.getCoin());
+            walletService.addChange(user, wallet, deposit.getAmount(), BalanceChangeType.DEPOSIT, deposit.getCoin());
         }
     }
 }

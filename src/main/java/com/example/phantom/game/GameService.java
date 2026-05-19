@@ -11,6 +11,7 @@ import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import org.springframework.data.domain.PageRequest;
@@ -61,7 +62,7 @@ public abstract class GameService {
         game.setServerSeed(provablyFairProvider.generateSeed());
         if (game.getData() == null) game.setData(Map.of());
 
-        if (walletService.getBalance(userId).compareTo(game.getBet()) < 0) {
+        if (walletService.getWallet(userId).getBalanceCached().compareTo(game.getBet()) < 0) {
             throw new BadRequestException("insufficient balance");
         }
 
@@ -77,11 +78,11 @@ public abstract class GameService {
     @Transactional
     public GameRepresentation run(Long userId, GameRunRequest request) {
         User user = getUser(userId);
-        walletService.lock(userId);
+        Wallet wallet = walletService.lock(userId);
         experienceService.lock(userId);
         Game game = gameRepository.findActiveGame(userId, gameType()).orElseThrow(() -> new NotFoundException("game not found"));
 
-        if (walletService.getBalance(userId).compareTo(game.getBet()) < 0) {
+        if (wallet.getBalanceCached().compareTo(game.getBet()) < 0) {
             throw new BadRequestException("insufficient balance");
         }
 
@@ -89,9 +90,9 @@ public abstract class GameService {
         game = runGame(game, random);
         BigDecimal result = game.getResult();
 
-        walletService.addChange(user, game.getBet().negate(), BalanceChangeType.GAME_BET, gameType().name());
+        walletService.addChange(user, wallet, game.getBet().negate(), BalanceChangeType.GAME_BET, gameType().name());
         if (result.compareTo(BigDecimal.ZERO) > 0) {
-            walletService.addChange(user, result, BalanceChangeType.GAME_WIN, gameType().name());
+            walletService.addChange(user, wallet, result, BalanceChangeType.GAME_WIN, gameType().name());
         }
 
         experienceService.addChange(user, game.getBet().multiply(new BigDecimal(100)).setScale(0, RoundingMode.DOWN).longValue(), ExperienceChangeType.BET, gameType().name());

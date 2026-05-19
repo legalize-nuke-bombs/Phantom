@@ -1,5 +1,6 @@
 package com.example.phantom.wallet;
 
+import com.example.phantom.finance.FinanceConstants;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -7,6 +8,8 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "wallets")
@@ -23,4 +26,7 @@ public class Wallet {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
+
+    @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
+    private BigDecimal balanceCached;
 }

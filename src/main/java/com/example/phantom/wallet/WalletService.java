@@ -40,15 +40,18 @@ public class WalletService {
         this.privacySettingValidator = privacySettingValidator;
     }
 
-    public void lock(Long userId) {
-        walletRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+    public Wallet lock(Long userId) {
+        return walletRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
     }
 
-    public BigDecimal getBalance(Long userId) {
-        return balanceChangeRepository.getBalance(userId);
+    public Wallet getWallet(Long userId) {
+        return walletRepository.findById(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
     }
 
-    public BalanceChange addChange(User user, BigDecimal amount, BalanceChangeType type, String details) {
+    public BalanceChange addChange(User user, Wallet wallet, BigDecimal amount, BalanceChangeType type, String details) {
+        wallet.setBalanceCached(wallet.getBalanceCached().add(amount));
+        walletRepository.save(wallet);
+
         BalanceChange change = new BalanceChange();
         change.setUser(user);
         change.setAmount(amount);
@@ -64,8 +67,8 @@ public class WalletService {
 
         privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletBalancePrivacySetting());
 
-        BigDecimal balance = getBalance(target.getId());
-        return new WalletRepresentation(target.getId(), balance);
+        Wallet wallet = getWallet(target.getId());
+        return new WalletRepresentation(wallet);
     }
 
     @Transactional
@@ -85,17 +88,26 @@ public class WalletService {
 
         if (message == null) message = "";
 
-        lock(Math.min(user.getId(), target.getId())); // locks being done by specified order to prevent deadlock problem
-        lock(Math.max(user.getId(), target.getId()));
+        Wallet userWallet;
+        Wallet targetWallet;
 
-        if (getBalance(userId).compareTo(amount) < 0) {
+        if (target.getId() > user.getId()) { // locks being done by specified order to prevent deadlock problem
+            userWallet = lock(userId);
+            targetWallet = lock(targetId);
+        }
+        else {
+            targetWallet = lock(targetId);
+            userWallet = lock(userId);
+        }
+
+        if (userWallet.getBalanceCached().compareTo(amount) < 0) {
             throw new BadRequestException("insufficient balance");
         }
 
         lock(target.getId());
 
-        BalanceChange bc = addChange(user, amount.negate(), BalanceChangeType.INTERUSER_SEND, message);
-        addChange(target, amount, BalanceChangeType.INTERUSER_RECEIVE, message);
+        BalanceChange bc = addChange(user, userWallet, amount.negate(), BalanceChangeType.INTERUSER_SEND, message);
+        addChange(target, targetWallet, amount, BalanceChangeType.INTERUSER_RECEIVE, message);
 
         return new BalanceChangeRepresentation(bc);
     }

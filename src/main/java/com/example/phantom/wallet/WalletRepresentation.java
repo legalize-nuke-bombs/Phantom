@@ -9,8 +9,8 @@ public class WalletRepresentation {
     private final Long id;
     private final BigDecimal balance;
 
-    public WalletRepresentation(Long id, BigDecimal balance) {
-        this.id = id;
-        this.balance = balance;
+    public WalletRepresentation(Wallet wallet) {
+        this.id = wallet.getId();
+        this.balance = wallet.getBalanceCached();
     }
 }
