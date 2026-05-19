@@ -16,6 +16,7 @@ import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -48,7 +49,7 @@ public class WalletService {
         return walletRepository.findById(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public BalanceChange addChange(User user, Wallet wallet, BigDecimal amount, BalanceChangeType type, String details) {
         wallet.setBalanceCached(wallet.getBalanceCached().add(amount));
         walletRepository.save(wallet);

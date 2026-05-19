@@ -17,6 +17,7 @@ import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -48,7 +49,7 @@ public class ExperienceService {
         return experienceRepository.findById(experienceId).orElseThrow(() -> new NotFoundException("experience record not found"));
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public ExperienceChange addChange(User user, Experience experience, Long amount, ExperienceChangeType type, String details) {
         if (details == null) details = "";
 
