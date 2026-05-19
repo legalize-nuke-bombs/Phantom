@@ -8,9 +8,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface BalanceChangeRepository extends JpaRepository<BalanceChange, Long> {
-    @Query("SELECT COALESCE(SUM(b.amount), 0) FROM BalanceChange b WHERE b.user.id = ?1")
-    BigDecimal getBalance(Long userId);
-
     @Query("SELECT COALESCE(SUM(b.amount), 0) FROM BalanceChange b WHERE b.user.id = ?1 AND b.type = ?2")
     BigDecimal sumByType(Long userId, BalanceChangeType type);
 

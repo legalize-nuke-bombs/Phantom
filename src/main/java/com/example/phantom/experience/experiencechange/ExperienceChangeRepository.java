@@ -7,9 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 
 public interface ExperienceChangeRepository extends JpaRepository<ExperienceChange, Long> {
-    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM ExperienceChange e WHERE e.user.id = ?1")
-    Long getAmount(Long userId);
-
     @Query("SELECT e FROM ExperienceChange e WHERE e.user.id = ?1 ORDER BY e.id DESC")
     List<ExperienceChange> findByUserIdPageable(Long userId, Pageable pageable);
 
