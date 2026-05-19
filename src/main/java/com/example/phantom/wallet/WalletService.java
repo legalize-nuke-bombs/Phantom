@@ -77,12 +77,12 @@ public class WalletService {
         User user = getUser(userId);
         User target = getUser(targetId);
 
-        try { usageLimiter.startAction(user, UsageAction.INTERUSER_SEND, 1L); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
-
         if (Objects.equals(user.getId(), target.getId())) {
             throw new BadRequestException("can't self send");
         }
+
+        try { usageLimiter.startAction(user, UsageAction.INTERUSER_SEND, 1L); }
+        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
 
         BigDecimal amount = request.getAmount();
         String message = request.getMessage();
@@ -104,8 +104,6 @@ public class WalletService {
         if (userWallet.getBalanceCached().compareTo(amount) < 0) {
             throw new BadRequestException("insufficient balance");
         }
-
-        lock(target.getId());
 
         BalanceChange bc = addChange(user, userWallet, amount.negate(), BalanceChangeType.INTERUSER_SEND, message);
         addChange(target, targetWallet, amount, BalanceChangeType.INTERUSER_RECEIVE, message);
