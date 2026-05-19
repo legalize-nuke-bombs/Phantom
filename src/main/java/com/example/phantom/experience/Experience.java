@@ -10,7 +10,7 @@ import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Table(name = "experiences", indexes = {
-        @Index(name = "idx_experiences_amountCached", columnList = "amountCached")
+        @Index(name = "idx_experiences_amountCached_user_id", columnList = "amountCached, user_id")
 })
 @Getter
 @Setter

@@ -48,8 +48,9 @@ public class ExperienceController {
     public ResponseEntity<List<ProfileCardRepresentation>> getLeaderboard(
             @AuthenticationPrincipal Long userId,
             @RequestParam @Min(1) Integer limit,
-            @RequestParam(required = false) Long beforeAmount
+            @RequestParam(required = false) Long beforeAmount,
+            @RequestParam(required = false) Long beforeUserId
     ) {
-        return ResponseEntity.ok(service.getLeaderboard(userId, limit, beforeAmount));
+        return ResponseEntity.ok(service.getLeaderboard(userId, limit, beforeAmount, beforeUserId));
     }
 }

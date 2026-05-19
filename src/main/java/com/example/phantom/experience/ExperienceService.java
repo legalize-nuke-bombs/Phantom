@@ -1,5 +1,6 @@
 package com.example.phantom.experience;
 
+import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.experience.experiencechange.ExperienceChange;
@@ -97,8 +98,12 @@ public class ExperienceService {
         return changes.stream().map(ExperienceChangeRepresentation::new).toList();
     }
 
-    public List<ProfileCardRepresentation> getLeaderboard(Long userId, Integer limit, Long beforeAmount) {
+    public List<ProfileCardRepresentation> getLeaderboard(Long userId, Integer limit, Long beforeAmount, Long beforeUserId) {
         User user = getUser(userId);
+
+        if ((beforeAmount == null) != (beforeUserId == null)) {
+            throw new BadRequestException("beforeAmount and beforeUserId must be both set or both empty");
+        }
 
         try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
@@ -106,10 +111,10 @@ public class ExperienceService {
         Pageable pageable = PageRequest.of(0, limit);
 
         List<Experience> experiences = beforeAmount != null
-                ? experienceRepository.findLeaderboardWithUsersBefore(PrivacySetting.EVERYONE, beforeAmount, pageable)
+                ? experienceRepository.findLeaderboardWithUsersBefore(PrivacySetting.EVERYONE, beforeAmount, beforeUserId, pageable)
                 : experienceRepository.findLeaderboardWithUsers(PrivacySetting.EVERYONE, pageable);
 
-        return experiences.stream().map(experience -> new ProfileCardRepresentation(experience.getUser(), experience)).toList();
+        return experiences.stream().map(e -> new ProfileCardRepresentation(e.getUser(), e)).toList();
     }
 
     private User getUser(Long userId) {

@@ -15,9 +15,19 @@ public interface ExperienceRepository extends JpaRepository<Experience, Long> {
     @Query("SELECT e FROM Experience e WHERE e.id = ?1")
     Optional<Experience> findByIdForPessimisticWrite(Long experienceId);
 
-    @Query("SELECT e FROM Experience e JOIN FETCH e.user WHERE e.user.experiencePrivacySetting = ?1 ORDER BY e.amountCached DESC")
-    List<Experience> findLeaderboardWithUsers(PrivacySetting experiencePrivacySetting, Pageable pageable);
+    @Query("""
+    SELECT e FROM Experience e JOIN FETCH e.user
+    WHERE e.user.experiencePrivacySetting = ?1
+    ORDER BY e.amountCached DESC, e.user.id DESC
+""")
+    List<Experience> findLeaderboardWithUsers(PrivacySetting setting, Pageable pageable);
 
-    @Query("SELECT e FROM Experience e JOIN FETCH e.user WHERE e.user.experiencePrivacySetting = ?1 AND e.amountCached < ?2 ORDER BY e.amountCached DESC")
-    List<Experience> findLeaderboardWithUsersBefore(PrivacySetting experiencePrivacySetting, Long beforeAmount, Pageable pageable);
+    @Query("""
+    SELECT e FROM Experience e JOIN FETCH e.user
+    WHERE e.user.experiencePrivacySetting = ?1
+      AND (e.amountCached < ?2
+           OR (e.amountCached = ?2 AND e.user.id < ?3))
+    ORDER BY e.amountCached DESC, e.user.id DESC
+""")
+    List<Experience> findLeaderboardWithUsersBefore(PrivacySetting setting, Long beforeAmount, Long beforeUserId, Pageable pageable);
 }
