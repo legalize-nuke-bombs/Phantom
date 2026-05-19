@@ -2,6 +2,9 @@ package com.example.phantom.game;
 
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.experience.Experience;
+import com.example.phantom.experience.ExperienceRepository;
+import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
@@ -15,18 +18,24 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class GameHistoryStatService {
 
     private final UserRepository userRepository;
+    private final ExperienceRepository experienceRepository;
     private final GameRepository gameRepository;
     private final UsageLimiter usageLimiter;
     private final PrivacySettingValidator privacySettingValidator;
 
-    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, UsageLimiter usageLimiter, PrivacySettingValidator privacySettingValidator) {
+    public GameHistoryStatService(UserRepository userRepository, ExperienceRepository experienceRepository, GameRepository gameRepository, UsageLimiter usageLimiter, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
+        this.experienceRepository = experienceRepository;
         this.gameRepository = gameRepository;
         this.usageLimiter = usageLimiter;
         this.privacySettingValidator = privacySettingValidator;
@@ -35,6 +44,7 @@ public class GameHistoryStatService {
     public List<GameRepresentation> getUserHistory(Long userId, Long targetId, Integer limit, Long before) {
         User user = getUser(userId);
         User target = getUser(targetId);
+        Experience targetExperience = getExperience(target.getId());
 
         privacySettingValidator.validate(user.getId(), target.getId(), target.getGameHistoryPrivacySetting());
 
@@ -46,7 +56,11 @@ public class GameHistoryStatService {
         List<Game> games = before != null
                 ? gameRepository.findHistoryByUserBefore(target.getId(), before, pageable)
                 : gameRepository.findHistoryByUser(target.getId(), pageable);
-        return games.stream().map(GameRepresentation::new).toList();
+
+        return games.stream().map(game -> new GameRepresentation(game, new ProfileCardRepresentation(
+                target,
+                targetExperience
+        ))).toList();
     }
 
     public List<GameRepresentation> getPlatformHistory(Long userId, Integer limit, Long before) {
@@ -58,9 +72,22 @@ public class GameHistoryStatService {
         Pageable pageable = PageRequest.of(0, limit);
 
         List<Game> games = before != null
-                ? gameRepository.findHistoryByUserGameHistoryPrivacySettingBefore(PrivacySetting.EVERYONE, before, pageable)
-                : gameRepository.findHistoryByUserGameHistoryPrivacySetting(PrivacySetting.EVERYONE, pageable);
-        return games.stream().map(GameRepresentation::new).toList();
+                ? gameRepository.findHistoryByGameHistoryPrivacySettingWithUsersBefore(PrivacySetting.EVERYONE, before, pageable)
+                : gameRepository.findHistoryByGameHistoryPrivacySettingWithUsers(PrivacySetting.EVERYONE, pageable);
+
+        List<Long> userIds = games.stream().map(game -> game.getUser().getId()).toList();
+
+        List<Experience> experiences = experienceRepository.findAllById(userIds);
+        Map<Long, Experience> experienceMap = experiences.stream().collect(Collectors.toMap(Experience::getId, Function.identity()));
+
+        List<GameRepresentation> gameRepresentations = new ArrayList<>();
+        for (Game game : games) {
+            gameRepresentations.add(new GameRepresentation(game, new ProfileCardRepresentation(
+                    game.getUser(),
+                    experienceMap.get(game.getUser().getId())
+            )));
+        }
+        return gameRepresentations;
     }
 
     public UserGameStatRepresentation getUserStats(Long userId, Long targetId) {
@@ -87,5 +114,9 @@ public class GameHistoryStatService {
 
     private User getUser(Long userId) {
         return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+    }
+
+    private Experience getExperience(Long targetId) {
+        return experienceRepository.findById(targetId).orElseThrow(() -> new NotFoundException("experience record not found"));
     }
 }

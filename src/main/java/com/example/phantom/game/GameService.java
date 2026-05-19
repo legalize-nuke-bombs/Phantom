@@ -6,6 +6,7 @@ import com.example.phantom.exception.TooManyRequestsException;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
+import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
@@ -108,42 +109,15 @@ public abstract class GameService {
         game.setTimestamp(Instant.now().getEpochSecond());
         gameRepository.save(game);
 
-        return new GameRepresentation(game);
+        return new GameRepresentation(game, new ProfileCardRepresentation(
+                user,
+                experience
+        ));
     }
 
     @Transactional
     public void delete(Long userId) {
         gameRepository.deleteActiveGame(userId, gameType());
-    }
-
-    public List<GameRepresentation> getGameUserHistory(Long userId, Long targetId, Integer limit, Long before) {
-        User user = getUser(userId);
-        User target = getUser(targetId);
-
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getGameHistoryPrivacySetting());
-
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
-
-        Pageable pageable = PageRequest.of(0, limit);
-
-        List<Game> rounds = before != null
-                ? gameRepository.findHistoryByUserAndGameTypeBefore(target.getId(), gameType(), before, pageable)
-                : gameRepository.findHistoryByUserAndGameType(target.getId(), gameType(), pageable);
-
-        return rounds.stream().map(GameRepresentation::new).toList();
-    }
-
-    public UserGameStatRepresentation getGameUserStats(Long userId, Long targetId) {
-        User user = getUser(userId);
-        User target = getUser(targetId);
-
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
-
-        return new UserGameStatRepresentation(
-                gameRepository.countCompletedByUserIdAndGameType(targetId, gameType()),
-                gameRepository.maxResultByUserIdAndGameType(targetId, gameType())
-        );
     }
 
     private User getUser(Long userId) {

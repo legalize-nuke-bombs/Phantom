@@ -1,18 +1,18 @@
 package com.example.phantom.chat;
 
-import com.example.phantom.user.UserShortRepresentation;
+import com.example.phantom.profile.ProfileCardRepresentation;
 import lombok.Getter;
 
 @Getter
 public class MessageRepresentation {
     private final Long id;
-    private final UserShortRepresentation user;
+    private final ProfileCardRepresentation profileCard;
     private final Long timestamp;
     private final String content;
 
-    public MessageRepresentation(Message message) {
+    public MessageRepresentation(Message message, ProfileCardRepresentation profileCard) {
         this.id = message.getId();
-        this.user = new UserShortRepresentation(message.getUser());
+        this.profileCard = profileCard;
         this.timestamp = message.getTimestamp();
         this.content = message.getContent();
     }

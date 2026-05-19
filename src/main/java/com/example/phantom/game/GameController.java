@@ -57,22 +57,6 @@ public class GameController {
         return ResponseEntity.ok(getService(game).run(userId, request));
     }
 
-    @GetMapping("/{game}/history/{targetId}")
-    public ResponseEntity<List<GameRepresentation>> getGameUserHistory(@AuthenticationPrincipal Long userId,
-                                                                       @PathVariable String game,
-                                                                       @PathVariable Long targetId,
-                                                                       @RequestParam(defaultValue = "20") @Min(1) Integer limit,
-                                                                       @RequestParam(required = false) Long before) {
-        return ResponseEntity.ok(getService(game).getGameUserHistory(userId, targetId, limit, before));
-    }
-
-    @GetMapping("/{game}/stats/{targetId}")
-    public ResponseEntity<UserGameStatRepresentation> getGameUserStats(@AuthenticationPrincipal Long userId,
-                                                                       @PathVariable String game,
-                                                                       @PathVariable Long targetId) {
-        return ResponseEntity.ok(getService(game).getGameUserStats(userId, targetId));
-    }
-
     private GameService getService(String game) {
         try {
             game = game.toUpperCase();
