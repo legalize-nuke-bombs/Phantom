@@ -1,4 +1,4 @@
-package com.example.phantom.auth.jwt;
+package com.example.phantom.jwt;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
