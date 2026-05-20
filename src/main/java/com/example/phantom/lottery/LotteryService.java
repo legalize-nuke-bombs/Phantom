@@ -3,6 +3,9 @@ package com.example.phantom.lottery;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.experience.ExperienceService;
+import com.example.phantom.experience.experiencechange.ExperienceChange;
+import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairProvider;
@@ -22,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.*;
 
@@ -30,6 +34,7 @@ public class LotteryService {
 
     private final UserRepository userRepository;
     private final WalletService walletService;
+    private final ExperienceService experienceService;
     private final LotteryRepository lotteryRepository;
     private final LotteryBetRepository lotteryBetRepository;
     private final LotterySettings lotterySettings;
@@ -37,9 +42,10 @@ public class LotteryService {
     private final ProfileService profileService;
     private final ProvablyFairProvider provablyFairProvider;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimiter usageLimiter, ProfileService profileService, ProvablyFairProvider provablyFairProvider) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimiter usageLimiter, ProfileService profileService, ProvablyFairProvider provablyFairProvider) {
         this.userRepository = userRepository;
         this.walletService = walletService;
+        this.experienceService = experienceService;
         this.lotteryRepository = lotteryRepository;
         this.lotteryBetRepository = lotteryBetRepository;
         this.lotterySettings = lotterySettings;
@@ -188,6 +194,8 @@ public class LotteryService {
             return;
         }
 
+        BigDecimal ticketCost = lotterySettings.getTicketCost();
+
         List<LotteryBet> bets = lotteryBetRepository.findAllByLotteryId(lottery.getId());
 
         long ticketsAmountTotal = bets.stream().mapToLong(LotteryBet::getTickets).sum();
@@ -196,6 +204,20 @@ public class LotteryService {
             createNewLottery();
             return;
         }
+
+        List<ExperienceChange> experienceChanges = new ArrayList<>();
+        for (LotteryBet bet : bets) {
+            ExperienceChange experienceChange = new ExperienceChange();
+            experienceChange.setUser(bet.getUser());
+            experienceChange.setAmount(ticketCost.multiply(BigDecimal.valueOf(bet.getTickets()))
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(0, RoundingMode.DOWN).longValue()
+            );
+            experienceChange.setTimestamp(Instant.now().getEpochSecond());
+            experienceChange.setType(ExperienceChangeType.LOTTERY_TICKET);
+            experienceChange.setDetails(String.valueOf(bet.getTickets()));
+        }
+        experienceService.addChanges(experienceChanges);
 
         Random random = provablyFairProvider.fairRandomSingle(lottery.getSeed());
 
@@ -214,7 +236,7 @@ public class LotteryService {
             throw new RuntimeException("unexpected error happened");
         }
 
-        BigDecimal prize = lotterySettings.getTicketCost().multiply(new BigDecimal(ticketsAmountTotal)).multiply(new BigDecimal("0.95"));
+        BigDecimal prize = ticketCost.multiply(new BigDecimal(ticketsAmountTotal)).multiply(new BigDecimal("0.95"));
 
         lottery.setWinner(winner);
         lottery.setPrize(prize);
@@ -228,11 +250,8 @@ public class LotteryService {
     }
 
     @Transactional
-    public void ensureLotteryExist() {
-        try {
-            getCurrentLottery();
-        }
-        catch (NotFoundException e) {
+    public void ensureLotteryExists() {
+        if (lotteryRepository.findCurrent().isEmpty()) {
             createNewLottery();
         }
     }

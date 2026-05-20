@@ -14,6 +14,6 @@ public class LotteryInitializer {
 
     @EventListener(ApplicationReadyEvent.class)
     public void init() {
-        service.ensureLotteryExist();
+        service.ensureLotteryExists();
     }
 }

@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -68,6 +69,21 @@ public class ExperienceService {
         experienceChange.setTimestamp(Instant.now().getEpochSecond());
         experienceChange.setDetails(details);
         return experienceChangeRepository.save(experienceChange);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void addChanges(List<ExperienceChange> changes) {
+        Map<Long, Experience> experienceMap = new HashMap<>();
+        for (ExperienceChange change : changes) {
+            Long userId = change.getUser().getId();
+            if (!experienceMap.containsKey(userId)) {
+                experienceMap.put(userId, lock(userId));
+            }
+            experienceMap.get(userId).setAmountCached(experienceMap.get(userId).getAmountCached() + change.getAmount());
+        }
+        experienceRepository.saveAll(experienceMap.values());
+
+        experienceChangeRepository.saveAll(changes);
     }
 
     public List<LevelRepresentation> getLevels() {
