@@ -19,6 +19,6 @@ public interface LotteryBetRepository extends JpaRepository<LotteryBet, Long> {
     @Query("SELECT COALESCE(SUM(lb.tickets), 0) FROM LotteryBet lb WHERE lb.lottery.id = ?1")
     Long sumByLotteryId(Long lotteryId);
 
-    @Query("SELECT lb FROM LotteryBet lb WHERE lb.lottery.id = ?1")
-    List<LotteryBet> findAllByLotteryId(Long lotteryId);
+    @Query("SELECT lb FROM LotteryBet lb JOIN FETCH lb.user WHERE lb.lottery.id = ?1")
+    List<LotteryBet> findAllByLotteryIdWithUsers(Long lotteryId);
 }

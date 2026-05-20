@@ -196,7 +196,7 @@ public class LotteryService {
 
         BigDecimal ticketCost = lotterySettings.getTicketCost();
 
-        List<LotteryBet> bets = lotteryBetRepository.findAllByLotteryId(lottery.getId());
+        List<LotteryBet> bets = lotteryBetRepository.findAllByLotteryIdWithUsers(lottery.getId());
 
         long ticketsAmountTotal = bets.stream().mapToLong(LotteryBet::getTickets).sum();
         if (ticketsAmountTotal == 0) {
@@ -216,7 +216,9 @@ public class LotteryService {
             experienceChange.setTimestamp(Instant.now().getEpochSecond());
             experienceChange.setType(ExperienceChangeType.LOTTERY_TICKET);
             experienceChange.setDetails(String.valueOf(bet.getTickets()));
+            experienceChanges.add(experienceChange);
         }
+        experienceChanges.sort(Comparator.comparing(ec -> ec.getUser().getId()));
         experienceService.addChanges(experienceChanges);
 
         Random random = provablyFairProvider.fairRandomSingle(lottery.getSeed());
