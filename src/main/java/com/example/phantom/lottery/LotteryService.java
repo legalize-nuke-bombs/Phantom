@@ -100,7 +100,7 @@ public class LotteryService {
                     lottery.getId(),
                     lottery.getTimestamp(),
                     lottery.getSeed(),
-                    winnerCards.get(lottery.getWinner().getId()),
+                    lottery.getWinner() != null ? winnerCards.get(lottery.getWinner().getId()) : null,
                     lottery.getPrize(),
                     lottery.getTicketsAmountTotal()
             ));
@@ -110,11 +110,15 @@ public class LotteryService {
 
     @Transactional
     public Map<String, String> buyTickets(Long userId, LotteryTicketAmountRequest request) {
+        User user = getUser(userId);
+
+        try { usageLimiter.startAction(user, UsageAction.LOTTERY, 1L); }
+        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+
+        Wallet wallet = walletService.lock(userId);
+
         Long ticketsAmount = request.getAmount();
         BigDecimal ticketsCost = lotterySettings.getTicketCost().multiply(new BigDecimal(ticketsAmount));
-
-        User user = getUser(userId);
-        Wallet wallet = walletService.lock(userId);
 
         if (wallet.getBalanceCached().compareTo(ticketsCost) < 0) {
             throw new BadRequestException("insufficient balance");
@@ -144,11 +148,15 @@ public class LotteryService {
 
     @Transactional
     public Map<String, String> refundTickets(Long userId, LotteryTicketAmountRequest request) {
+        User user = getUser(userId);
+
+        try { usageLimiter.startAction(user, UsageAction.LOTTERY, 1L); }
+        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+
+        Wallet wallet = walletService.lock(userId);
+
         Long ticketsAmount = request.getAmount();
         BigDecimal ticketsCost = lotterySettings.getTicketCost().multiply(new BigDecimal(ticketsAmount));
-
-        User user = getUser(userId);
-        Wallet wallet = walletService.lock(userId);
 
         Lottery lottery = getCurrentLottery();
 
@@ -174,14 +182,7 @@ public class LotteryService {
     @Scheduled(cron = "0 * * * * *")
     @Transactional
     public void checkCurrentLottery() {
-        Lottery lottery;
-        try {
-            lottery = getCurrentLottery();
-        }
-        catch (NotFoundException e) {
-            createNewLottery();
-            return;
-        }
+        Lottery lottery = getCurrentLottery();
 
         if (lottery.getTimestamp() + lotterySettings.getEnd() > Instant.now().getEpochSecond()) {
             return;
@@ -226,6 +227,16 @@ public class LotteryService {
         createNewLottery();
     }
 
+    @Transactional
+    public void ensureLotteryExist() {
+        try {
+            getCurrentLottery();
+        }
+        catch (NotFoundException e) {
+            createNewLottery();
+        }
+    }
+
     private void createNewLottery() {
         Lottery lottery = new Lottery();
         lottery.setTimestamp(Instant.now().getEpochSecond());
@@ -238,11 +249,6 @@ public class LotteryService {
     }
 
     private Lottery getCurrentLottery() {
-        Long lastId = lotteryRepository.findLastId().orElseThrow(() -> new NotFoundException("lottery does not exist yet"));
-        Lottery lottery = lotteryRepository.findById(lastId).orElseThrow(() -> new NotFoundException("lottery does not exist yet"));
-        if (lottery.isFinished()) {
-            throw new NotFoundException("lottery was finished");
-        }
-        return lottery;
+        return lotteryRepository.findCurrent().orElseThrow(() -> new NotFoundException("current lottery does not exist yet"));
     }
 }
