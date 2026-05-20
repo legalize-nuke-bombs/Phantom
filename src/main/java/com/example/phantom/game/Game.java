@@ -1,6 +1,7 @@
 package com.example.phantom.game;
 
 import com.example.phantom.finance.FinanceConstants;
+import com.example.phantom.provablyfair.ProvablyFairProvider;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;

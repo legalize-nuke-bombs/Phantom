@@ -57,6 +57,10 @@ public class User {
     @Column(nullable = false)
     private PrivacySetting experiencePrivacySetting;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PrivacySetting lotteryPrivacySetting;
+
     @Column(nullable = false, length = UserConstants.BCRYPT_HASH_LENGTH)
     private String passwordHash;
 

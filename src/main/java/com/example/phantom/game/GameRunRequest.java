@@ -1,5 +1,6 @@
 package com.example.phantom.game;
 
+import com.example.phantom.provablyfair.ProvablyFairProvider;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -9,6 +10,6 @@ import lombok.Setter;
 @Setter
 public class GameRunRequest {
     @NotNull
-    @Size(min=ProvablyFairProvider.SEED_LENGTH, max=ProvablyFairProvider.SEED_LENGTH)
+    @Size(min= ProvablyFairProvider.SEED_LENGTH, max=ProvablyFairProvider.SEED_LENGTH)
     private String clientSeed;
 }

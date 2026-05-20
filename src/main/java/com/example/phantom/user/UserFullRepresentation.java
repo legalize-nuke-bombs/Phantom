@@ -16,6 +16,7 @@ public class UserFullRepresentation {
     private final PrivacySetting gameHistoryPrivacySetting;
     private final PrivacySetting gameStatsPrivacySetting;
     private final PrivacySetting experiencePrivacySetting;
+    private final PrivacySetting lotteryPrivacySetting;
 
     public UserFullRepresentation(User user) {
         this.id = user.getId();
@@ -30,5 +31,6 @@ public class UserFullRepresentation {
         this.gameHistoryPrivacySetting = user.getGameHistoryPrivacySetting();
         this.gameStatsPrivacySetting = user.getGameStatsPrivacySetting();
         this.experiencePrivacySetting = user.getExperiencePrivacySetting();
+        this.lotteryPrivacySetting = user.getLotteryPrivacySetting();
     }
 }

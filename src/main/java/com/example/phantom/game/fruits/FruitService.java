@@ -3,15 +3,13 @@ package com.example.phantom.game.fruits;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
-import com.example.phantom.game.util.slot.PatternMatch;
-import com.example.phantom.game.util.slot.Slot;
 import com.example.phantom.game.util.slot.SpinRepresentation;
 import com.example.phantom.profile.ProfileService;
+import com.example.phantom.provablyfair.ProvablyFairProvider;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
-import com.google.gson.JsonArray;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;

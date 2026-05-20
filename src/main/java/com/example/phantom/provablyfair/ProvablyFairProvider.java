@@ -1,4 +1,4 @@
-package com.example.phantom.game;
+package com.example.phantom.provablyfair;
 
 import com.example.phantom.exception.BadRequestException;
 import org.springframework.stereotype.Component;
@@ -62,9 +62,16 @@ public class ProvablyFairProvider {
 
         byte[] token = sha256().digest(combined);
 
-        long seed = ByteBuffer.wrap(token, 0, 8).getLong();
+        long rngSeed = ByteBuffer.wrap(token, 0, 8).getLong();
 
-        return new Random(seed);
+        return new Random(rngSeed);
+    }
+
+    public Random fairRandomSingle(String seed) {
+        byte[] rawSeed = HexFormat.of().parseHex(seed);
+        byte[] token = sha256().digest(rawSeed);
+        long rngSeed = ByteBuffer.wrap(token, 0, 8).getLong();
+        return new Random(rngSeed);
     }
 
     private MessageDigest sha256() {

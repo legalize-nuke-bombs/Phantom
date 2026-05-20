@@ -4,6 +4,7 @@ import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
 import com.example.phantom.profile.ProfileService;
+import com.example.phantom.provablyfair.ProvablyFairProvider;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;

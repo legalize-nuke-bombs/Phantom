@@ -16,4 +16,5 @@ public class PatchMeRequest {
     private PrivacySetting gameHistoryPrivacySetting;
     private PrivacySetting gameStatsPrivacySetting;
     private PrivacySetting experiencePrivacySetting;
+    private PrivacySetting lotteryPrivacySetting;
 }

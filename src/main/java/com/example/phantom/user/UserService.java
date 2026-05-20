@@ -50,6 +50,7 @@ public class UserService {
         PrivacySetting gameHistoryPrivacySetting = request.getGameHistoryPrivacySetting();
         PrivacySetting gameStatsPrivacySetting = request.getGameStatsPrivacySetting();
         PrivacySetting experiencePrivacySetting = request.getExperiencePrivacySetting();
+        PrivacySetting lotteryPrivacySetting = request.getLotteryPrivacySetting();
 
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
@@ -60,6 +61,7 @@ public class UserService {
         if (gameHistoryPrivacySetting != null) user.setGameHistoryPrivacySetting(gameHistoryPrivacySetting);
         if (gameStatsPrivacySetting != null) user.setGameStatsPrivacySetting(gameStatsPrivacySetting);
         if (experiencePrivacySetting != null) user.setExperiencePrivacySetting(experiencePrivacySetting);
+        if (lotteryPrivacySetting != null) user.setLotteryPrivacySetting(lotteryPrivacySetting);
 
         userRepository.save(user);
 

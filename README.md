@@ -15,6 +15,7 @@ REST API for a gambling platform.
 * Interuser balance transfers
 * Deposits & withdrawals via crypto: TON
 * Games: Upgrader, Cases, Coinflip, Fruits (Slots)
+* Lottery
 * Provably fair
 * Sweep scheduling
 * Sweep history
@@ -92,6 +93,14 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | GET    | `/api/games/history`                   | Get platform history  |
 | GET    | `/api/games/stats/{targetId}`          | Get user stats        |
 | GET    | `/api/games/stats`                     | Get platform stats    |
+
+### Lottery
+| Method | Endpoint                      | Description            |
+|--------|-------------------------------|------------------------|
+| GET    | `/api/lottery/current`        | Get current lottery    |
+| GET    | `/api/lottery/history`        | Get lottery history    |
+| POST   | `/api/lottery/buy-tickets`    | Buy lottery tickets    |
+| POST   | `/api/lottery/refund-tickets` | Refund lottery tickets |
 
 ### Owner
 | Method | Endpoint                        | Description                                     |
