@@ -1,5 +1,6 @@
 package com.example.phantom.lottery;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -35,12 +36,12 @@ public class LotteryController {
     }
 
     @PostMapping("/buy-tickets")
-    public ResponseEntity<Map<String, String>> buyTickets(@AuthenticationPrincipal Long userId, LotteryTicketAmountRequest request) {
+    public ResponseEntity<Map<String, String>> buyTickets(@AuthenticationPrincipal Long userId, @Valid@RequestBody LotteryTicketAmountRequest request) {
         return ResponseEntity.ok(service.buyTickets(userId, request));
     }
 
     @PostMapping("/refund-tickets")
-    public ResponseEntity<Map<String, String>> refundTickets(@AuthenticationPrincipal Long userId, LotteryTicketAmountRequest request) {
+    public ResponseEntity<Map<String, String>> refundTickets(@AuthenticationPrincipal Long userId, @Valid @RequestBody LotteryTicketAmountRequest request) {
         return ResponseEntity.ok(service.refundTickets(userId, request));
     }
 }

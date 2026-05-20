@@ -123,7 +123,7 @@ public class LotteryService {
         Lottery lottery = getCurrentLottery();
 
         if (Instant.now().getEpochSecond() >= lottery.getTimestamp() + lotterySettings.getBlock()) {
-            throw new BadRequestException("lottery does not self tickets anymore");
+            throw new BadRequestException("lottery does not sell tickets anymore");
         }
 
         walletService.addChange(user, wallet, ticketsCost.negate(), BalanceChangeType.LOTTERY_TICKET_BUY, String.valueOf(ticketsAmount));
@@ -178,7 +178,7 @@ public class LotteryService {
         try {
             lottery = getCurrentLottery();
         }
-        catch (Exception e) {
+        catch (NotFoundException e) {
             createNewLottery();
             return;
         }
@@ -202,7 +202,7 @@ public class LotteryService {
 
         User winner = null;
         for (LotteryBet bet : bets) {
-            if (bet.getTickets() >= happyTicket) {
+            if (bet.getTickets() > happyTicket) {
                 winner = bet.getUser();
                 break;
             }
