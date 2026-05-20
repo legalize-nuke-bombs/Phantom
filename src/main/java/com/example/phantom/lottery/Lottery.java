@@ -38,8 +38,4 @@ public class Lottery {
 
     @Column
     private Long ticketsAmountTotal;
-
-    public boolean isFinished() {
-        return ticketsAmountTotal != null;
-    }
 }
