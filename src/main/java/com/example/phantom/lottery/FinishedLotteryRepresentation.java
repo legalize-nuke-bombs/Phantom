@@ -11,7 +11,8 @@ import java.math.BigDecimal;
 public class FinishedLotteryRepresentation {
     private final Long id;
     private final Long timestamp;
-    private final String seed;
+    private final String seed1;
+    private final String seed2;
     private final ProfileCardRepresentation profileCard;
     private final BigDecimal prize;
     private final Long ticketsSold;

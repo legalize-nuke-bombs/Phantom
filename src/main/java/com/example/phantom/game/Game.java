@@ -1,7 +1,7 @@
 package com.example.phantom.game;
 
 import com.example.phantom.finance.FinanceConstants;
-import com.example.phantom.provablyfair.ProvablyFairProvider;
+import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -44,10 +44,10 @@ public class Game {
     @Column(precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
     private BigDecimal result;
 
-    @Column(nullable = false, length = ProvablyFairProvider.SEED_LENGTH)
+    @Column(nullable = false, length = ProvablyFairService.SEED_LENGTH)
     private String serverSeed;
 
-    @Column(length = ProvablyFairProvider.SEED_LENGTH)
+    @Column(length = ProvablyFairService.SEED_LENGTH)
     private String clientSeed;
 
     private Long timestamp;

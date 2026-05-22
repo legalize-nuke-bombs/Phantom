@@ -6,7 +6,7 @@ import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.provablyfair.ProvablyFairProvider;
+import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
@@ -28,17 +28,17 @@ public abstract class GameService {
     private final WalletService walletService;
     private final ExperienceService experienceService;
     private final ProfileService profileService;
-    private final ProvablyFairProvider provablyFairProvider;
+    private final ProvablyFairService provablyFairService;
     private final UsageLimiter usageLimiter;
     private final GameRepository gameRepository;
     private final PrivacySettingValidator privacySettingValidator;
 
-    protected GameService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, ProvablyFairProvider provablyFairProvider, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+    protected GameService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, ProvablyFairService provablyFairService, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
         this.profileService = profileService;
-        this.provablyFairProvider = provablyFairProvider;
+        this.provablyFairService = provablyFairService;
         this.usageLimiter = usageLimiter;
         this.gameRepository = gameRepository;
         this.privacySettingValidator = privacySettingValidator;
@@ -58,7 +58,7 @@ public abstract class GameService {
         Game game = initGame(request.getData());
         game.setGameType(gameType());
         game.setUser(user);
-        game.setServerSeed(provablyFairProvider.generateSeed());
+        game.setServerSeed(provablyFairService.generateSeed());
         if (game.getData() == null) game.setData(Map.of());
 
         if (walletService.getWallet(userId).getBalanceCached().compareTo(game.getBet()) < 0) {
@@ -69,7 +69,7 @@ public abstract class GameService {
         gameRepository.save(game);
 
         GameInitRepresentation representation = new GameInitRepresentation();
-        representation.setServerHash(provablyFairProvider.generateHash(game.getServerSeed()));
+        representation.setServerHash(provablyFairService.generateHash(game.getServerSeed()));
         representation.setData(game.getData());
         return representation;
     }
@@ -85,7 +85,7 @@ public abstract class GameService {
             throw new BadRequestException("insufficient balance");
         }
 
-        Random random = provablyFairProvider.fairRandom(game.getServerSeed(), request.getClientSeed());
+        Random random = provablyFairService.fairRandom(game.getServerSeed(), request.getClientSeed());
         game = runGame(game, random);
         BigDecimal result = game.getResult();
 

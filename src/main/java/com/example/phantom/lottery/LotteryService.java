@@ -8,7 +8,7 @@ import com.example.phantom.experience.experiencechange.ExperienceChange;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.provablyfair.ProvablyFairProvider;
+import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
@@ -40,9 +40,9 @@ public class LotteryService {
     private final LotterySettings lotterySettings;
     private final UsageLimiter usageLimiter;
     private final ProfileService profileService;
-    private final ProvablyFairProvider provablyFairProvider;
+    private final ProvablyFairService provablyFairService;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimiter usageLimiter, ProfileService profileService, ProvablyFairProvider provablyFairProvider) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimiter usageLimiter, ProfileService profileService, ProvablyFairService provablyFairService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
@@ -51,7 +51,7 @@ public class LotteryService {
         this.lotterySettings = lotterySettings;
         this.usageLimiter = usageLimiter;
         this.profileService = profileService;
-        this.provablyFairProvider = provablyFairProvider;
+        this.provablyFairService = provablyFairService;
     }
 
     public CurrentLotteryRepresentation getCurrent(Long userId) {
@@ -69,7 +69,8 @@ public class LotteryService {
                 lottery.getTimestamp() + lotterySettings.getBlock(),
                 lottery.getTimestamp() + lotterySettings.getEnd(),
 
-                provablyFairProvider.generateHash(lottery.getSeed()),
+                provablyFairService.generateHash(lottery.getSeed1()),
+                provablyFairService.generateHash(lottery.getSeed2()),
 
                 ticketCost,
 
@@ -105,7 +106,8 @@ public class LotteryService {
             lotteryRepresentations.add(new FinishedLotteryRepresentation(
                     lottery.getId(),
                     lottery.getTimestamp(),
-                    lottery.getSeed(),
+                    lottery.getSeed1(),
+                    lottery.getSeed2(),
                     lottery.getWinner() != null ? winnerCards.get(lottery.getWinner().getId()) : null,
                     lottery.getPrize(),
                     lottery.getTicketsAmountTotal()
@@ -218,10 +220,9 @@ public class LotteryService {
             experienceChange.setDetails(String.valueOf(bet.getTickets()));
             experienceChanges.add(experienceChange);
         }
-        experienceChanges.sort(Comparator.comparing(ec -> ec.getUser().getId()));
         experienceService.addChanges(experienceChanges);
 
-        Random random = provablyFairProvider.fairRandomSingle(lottery.getSeed());
+        Random random = provablyFairService.fairRandom(lottery.getSeed1(), lottery.getSeed2());
 
         Long happyTicket = random.nextLong(ticketsAmountTotal);
 
@@ -261,7 +262,8 @@ public class LotteryService {
     private void createNewLottery() {
         Lottery lottery = new Lottery();
         lottery.setTimestamp(Instant.now().getEpochSecond());
-        lottery.setSeed(provablyFairProvider.generateSeed());
+        lottery.setSeed1(provablyFairService.generateSeed());
+        lottery.setSeed2(provablyFairService.generateSeed());
         lotteryRepository.save(lottery);
     }
 

@@ -1,7 +1,7 @@
 package com.example.phantom.lottery;
 
 import com.example.phantom.finance.FinanceConstants;
-import com.example.phantom.provablyfair.ProvablyFairProvider;
+import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -25,8 +25,11 @@ public class Lottery {
     @Column(nullable = false)
     private Long timestamp;
 
-    @Column(nullable = false, length = ProvablyFairProvider.SEED_LENGTH)
-    private String seed;
+    @Column(nullable = false, length = ProvablyFairService.SEED_LENGTH)
+    private String seed1;
+
+    @Column(nullable = false, length = ProvablyFairService.SEED_LENGTH)
+    private String seed2;
 
     @ManyToOne
     @JoinColumn(name = "winner_id")

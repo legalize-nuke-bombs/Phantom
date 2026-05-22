@@ -14,7 +14,8 @@ public class CurrentLotteryRepresentation {
     private final Long timestampBlock;
     private final Long timestampEnd;
 
-    private final String seedHash;
+    private final String seed1Hash;
+    private final String seed2Hash;
 
     private final BigDecimal ticketCost;
 
