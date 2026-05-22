@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private static final long MAX_REQUESTS = 10;
+    private static final long MAX_REQUESTS = 100;
 
     private final ConcurrentHashMap<String, Long> counts = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -42,7 +42,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    @Scheduled(fixedDelay = 600)
+    @Scheduled(fixedDelay = 10 * 1000)
     public void resetCounts() {
         counts.clear();
     }
