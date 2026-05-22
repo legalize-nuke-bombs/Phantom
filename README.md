@@ -86,8 +86,6 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | GET    | `/api/games/{game}`                    | Get game settings     |
 | POST   | `/api/games/{game}/init`               | Init game             |
 | POST   | `/api/games/{game}/run`                | Run game              |
-| GET    | `/api/games/{game}/history/{targetId}` | Get game user history |
-| GET    | `/api/games/{game}/stats/{targetId}`   | Get game user stats   |
 | DELETE | `/api/games/{game}`                    | Cancel active game    |
 | GET    | `/api/games/history/{targetId}`        | Get user history      |
 | GET    | `/api/games/history`                   | Get platform history  |
