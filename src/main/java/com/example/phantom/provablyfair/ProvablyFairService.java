@@ -28,7 +28,7 @@ public class ProvablyFairService {
     }
 
     public String generateHash(String seed) {
-        byte[] rawSeed = HexFormat.of().parseHex(seed);
+        byte[] rawSeed = parseSeed(seed);
         byte[] rawHash = sha256().digest(rawSeed);
         return HexFormat.of().formatHex(rawHash);
     }
