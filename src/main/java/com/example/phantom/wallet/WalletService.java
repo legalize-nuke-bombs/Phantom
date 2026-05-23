@@ -121,17 +121,6 @@ public class WalletService {
         );
     }
 
-    public PersonalWalletStatRepresentation getStats(Long userId, Long targetId) {
-        User user = getUser(userId);
-        User target = getUser(targetId);
-
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletStatsPrivacySetting());
-
-        return new PersonalWalletStatRepresentation(
-                balanceChangeRepository.sumByType(target.getId(), BalanceChangeType.DEPOSIT)
-        );
-    }
-
     public List<BalanceChangeRepresentation> getHistory(Long userId, Long targetId, Integer limit, Long before) {
         User user = getUser(userId);
         User target = getUser(targetId);

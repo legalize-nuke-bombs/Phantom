@@ -51,11 +51,4 @@ public class WalletController {
     public ResponseEntity<PlatformWalletStatRepresentation> stats() {
         return ResponseEntity.ok(walletService.getStats());
     }
-
-    @GetMapping("/{targetId}/stats")
-    public ResponseEntity<PersonalWalletStatRepresentation> stats(
-            @AuthenticationPrincipal Long userId,
-            @PathVariable Long targetId) {
-        return ResponseEntity.ok(walletService.getStats(userId, targetId));
-    }
 }
