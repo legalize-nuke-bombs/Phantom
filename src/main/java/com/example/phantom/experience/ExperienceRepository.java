@@ -26,8 +26,7 @@ public interface ExperienceRepository extends JpaRepository<Experience, Long> {
     @Query("""
     SELECT e.user FROM Experience e
     WHERE e.user.experiencePrivacySetting = ?1
-      AND (e.amountCached < ?2
-           OR (e.amountCached = ?2 AND e.user.id < ?3))
+    AND (e.amountCached < ?2 OR (e.amountCached = ?2 AND e.user.id < ?3))
     ORDER BY e.amountCached DESC, e.user.id DESC
 """)
     List<User> findLeaderboardUsersBefore(PrivacySetting setting, Long beforeAmount, Long beforeUserId, Pageable pageable);

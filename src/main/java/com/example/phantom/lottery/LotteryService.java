@@ -116,6 +116,36 @@ public class LotteryService {
         return lotteryRepresentations;
     }
 
+    public List<LotteryBetRepresentation> getBets(Long userId, Long id, Integer limit, Long beforeTickets, Long beforeId) {
+        if ((beforeTickets == null) != (beforeId == null)) {
+            throw new BadRequestException("beforeTickets and beforeId must be both set or both empty");
+        }
+
+        User user = getUser(userId);
+
+        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
+        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+
+        Pageable pageable = PageRequest.of(0, limit);
+
+        List<LotteryBet> bets = beforeTickets != null
+                ? lotteryBetRepository.findAllByLotteryIdBeforeWithUsers(id, beforeTickets, beforeId, pageable)
+                : lotteryBetRepository.findAllByLotteryIdWithUsers(id, pageable);
+
+        List<User> users = bets.stream()
+                .map(LotteryBet::getUser)
+                .filter(u -> user.getLotteryPrivacySetting() == PrivacySetting.EVERYONE)
+                .toList();
+
+        Map<Long, ProfileCardRepresentation> profileCards = profileService.getCardsForUsers(user.getId(), users);
+
+        List<LotteryBetRepresentation> betRepresentations = new ArrayList<>();
+        for (LotteryBet bet : bets) {
+            betRepresentations.add(new LotteryBetRepresentation(bet, profileCards.get(bet.getUser().getId())));
+        }
+        return betRepresentations;
+    }
+
     @Transactional
     public Map<String, String> buyTickets(Long userId, LotteryTicketAmountRequest request) {
         User user = getUser(userId);

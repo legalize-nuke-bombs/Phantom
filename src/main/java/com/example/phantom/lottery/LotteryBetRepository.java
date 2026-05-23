@@ -1,6 +1,7 @@
 package com.example.phantom.lottery;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +20,23 @@ public interface LotteryBetRepository extends JpaRepository<LotteryBet, Long> {
     @Query("SELECT COALESCE(SUM(lb.tickets), 0) FROM LotteryBet lb WHERE lb.lottery.id = ?1")
     Long sumByLotteryId(Long lotteryId);
 
-    @Query("SELECT lb FROM LotteryBet lb JOIN FETCH lb.user WHERE lb.lottery.id = ?1")
+    @Query("SELECT lb FROM LotteryBet lb JOIN FETCH lb.user WHERE lb.lottery.id = ?1 AND lb.tickets != 0 ORDER BY lb.tickets DESC, lb.id")
     List<LotteryBet> findAllByLotteryIdWithUsers(Long lotteryId);
+
+    @Query("""
+            SELECT lb FROM LotteryBet lb
+            JOIN FETCH lb.user
+            WHERE lb.lottery.id = ?1 AND lb.tickets != 0
+            ORDER BY lb.tickets DESC, lb.id
+""")
+    List<LotteryBet> findAllByLotteryIdWithUsers(Long lotteryId, Pageable pageable);
+
+    @Query("""
+            SELECT lb FROM LotteryBet  lb
+            JOIN FETCH lb.user
+            WHERE lb.lottery.id = ?1 AND lb.tickets != 0 AND
+            lb.tickets < ?2 OR (lb.tickets = ?2 AND lb.id < ?3)
+            ORDER BY lb.tickets DESC, lb.id
+""")
+    List<LotteryBet> findAllByLotteryIdBeforeWithUsers(Long lotteryId, Long beforeTickets, Long beforeId, Pageable pageable);
 }

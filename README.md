@@ -96,6 +96,7 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 |--------|-------------------------------|------------------------|
 | GET    | `/api/lottery/current`        | Get current lottery    |
 | GET    | `/api/lottery/history`        | Get lottery history    |
+| GET    | `/api/lottery/{id}/bets`      | Get bets by lottery id |
 | POST   | `/api/lottery/buy-tickets`    | Buy lottery tickets    |
 | POST   | `/api/lottery/refund-tickets` | Refund lottery tickets |
 

@@ -35,6 +35,17 @@ public class LotteryController {
         return ResponseEntity.ok(service.getHistory(userId, limit, before));
     }
 
+    @GetMapping("/{id}/bets")
+    public ResponseEntity<List<LotteryBetRepresentation>> getBets(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "20") @Min(1) Integer limit,
+            @RequestParam(required = false) Long beforeTickets,
+            @RequestParam(required = false) Long beforeId
+    ) {
+        return ResponseEntity.ok(service.getBets(userId, id, limit, beforeTickets, beforeId));
+    }
+
     @PostMapping("/buy-tickets")
     public ResponseEntity<Map<String, String>> buyTickets(@AuthenticationPrincipal Long userId, @Valid@RequestBody LotteryTicketAmountRequest request) {
         return ResponseEntity.ok(service.buyTickets(userId, request));

@@ -10,5 +10,5 @@ import java.math.BigDecimal;
 public class LotterySettings {
     private final BigDecimal ticketCost = BigDecimal.ONE;
     private final Long end = 24 * 3600L;
-    private final Long block = end - 60;
+    private final Long block = end - 10 * 60;
 }
