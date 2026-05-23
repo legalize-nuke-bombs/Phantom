@@ -7,7 +7,6 @@ import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.user.PrivacySetting;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -67,8 +66,8 @@ public class GameHistoryStatService {
         Pageable pageable = PageRequest.of(0, limit);
 
         List<Game> games = before != null
-                ? gameRepository.findHistoryByGameHistoryPrivacySettingWithUsersBefore(PrivacySetting.EVERYONE, before, pageable)
-                : gameRepository.findHistoryByGameHistoryPrivacySettingWithUsers(PrivacySetting.EVERYONE, pageable);
+                ? gameRepository.findHistoryWithUsersUsingPrivacyPolicyBefore(user.getId(), before, pageable)
+                : gameRepository.findHistoryWithUsersUsingPrivacyPolicy(user.getId(), pageable);
 
         List<User> users = games.stream().map(Game::getUser).toList();
         Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);

@@ -12,7 +12,6 @@ import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.user.PrivacySetting;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -131,10 +130,8 @@ public class ExperienceService {
         Pageable pageable = PageRequest.of(0, limit);
 
         List<User> users = beforeAmount != null
-                ? experienceRepository.findLeaderboardUsersBefore(beforeAmount, beforeUserId, pageable)
-                : experienceRepository.findLeaderboardUsers(pageable);
-
-        users = users.stream().filter(u -> privacySettingValidator.isVisible(user.getId(), u.getId(), u.getExperiencePrivacySetting())).toList();
+                ? experienceRepository.findBestUsersUsingPrivacyPolicyBefore(user.getId(), beforeAmount, beforeUserId, pageable)
+                : experienceRepository.findBestUsersUsingPrivacyPolicy(user.getId(), pageable);
 
         Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
         return users.stream().map(u -> cardsByUserId.get(u.getId())).toList();

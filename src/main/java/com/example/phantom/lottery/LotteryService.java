@@ -12,7 +12,6 @@ import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.user.PrivacySetting;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -100,7 +99,7 @@ public class LotteryService {
         List<User> winners = lotteries.stream()
                 .map(Lottery::getWinner)
                 .filter(Objects::nonNull)
-                .filter(winner -> privacySettingValidator.isVisible(user.getId(), winner.getId(), winner.getLotteryPrivacySetting()))
+                .filter(u -> privacySettingValidator.isVisible(user.getId(), u.getId(), u.getLotteryPrivacySetting()))
                 .toList();
         Map<Long, ProfileCardRepresentation> winnerCards = profileService.getCardsForUsers(userId, winners);
 
