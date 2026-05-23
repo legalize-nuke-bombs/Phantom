@@ -134,7 +134,7 @@ public class LotteryService {
 
         List<User> users = bets.stream()
                 .map(LotteryBet::getUser)
-                .filter(u -> user.getLotteryPrivacySetting() == PrivacySetting.EVERYONE)
+                .filter(u -> u.getLotteryPrivacySetting() == PrivacySetting.EVERYONE)
                 .toList();
 
         Map<Long, ProfileCardRepresentation> profileCards = profileService.getCardsForUsers(user.getId(), users);

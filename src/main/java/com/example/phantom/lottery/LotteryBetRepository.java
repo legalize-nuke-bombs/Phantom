@@ -20,14 +20,14 @@ public interface LotteryBetRepository extends JpaRepository<LotteryBet, Long> {
     @Query("SELECT COALESCE(SUM(lb.tickets), 0) FROM LotteryBet lb WHERE lb.lottery.id = ?1")
     Long sumByLotteryId(Long lotteryId);
 
-    @Query("SELECT lb FROM LotteryBet lb JOIN FETCH lb.user WHERE lb.lottery.id = ?1 AND lb.tickets != 0 ORDER BY lb.tickets DESC, lb.id")
+    @Query("SELECT lb FROM LotteryBet lb JOIN FETCH lb.user WHERE lb.lottery.id = ?1 AND lb.tickets != 0 ORDER BY lb.tickets DESC, lb.id DESC")
     List<LotteryBet> findAllByLotteryIdWithUsers(Long lotteryId);
 
     @Query("""
             SELECT lb FROM LotteryBet lb
             JOIN FETCH lb.user
             WHERE lb.lottery.id = ?1 AND lb.tickets != 0
-            ORDER BY lb.tickets DESC, lb.id
+            ORDER BY lb.tickets DESC, lb.id DESC
 """)
     List<LotteryBet> findAllByLotteryIdWithUsers(Long lotteryId, Pageable pageable);
 
@@ -35,8 +35,8 @@ public interface LotteryBetRepository extends JpaRepository<LotteryBet, Long> {
             SELECT lb FROM LotteryBet  lb
             JOIN FETCH lb.user
             WHERE lb.lottery.id = ?1 AND lb.tickets != 0 AND
-            lb.tickets < ?2 OR (lb.tickets = ?2 AND lb.id < ?3)
-            ORDER BY lb.tickets DESC, lb.id
+            (lb.tickets < ?2 OR (lb.tickets = ?2 AND lb.id < ?3))
+            ORDER BY lb.tickets DESC, lb.id DESC
 """)
     List<LotteryBet> findAllByLotteryIdBeforeWithUsers(Long lotteryId, Long beforeTickets, Long beforeId, Pageable pageable);
 }
