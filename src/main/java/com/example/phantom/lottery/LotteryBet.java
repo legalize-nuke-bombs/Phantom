@@ -13,7 +13,6 @@ import org.hibernate.annotations.OnDeleteAction;
         indexes = {
                 @Index(name = "idx_lottery_bets_lottery_id", columnList = "lottery_id"),
                 @Index(name = "idx_lottery_bets_user_id", columnList = "user_id"),
-                @Index(name = "idx_lottery_bets_tickets", columnList = "tickets"),
                 @Index(name = "idx_lottery_bets_tickets_id", columnList = "tickets, id")
         },
 
