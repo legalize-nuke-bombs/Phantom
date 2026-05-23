@@ -131,8 +131,10 @@ public class ExperienceService {
         Pageable pageable = PageRequest.of(0, limit);
 
         List<User> users = beforeAmount != null
-                ? experienceRepository.findLeaderboardUsersBefore(PrivacySetting.EVERYONE, beforeAmount, beforeUserId, pageable)
-                : experienceRepository.findLeaderboardUsers(PrivacySetting.EVERYONE, pageable);
+                ? experienceRepository.findLeaderboardUsersBefore(beforeAmount, beforeUserId, pageable)
+                : experienceRepository.findLeaderboardUsers(pageable);
+
+        users = users.stream().filter(u -> privacySettingValidator.isVisible(user.getId(), u.getId(), u.getExperiencePrivacySetting())).toList();
 
         Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
         return users.stream().map(u -> cardsByUserId.get(u.getId())).toList();

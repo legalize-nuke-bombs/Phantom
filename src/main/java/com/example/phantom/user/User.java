@@ -8,8 +8,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "users",
         indexes = {
-                @Index(name = "idx_users_gameHistoryPrivacySetting", columnList = "gameHistoryPrivacySetting"),
-                @Index(name = "idx_users_experiencePrivacySetting", columnList = "experiencePrivacySetting")
+                @Index(name = "idx_users_gameHistoryPrivacySetting", columnList = "gameHistoryPrivacySetting")
         }
 )
 @Getter

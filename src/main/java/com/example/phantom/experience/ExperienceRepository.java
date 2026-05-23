@@ -1,6 +1,5 @@
 package com.example.phantom.experience;
 
-import com.example.phantom.user.PrivacySetting;
 import com.example.phantom.user.User;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
@@ -18,16 +17,14 @@ public interface ExperienceRepository extends JpaRepository<Experience, Long> {
 
     @Query("""
     SELECT e.user FROM Experience e
-    WHERE e.user.experiencePrivacySetting = ?1
     ORDER BY e.amountCached DESC, e.user.id DESC
 """)
-    List<User> findLeaderboardUsers(PrivacySetting setting, Pageable pageable);
+    List<User> findLeaderboardUsers(Pageable pageable);
 
     @Query("""
     SELECT e.user FROM Experience e
-    WHERE e.user.experiencePrivacySetting = ?1
-    AND (e.amountCached < ?2 OR (e.amountCached = ?2 AND e.user.id < ?3))
+    WHERE (e.amountCached < ?1 OR (e.amountCached = ?1 AND e.user.id < ?2))
     ORDER BY e.amountCached DESC, e.user.id DESC
 """)
-    List<User> findLeaderboardUsersBefore(PrivacySetting setting, Long beforeAmount, Long beforeUserId, Pageable pageable);
+    List<User> findLeaderboardUsersBefore(Long beforeAmount, Long beforeUserId, Pageable pageable);
 }

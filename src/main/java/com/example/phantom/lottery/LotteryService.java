@@ -13,6 +13,7 @@ import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySetting;
+import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
@@ -41,8 +42,9 @@ public class LotteryService {
     private final UsageLimiter usageLimiter;
     private final ProfileService profileService;
     private final ProvablyFairService provablyFairService;
+    private final PrivacySettingValidator privacySettingValidator;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimiter usageLimiter, ProfileService profileService, ProvablyFairService provablyFairService) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimiter usageLimiter, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
@@ -52,6 +54,7 @@ public class LotteryService {
         this.usageLimiter = usageLimiter;
         this.profileService = profileService;
         this.provablyFairService = provablyFairService;
+        this.privacySettingValidator = privacySettingValidator;
     }
 
     public CurrentLotteryRepresentation getCurrent(Long userId) {
@@ -97,7 +100,7 @@ public class LotteryService {
         List<User> winners = lotteries.stream()
                 .map(Lottery::getWinner)
                 .filter(Objects::nonNull)
-                .filter(winner -> winner.getLotteryPrivacySetting() == PrivacySetting.EVERYONE)
+                .filter(winner -> privacySettingValidator.isVisible(user.getId(), winner.getId(), winner.getLotteryPrivacySetting()))
                 .toList();
         Map<Long, ProfileCardRepresentation> winnerCards = profileService.getCardsForUsers(userId, winners);
 
@@ -134,7 +137,7 @@ public class LotteryService {
 
         List<User> users = bets.stream()
                 .map(LotteryBet::getUser)
-                .filter(u -> u.getLotteryPrivacySetting() == PrivacySetting.EVERYONE)
+                .filter(u -> privacySettingValidator.isVisible(user.getId(), u.getId(), u.getLotteryPrivacySetting()))
                 .toList();
 
         Map<Long, ProfileCardRepresentation> profileCards = profileService.getCardsForUsers(user.getId(), users);
