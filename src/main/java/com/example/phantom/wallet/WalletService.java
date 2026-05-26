@@ -9,33 +9,23 @@ import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.wallet.balancechange.BalanceChange;
-import com.example.phantom.wallet.balancechange.BalanceChangeRepository;
-import com.example.phantom.wallet.balancechange.BalanceChangeRepresentation;
-import com.example.phantom.wallet.balancechange.BalanceChangeType;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
 import java.util.Objects;
 
 @Service
 public class WalletService {
 
     private final WalletRepository walletRepository;
-    private final BalanceChangeRepository balanceChangeRepository;
     private final UserRepository userRepository;
     private final UsageLimiter usageLimiter;
     private final PrivacySettingValidator privacySettingValidator;
 
-    public WalletService(WalletRepository walletRepository, BalanceChangeRepository balanceChangeRepository, UserRepository userRepository, UsageLimiter usageLimiter, PrivacySettingValidator privacySettingValidator) {
+    public WalletService(WalletRepository walletRepository, UserRepository userRepository, UsageLimiter usageLimiter, PrivacySettingValidator privacySettingValidator) {
         this.walletRepository = walletRepository;
-        this.balanceChangeRepository = balanceChangeRepository;
         this.userRepository = userRepository;
         this.usageLimiter = usageLimiter;
         this.privacySettingValidator = privacySettingValidator;
@@ -50,17 +40,11 @@ public class WalletService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public BalanceChange addChange(User user, Wallet wallet, BigDecimal amount, BalanceChangeType type, String details) {
+    public void addChange(Wallet wallet, BigDecimal amount) {
+        // history is not being recorded for security reasons
+
         wallet.setBalanceCached(wallet.getBalanceCached().add(amount));
         walletRepository.save(wallet);
-
-        BalanceChange change = new BalanceChange();
-        change.setUser(user);
-        change.setAmount(amount);
-        change.setType(type);
-        change.setTimestamp(Instant.now().getEpochSecond());
-        change.setDetails(details);
-        return balanceChangeRepository.save(change);
     }
 
     public WalletRepresentation get(Long userId, Long targetId) {
@@ -74,7 +58,7 @@ public class WalletService {
     }
 
     @Transactional
-    public BalanceChangeRepresentation send(Long userId, Long targetId, SendRequest request) {
+    public void send(Long userId, Long targetId, SendRequest request) {
         User user = getUser(userId);
         User target = getUser(targetId);
 
@@ -86,9 +70,6 @@ public class WalletService {
         catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
 
         BigDecimal amount = request.getAmount();
-        String message = request.getMessage();
-
-        if (message == null) message = "";
 
         Wallet userWallet;
         Wallet targetWallet;
@@ -106,37 +87,8 @@ public class WalletService {
             throw new BadRequestException("insufficient balance");
         }
 
-        BalanceChange bc = addChange(user, userWallet, amount.negate(), BalanceChangeType.INTERUSER_SEND, message);
-        addChange(target, targetWallet, amount, BalanceChangeType.INTERUSER_RECEIVE, message);
-
-        return new BalanceChangeRepresentation(bc);
-    }
-
-    public PlatformWalletStatRepresentation getStats() {
-        return new PlatformWalletStatRepresentation(
-                balanceChangeRepository.sumByType(BalanceChangeType.DEPOSIT),
-                balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL)
-                        .add(balanceChangeRepository.sumByType(BalanceChangeType.WITHDRAWAL_REFUND))
-                        .abs()
-        );
-    }
-
-    public List<BalanceChangeRepresentation> getHistory(Long userId, Long targetId, Integer limit, Long before) {
-        User user = getUser(userId);
-        User target = getUser(targetId);
-
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletHistoryPrivacySetting());
-
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
-
-        Pageable pageable = PageRequest.of(0, limit);
-
-        List<BalanceChange> changes = before != null
-                ? balanceChangeRepository.findByUserIdBeforePageable(target.getId(), before, pageable)
-                : balanceChangeRepository.findByUserIdPageable(target.getId(), pageable);
-
-        return changes.stream().map(BalanceChangeRepresentation::new).toList();
+        addChange(userWallet, amount.negate());
+        addChange(targetWallet, amount);
     }
 
     private User getUser(Long userId) {

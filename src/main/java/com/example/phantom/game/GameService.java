@@ -13,7 +13,6 @@ import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
-import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -89,9 +88,9 @@ public abstract class GameService {
         game = runGame(game, random);
         BigDecimal result = game.getResult();
 
-        walletService.addChange(user, wallet, game.getBet().negate(), BalanceChangeType.GAME_BET, gameType().name());
+        walletService.addChange(wallet, game.getBet().negate());
         if (result.compareTo(BigDecimal.ZERO) > 0) {
-            walletService.addChange(user, wallet, result, BalanceChangeType.GAME_WIN, gameType().name());
+            walletService.addChange(wallet, result);
         }
 
         experienceService.addChange(user,

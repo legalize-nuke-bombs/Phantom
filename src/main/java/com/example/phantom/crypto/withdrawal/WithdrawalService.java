@@ -11,7 +11,6 @@ import com.example.phantom.variable.Variable;
 import com.example.phantom.variable.VariableRepository;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
-import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,7 +59,7 @@ public class WithdrawalService {
             throw new BadRequestException("insufficient balance");
         }
 
-        walletService.addChange(user, wallet, amount.negate(), BalanceChangeType.WITHDRAWAL, coin);
+        walletService.addChange(wallet, amount.negate());
 
         Withdrawal withdrawal = new Withdrawal();
         withdrawal.setUser(user);
@@ -128,7 +127,7 @@ public class WithdrawalService {
             log.info("applying withdrawal {} status={}", w.getId(), w.getStatus());
 
             if (w.getStatus() == TransferStatus.REJECTED && refundRepository.insertIfNotExists(w.getId()) == 1) {
-                walletService.addChange(w.getUser(), wallet, w.getAmount(), BalanceChangeType.WITHDRAWAL_REFUND, w.getCoin());
+                walletService.addChange(wallet, w.getAmount());
                 log.info("withdrawal {} refund {}", w.getId(), w.getAmount());
             }
         }

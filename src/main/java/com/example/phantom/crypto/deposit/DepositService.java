@@ -10,11 +10,9 @@ import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.user.User;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
-import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 
@@ -93,7 +91,7 @@ public class DepositService {
 
         Wallet wallet = walletService.lock(user.getId());
         for (Deposit deposit : deposits) {
-            walletService.addChange(user, wallet, deposit.getAmount(), BalanceChangeType.DEPOSIT, deposit.getCoin());
+            walletService.addChange(wallet, deposit.getAmount());
         }
     }
 }

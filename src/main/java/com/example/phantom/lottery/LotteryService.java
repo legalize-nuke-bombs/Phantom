@@ -17,7 +17,6 @@ import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
-import com.example.phantom.wallet.balancechange.BalanceChangeType;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -170,7 +169,7 @@ public class LotteryService {
             throw new BadRequestException("lottery does not sell tickets anymore");
         }
 
-        walletService.addChange(user, wallet, ticketsCost.negate(), BalanceChangeType.LOTTERY_TICKET_BUY, String.valueOf(ticketsAmount));
+        walletService.addChange(wallet, ticketsCost.negate());
 
         LotteryBet lotteryBet = lotteryBetRepository.findByLotteryIdAndUserIdForPessimisticWrite(lottery.getId(), user.getId()).orElse(null);
         if (lotteryBet == null) {
@@ -211,7 +210,7 @@ public class LotteryService {
             throw new BadRequestException("you don't have enough tickets");
         }
 
-        walletService.addChange(user, wallet, ticketsCost, BalanceChangeType.LOTTERY_TICKET_REFUND, String.valueOf(ticketsAmount));
+        walletService.addChange(wallet, ticketsCost);
 
         lotteryBet.setTickets(lotteryBet.getTickets() - ticketsAmount);
         lotteryBetRepository.save(lotteryBet);
@@ -279,7 +278,7 @@ public class LotteryService {
         lotteryRepository.save(lottery);
 
         Wallet winnerWallet = walletService.lock(winner.getId());
-        walletService.addChange(winner, winnerWallet, prize, BalanceChangeType.LOTTERY_WIN, "");
+        walletService.addChange(winnerWallet, prize);
 
         createNewLottery();
     }

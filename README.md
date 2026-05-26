@@ -67,8 +67,6 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 |--------|----------------------------------------------------|---------------------------|
 | GET    | `/api/wallets/{targetId}`                          | Get wallet info           |
 | POST   | `/api/wallets/me/send/{targetId}`                  | Send to another user      |
-| GET    | `/api/wallets/{targetId}/history`                  | Get wallet history        |
-| GET    | `/api/wallets/stats`                               | Get wallet platform stats |
 | GET    | `/api/wallets/me/crypto/{coin}`                    | Get crypto wallet info    |
 | POST   | `/api/wallets/me/crypto/{coin}/check-deposits`     | Check deposits            |
 | POST   | `/api/wallets/me/crypto/{coin}/withdraw`           | Withdraw                  |
