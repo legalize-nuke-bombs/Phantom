@@ -47,13 +47,9 @@ public class WalletService {
         walletRepository.save(wallet);
     }
 
-    public WalletRepresentation get(Long userId, Long targetId) {
+    public WalletRepresentation get(Long userId) {
         User user = getUser(userId);
-        User target = getUser(targetId);
-
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getWalletBalancePrivacySetting());
-
-        Wallet wallet = getWallet(target.getId());
+        Wallet wallet = getWallet(user.getId());
         return new WalletRepresentation(wallet);
     }
 

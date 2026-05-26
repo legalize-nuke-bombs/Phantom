@@ -46,9 +46,6 @@ public class UserService {
     @Transactional
     public Map<String, String> patchMe(Long userId, PatchMeRequest request) {
         String displayName = request.getDisplayName();
-        PrivacySetting walletBalancePrivacySetting = request.getWalletBalancePrivacySetting();
-        PrivacySetting walletHistoryPrivacySetting = request.getWalletHistoryPrivacySetting();
-        PrivacySetting walletStatsPrivacySetting = request.getWalletStatsPrivacySetting();
         PrivacySetting gameHistoryPrivacySetting = request.getGameHistoryPrivacySetting();
         PrivacySetting gameStatsPrivacySetting = request.getGameStatsPrivacySetting();
         PrivacySetting experiencePrivacySetting = request.getExperiencePrivacySetting();
@@ -57,9 +54,6 @@ public class UserService {
         User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
 
         if (displayName != null) user.setDisplayName(displayName);
-        if (walletBalancePrivacySetting != null) user.setWalletBalancePrivacySetting(walletBalancePrivacySetting);
-        if (walletHistoryPrivacySetting != null) user.setWalletHistoryPrivacySetting(walletHistoryPrivacySetting);
-        if (walletStatsPrivacySetting != null) user.setWalletStatsPrivacySetting(walletStatsPrivacySetting);
         if (gameHistoryPrivacySetting != null) user.setGameHistoryPrivacySetting(gameHistoryPrivacySetting);
         if (gameStatsPrivacySetting != null) user.setGameStatsPrivacySetting(gameStatsPrivacySetting);
         if (experiencePrivacySetting != null) user.setExperiencePrivacySetting(experiencePrivacySetting);

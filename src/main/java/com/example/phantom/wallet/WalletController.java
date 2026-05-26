@@ -18,11 +18,10 @@ public class WalletController {
         this.walletService = walletService;
     }
 
-    @GetMapping("/{targetId}")
+    @GetMapping("/me")
     public ResponseEntity<WalletRepresentation> get(
-            @AuthenticationPrincipal Long userId,
-            @PathVariable Long targetId) {
-        return ResponseEntity.ok(walletService.get(userId, targetId));
+            @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(walletService.get(userId));
     }
 
     @PostMapping("/me/send/{targetId}")

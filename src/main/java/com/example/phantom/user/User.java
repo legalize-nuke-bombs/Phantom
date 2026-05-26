@@ -35,18 +35,6 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PrivacySetting walletBalancePrivacySetting;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PrivacySetting walletStatsPrivacySetting;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PrivacySetting walletHistoryPrivacySetting;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private PrivacySetting gameHistoryPrivacySetting;
 
     @Enumerated(EnumType.STRING)

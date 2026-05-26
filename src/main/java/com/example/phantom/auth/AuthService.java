@@ -94,9 +94,6 @@ public class AuthService {
         user.setDisplayName(displayName);
         user.setRegisteredAt(Instant.now().getEpochSecond());
         user.setRole(role);
-        user.setWalletBalancePrivacySetting(PrivacySetting.ONLY_YOU);
-        user.setWalletStatsPrivacySetting(PrivacySetting.ONLY_YOU);
-        user.setWalletHistoryPrivacySetting(PrivacySetting.ONLY_YOU);
         user.setGameHistoryPrivacySetting(PrivacySetting.EVERYONE);
         user.setGameStatsPrivacySetting(PrivacySetting.EVERYONE);
         user.setExperiencePrivacySetting(PrivacySetting.EVERYONE);

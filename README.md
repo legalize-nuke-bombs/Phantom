@@ -65,7 +65,7 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 ### Wallets
 | Method | Endpoint                                           | Description               |
 |--------|----------------------------------------------------|---------------------------|
-| GET    | `/api/wallets/{targetId}`                          | Get wallet info           |
+| GET    | `/api/wallets/me`                                  | Get wallet info           |
 | POST   | `/api/wallets/me/send/{targetId}`                  | Send to another user      |
 | GET    | `/api/wallets/me/crypto/{coin}`                    | Get crypto wallet info    |
 | POST   | `/api/wallets/me/crypto/{coin}/check-deposits`     | Check deposits            |
