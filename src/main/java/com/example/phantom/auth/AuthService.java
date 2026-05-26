@@ -34,11 +34,12 @@ public class AuthService {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordValidator passwordValidator;
     private final OwnerAccessValidator ownerAccessValidator;
     private final RecoveryKeyProvider recoveryKeyProvider;
     private final CoinProviderRegistry coinProviderRegistry;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidator passwordValidator, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.experienceRepository = experienceRepository;
@@ -46,6 +47,7 @@ public class AuthService {
 
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
+        this.passwordValidator = passwordValidator;
         this.ownerAccessValidator = ownerAccessValidator;
         this.recoveryKeyProvider = recoveryKeyProvider;
         this.coinProviderRegistry = coinProviderRegistry;
@@ -59,6 +61,12 @@ public class AuthService {
         String password2 = request.getPassword2();
         String adminKey = request.getOwnerKey();
         Role role = request.getRole();
+
+        try { passwordValidator.validate(password1); }
+        catch (PasswordValidatorException e) { throw new BadRequestException(e.getMessage()); }
+        if (!Objects.equals(password1, password2)) {
+            throw new BadRequestException("passwords do not match");
+        }
 
         boolean isOwner;
         try { isOwner = ownerAccessValidator.isOwner(adminKey); }
@@ -74,10 +82,6 @@ public class AuthService {
 
         if (role == null) {
             role = Role.USER;
-        }
-
-        if (!Objects.equals(password1, password2)) {
-            throw new BadRequestException("passwords do not match");
         }
 
         RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.generateKeyPair();
@@ -174,9 +178,10 @@ public class AuthService {
             if (!newPassword1.equals(newPassword2)) {
                 throw new BadRequestException("passwords do not match");
             }
+            try { passwordValidator.validate(newPassword1); }
+            catch (PasswordValidatorException e) { throw new BadRequestException(e.getMessage()); }
+            user.setPasswordHash(passwordEncoder.encode(newPassword1));
         }
-
-        if (newPassword1 != null) user.setPasswordHash(passwordEncoder.encode(newPassword1));
 
         try {
             if (newUsername != null) user.setUsername(newUsername);

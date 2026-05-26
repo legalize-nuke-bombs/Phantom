@@ -15,11 +15,13 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordValidator passwordValidator;
     private final RecoveryKeyProvider recoveryKeyProvider;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, RecoveryKeyProvider recoveryKeyProvider) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, PasswordValidator passwordValidator, RecoveryKeyProvider recoveryKeyProvider) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.passwordValidator = passwordValidator;
         this.recoveryKeyProvider = recoveryKeyProvider;
     }
 
@@ -84,7 +86,11 @@ public class UserService {
             throw new ForbiddenException("invalid password");
         }
 
-        if (password != null) user.setPasswordHash(passwordEncoder.encode(password));
+        if (password != null) {
+            try { passwordValidator.validate(password); }
+            catch (PasswordValidatorException e) { throw new BadRequestException(e.getMessage()); }
+            user.setPasswordHash(passwordEncoder.encode(password));
+        }
 
         try {
             if (username != null) user.setUsername(username);

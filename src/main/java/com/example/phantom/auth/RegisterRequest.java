@@ -1,5 +1,6 @@
 package com.example.phantom.auth;
 
+import com.example.phantom.user.PasswordValidator;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.UserConstants;
 import jakarta.validation.constraints.*;
@@ -19,12 +20,11 @@ public class RegisterRequest {
     private String displayName;
 
     @NotNull
-    @Size(min= UserConstants.PASSWORD_MIN_LENGTH, max= UserConstants.PASSWORD_MAX_LENGTH)
-    @Pattern(regexp= UserConstants.PASSWORD_PATTERN)
+    @Size(min= PasswordValidator.PASSWORD_MIN_LENGTH, max= PasswordValidator.PASSWORD_MAX_LENGTH)
     private String password1;
 
     @NotNull
-    @Size(max= UserConstants.PASSWORD_MAX_LENGTH)
+    @Size(max= PasswordValidator.PASSWORD_MAX_LENGTH)
     private String password2;
 
     @Size(max = 256)
