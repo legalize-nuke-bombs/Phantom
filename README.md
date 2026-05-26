@@ -139,9 +139,14 @@ OWNER_KEY=<base64_encoded_key_min_32_bytes>
 TON_API_KEY=<your_ton_api_key>
 ```
 
-On Windows, you can generate random base64 with PowerShell:
+On Windows, you can generate random base64 key with PowerShell:
 ```
-[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Max 256 }))
+Add-Type -AssemblyName System.Security
+[Reflection.Assembly]::LoadWithPartialName("System.Security")
+$rijndael = new-Object System.Security.Cryptography.RijndaelManaged
+$rijndael.GenerateKey()
+Write-Host([Convert]::ToBase64String($rijndael.Key))
+$rijndael.Dispose()
 ```
 
 You can get your `TON_API_KEY` here:
