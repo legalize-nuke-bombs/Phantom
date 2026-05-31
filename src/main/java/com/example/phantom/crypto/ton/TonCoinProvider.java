@@ -43,6 +43,8 @@ public class TonCoinProvider implements CoinProvider {
     private static final BigDecimal WITHDRAWAL_COMMISSION = new BigDecimal("0.1");
     private static final BigDecimal MIN_SWEEP_AMOUNT = new BigDecimal("0.1");
     private static final long VALIDATION_DURATION = 10 * 60;
+    private static final int EXIT_CODE_OK = 0;
+    private static final int EXIT_CODE_UNINITIALIZED = -13;
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
@@ -301,34 +303,50 @@ public class TonCoinProvider implements CoinProvider {
         return sendBoc(boc);
     }
 
-    private long getSeqno(String address) {
+    private long getSeqno(String address) throws CryptoException {
         log.info("getting seqno for {}...", address);
+
+        String body;
         try {
-            String body = mapper.writeValueAsString(
+            body = mapper.writeValueAsString(
                     Map.of("address", address, "method", "seqno", "stack", List.of())
             );
-            JsonNode result = v2Post("/api/v2/runGetMethod", body);
-
-            int exitCode = result.path("exit_code").asInt(-1);
-            if (exitCode != 0) {
-                return 0;
-            }
-
-            JsonNode stack = result.path("stack");
-            if (stack.isEmpty()) {
-                return 0;
-            }
-
-            String hex = stack.get(0).get(1).asText("0x0");
-            return Long.parseLong(hex.replace("0x", ""), 16);
-        }
-        catch (CryptoException e) {
-            log.warn("seqno lookup failed for {}, defaulting to 0", address, e);
-            return 0;
         }
         catch (Exception e) {
-            log.warn("failed to parse seqno for {}, defaulting to 0", address, e);
+            throw new CryptoException("failed to build seqno request: " + e.getMessage());
+        }
+
+        JsonNode result = v2Post("/api/v2/runGetMethod", body);
+
+        if (!result.hasNonNull("exit_code")) {
+            throw new CryptoException("seqno response missing exit_code for " + address);
+        }
+        int exitCode = result.get("exit_code").asInt();
+
+        if (exitCode == EXIT_CODE_UNINITIALIZED) {
+            log.info("wallet {} is not deployed, using seqno 0", address);
             return 0;
+        }
+        if (exitCode != EXIT_CODE_OK) {
+            throw new CryptoException("unexpected exit_code " + exitCode + " from seqno method for " + address);
+        }
+
+        JsonNode stack = result.path("stack");
+        if (!stack.isArray() || stack.isEmpty()) {
+            throw new CryptoException("seqno method returned empty stack for " + address);
+        }
+
+        JsonNode entry = stack.get(0);
+        if (!entry.isArray() || entry.size() < 2 || !"num".equals(entry.get(0).asText())) {
+            throw new CryptoException("seqno method returned unexpected stack shape for " + address);
+        }
+
+        String hex = entry.get(1).asText("");
+        try {
+            return Long.parseLong(hex.replace("0x", ""), 16);
+        }
+        catch (Exception e) {
+            throw new CryptoException("failed to parse seqno value '" + hex + "' for " + address);
         }
     }
 
@@ -420,22 +438,20 @@ public class TonCoinProvider implements CoinProvider {
     }
 
     private JsonNode extractV2Result(String raw) throws CryptoException {
+        JsonNode root;
         try {
-            JsonNode root = mapper.readTree(raw);
-
-            if (!root.path("ok").asBoolean(false)) {
-                throw new CryptoException("toncenter error: " + root.path("error").asText("unknown"));
-            }
-
-            return root.path("result");
-        }
-        catch (CryptoException e) {
-            throw e;
+            root = mapper.readTree(raw);
         }
         catch (Exception e) {
             String preview = raw == null ? "null" : raw.substring(0, Math.min(raw.length(), 500));
             log.error("failed to parse toncenter response (first 500 chars): {}", preview, e);
             throw new CryptoException("failed to parse toncenter response");
         }
+
+        if (!root.path("ok").asBoolean(false)) {
+            throw new CryptoException("toncenter error: " + root.path("error").asText("unknown"));
+        }
+
+        return root.path("result");
     }
 }
