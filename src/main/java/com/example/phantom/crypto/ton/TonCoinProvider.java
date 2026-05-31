@@ -10,8 +10,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iwebpp.crypto.TweetNaclFast;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.ton.ton4j.address.Address;
@@ -25,13 +26,13 @@ import org.ton.ton4j.tlb.Message;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 @Component
 @Slf4j
@@ -42,28 +43,37 @@ public class TonCoinProvider implements CoinProvider {
     private static final BigDecimal WITHDRAWAL_COMMISSION = new BigDecimal("0.1");
     private static final BigDecimal MIN_SWEEP_AMOUNT = new BigDecimal("0.1");
     private static final long VALIDATION_DURATION = 10 * 60;
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^(EQ|UQ)[A-Za-z0-9_-]{46}$");
+
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
 
     private final RestClient client;
     private final ObjectMapper mapper = new ObjectMapper();
     private final boolean testnet;
     private final CryptoExchangeRateService exchangeRateService;
 
-    public TonCoinProvider(TonConfig config, CryptoExchangeRateService exchangeRateService) {
-        this.testnet = config.isTestnet();
+    public TonCoinProvider(
+            @Value("${ton.api.key}") String apiKey,
+            @Value("${ton.testnet}") boolean testnet,
+            CryptoExchangeRateService exchangeRateService) {
+        this.testnet = testnet;
         this.exchangeRateService = exchangeRateService;
 
-        String baseUrl = config.isTestnet()
+        String baseUrl = testnet
                 ? "https://testnet.toncenter.com"
                 : "https://toncenter.com";
 
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(CONNECT_TIMEOUT)
+                .build();
+
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(READ_TIMEOUT);
+
         this.client = RestClient.builder()
                 .baseUrl(baseUrl)
-                .defaultHeader("X-API-Key", config.getApiKey())
-                .requestFactory(new SimpleClientHttpRequestFactory() {{
-                    setConnectTimeout(Duration.ofSeconds(10));
-                    setReadTimeout(Duration.ofSeconds(15));
-                }})
+                .defaultHeader("X-API-Key", apiKey)
+                .requestFactory(requestFactory)
                 .build();
     }
 
@@ -74,7 +84,13 @@ public class TonCoinProvider implements CoinProvider {
 
     @Override
     public void validateAddress(String address) {
-        if (address == null || !ADDRESS_PATTERN.matcher(address).matches()) {
+        if (address == null || address.isBlank()) {
+            throw new BadRequestException("invalid TON address");
+        }
+        try {
+            Address.of(address);
+        }
+        catch (Exception e) {
             throw new BadRequestException("invalid TON address");
         }
     }
@@ -146,17 +162,11 @@ public class TonCoinProvider implements CoinProvider {
             JsonNode root = mapper.readTree(raw);
             JsonNode txs = root.path("transactions");
             if (txs.isArray() && !txs.isEmpty()) {
-                JsonNode action = txs.get(0).path("description").path("action");
-                int skipped = action.path("skipped_actions").asInt(0);
-                if (skipped == 0) {
-                    log.info("status for {} : confirmed", hash);
-                    return TransferStatus.CONFIRMED;
-                }
-                log.info("status for {} : rejected", hash);
-                return TransferStatus.REJECTED;
+                return classifyTransaction(txs.get(0), hash);
             }
         }
         catch (Exception e) {
+            log.error("failed to check transfer status for {}", hash, e);
             throw new CryptoException("failed to check transfer status");
         }
 
@@ -167,6 +177,36 @@ public class TonCoinProvider implements CoinProvider {
 
         log.info("status for {}: pending", hash);
         return TransferStatus.PENDING;
+    }
+
+    private TransferStatus classifyTransaction(JsonNode tx, String hash) {
+        JsonNode desc = tx.path("description");
+
+        boolean aborted = desc.path("aborted").asBoolean(false);
+
+        JsonNode compute = desc.path("compute_ph");
+        boolean computeSkipped = compute.path("skipped").asBoolean(false);
+        boolean computeOk = computeSkipped || compute.path("success").asBoolean(false);
+        int exitCode = compute.path("exit_code").asInt(0);
+
+        JsonNode action = desc.path("action");
+        boolean actionOk = action.path("success").asBoolean(false);
+        int skippedActions = action.path("skipped_actions").asInt(0);
+
+        boolean confirmed = !aborted
+                && computeOk
+                && (computeSkipped || exitCode == 0)
+                && actionOk
+                && skippedActions == 0;
+
+        if (confirmed) {
+            log.info("status for {} : confirmed", hash);
+            return TransferStatus.CONFIRMED;
+        }
+
+        log.warn("status for {} : rejected (aborted={}, computeOk={}, exitCode={}, actionOk={}, skippedActions={})",
+                hash, aborted, computeOk, exitCode, actionOk, skippedActions);
+        return TransferStatus.REJECTED;
     }
 
     @Override
@@ -212,7 +252,6 @@ public class TonCoinProvider implements CoinProvider {
     public BigDecimal getMinSweepAmount() {
         return MIN_SWEEP_AMOUNT;
     }
-
 
 
     private record RawTransfer(String txHash, BigDecimal amountTon) {}
@@ -284,11 +323,11 @@ public class TonCoinProvider implements CoinProvider {
             return Long.parseLong(hex.replace("0x", ""), 16);
         }
         catch (CryptoException e) {
-            log.warn("seqno lookup failed for {} (contract may not exist), defaulting to 0", address);
+            log.warn("seqno lookup failed for {}, defaulting to 0", address, e);
             return 0;
         }
         catch (Exception e) {
-            log.warn("failed to parse seqno for {}, defaulting to 0", address);
+            log.warn("failed to parse seqno for {}, defaulting to 0", address, e);
             return 0;
         }
     }
@@ -355,6 +394,7 @@ public class TonCoinProvider implements CoinProvider {
             throw e;
         }
         catch (Exception e) {
+            log.error("toncenter GET {} failed", uri, e);
             throw new CryptoException("toncenter request failed: " + e.getMessage());
         }
     }
@@ -374,6 +414,7 @@ public class TonCoinProvider implements CoinProvider {
             throw e;
         }
         catch (Exception e) {
+            log.error("toncenter POST {} failed", uri, e);
             throw new CryptoException("toncenter request failed: " + e.getMessage());
         }
     }
@@ -392,6 +433,8 @@ public class TonCoinProvider implements CoinProvider {
             throw e;
         }
         catch (Exception e) {
+            String preview = raw == null ? "null" : raw.substring(0, Math.min(raw.length(), 500));
+            log.error("failed to parse toncenter response (first 500 chars): {}", preview, e);
             throw new CryptoException("failed to parse toncenter response");
         }
     }
