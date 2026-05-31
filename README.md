@@ -139,6 +139,12 @@ OWNER_KEY=<base64_encoded_key_min_32_bytes>
 TON_API_KEY=<your_ton_api_key>
 ```
 
+Cloudflare is blocked in some regions. In this case, set up a proxy:
+```
+JAVA_TOOL_OPTIONS=-Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=10801 -Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=10801
+```
+
+
 On Windows, you can generate random base64 key with PowerShell:
 ```
 Add-Type -AssemblyName System.Security
