@@ -81,6 +81,10 @@ public class WithdrawalService {
         BigDecimal toSend = withdrawal.getAmount().subtract(provider.getWithdrawalCommission());
 
         try {
+            if (provider.getBalanceUsd(masterAddress.getValue()).compareTo(toSend) < 0) {
+                throw new ServiceUnavailable("master wallet insufficient balance");
+            }
+
             String hash = provider.send(
                     masterPrivateKey.getValue(),
                     masterAddress.getValue(),
@@ -108,7 +112,8 @@ public class WithdrawalService {
             try {
                 TransferStatus status = provider.checkTransferStatus(
                         withdrawal.getHash(),
-                        withdrawal.getTimestamp());
+                        withdrawal.getTimestamp()
+                );
                 withdrawal.setStatus(status);
             }
             catch (CryptoException e) {
