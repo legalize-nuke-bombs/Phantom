@@ -10,6 +10,8 @@ import com.example.phantom.crypto.withdrawal.WithdrawalService;
 import com.example.phantom.exception.BadRequestException;
 import com.example.phantom.exception.NotFoundException;
 import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.profile.ProfileCardRepresentation;
+import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
@@ -27,19 +29,22 @@ public class CryptoService {
     private final DepositService depositService;
     private final WithdrawalService withdrawalService;
     private final UsageLimiter usageLimiter;
+    private final ProfileService profileService;
 
     public CryptoService(
             UserRepository userRepository,
             CryptoWalletRepository cryptoWalletRepository,
             DepositService depositService,
             WithdrawalService withdrawalService,
-            UsageLimiter usageLimiter
+            UsageLimiter usageLimiter,
+            ProfileService profileService
     ) {
         this.userRepository = userRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.depositService = depositService;
         this.withdrawalService = withdrawalService;
         this.usageLimiter = usageLimiter;
+        this.profileService = profileService;
     }
 
     public CryptoWalletRepresentation getWallet(Long userId, String coin) {
@@ -62,7 +67,7 @@ public class CryptoService {
 
         Withdrawal withdrawal = withdrawalService.reserveFinances(user, coinToUpperCase(coin), request.getAddress(), request.getAmount());
         withdrawal = withdrawalService.send(withdrawal);
-        return new WithdrawalRepresentation(withdrawal);
+        return new WithdrawalRepresentation(withdrawal, profileService.getCardForUser(user.getId(), user));
     }
 
     public List<WithdrawalRepresentation> checkPendingWithdrawals(Long userId) {
@@ -71,7 +76,9 @@ public class CryptoService {
 
         List<Withdrawal> checked = withdrawalService.checkPendingStatuses(userId);
         withdrawalService.applyCheckedStatuses(userId, checked);
-        return checked.stream().map(WithdrawalRepresentation::new).toList();
+
+        ProfileCardRepresentation profileCard = profileService.getCardForUser(user.getId(), user);
+        return checked.stream().map(withdrawal -> new WithdrawalRepresentation(withdrawal, profileCard)).toList();
     }
 
     private String coinToUpperCase(String coin) {

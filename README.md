@@ -99,13 +99,14 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQ
 | POST   | `/api/lottery/refund-tickets` | Refund lottery tickets |
 
 ### Owner
-| Method | Endpoint                        | Description                                     |
-|--------|---------------------------------|-------------------------------------------------|
-| POST   | `/api/owner/change-user-role`   | Change user role                                |
-| GET    | `/api/owner/sweep/history`      | Get sweep history                               |
-| GET    | `/api/owner/sweep/schedule`     | Get delay between sweeps in seconds             |
-| POST   | `/api/owner/sweep/schedule`     | Set delay between sweeps                        |
-| DELETE | `/api/owner/sweep/schedule`     | Disable sweeps                                  |
+| Method | Endpoint                           | Description                         |
+|--------|------------------------------------|-------------------------------------|
+| POST   | `/api/owner/change-user-role`      | Change user role                    |
+| GET    | `/api/owner/withdrawals/history`   | Get withdrawals history             |
+| GET    | `/api/owner/sweep/history`         | Get sweep history                   |
+| GET    | `/api/owner/sweep/schedule`        | Get delay between sweeps in seconds |
+| POST   | `/api/owner/sweep/schedule`        | Set delay between sweeps            |
+| DELETE | `/api/owner/sweep/schedule`        | Disable sweeps                      |
 | GET    | `/api/owner/master-wallets/{coin}` | Get master wallet address & balance |
 | POST   | `/api/owner/master-wallets/{coin}` | Set master wallet mnemonic          |
 

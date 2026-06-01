@@ -1,6 +1,7 @@
 package com.example.phantom.crypto.withdrawal;
 
 import com.example.phantom.crypto.TransferStatus;
+import com.example.phantom.profile.ProfileCardRepresentation;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -8,6 +9,7 @@ import java.math.BigDecimal;
 @Getter
 public class WithdrawalRepresentation {
     private final Long id;
+    private final ProfileCardRepresentation profileCard;
     private final String coin;
     private final Long timestamp;
     private final String receiver;
@@ -15,8 +17,9 @@ public class WithdrawalRepresentation {
     private final TransferStatus status;
     private final String hash;
 
-    public WithdrawalRepresentation(Withdrawal withdrawal) {
+    public WithdrawalRepresentation(Withdrawal withdrawal, ProfileCardRepresentation profileCard) {
         this.id = withdrawal.getId();
+        this.profileCard = profileCard;
         this.coin = withdrawal.getCoin();
         this.timestamp = withdrawal.getTimestamp();
         this.receiver = withdrawal.getReceiver();
