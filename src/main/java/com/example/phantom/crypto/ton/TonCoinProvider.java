@@ -99,6 +99,8 @@ public class TonCoinProvider implements CoinProvider {
 
     @Override
     public BigDecimal getBalanceUsd(String address) throws CryptoException {
+        validateAddress(address);
+
         BigDecimal balanceTon = getBalance(address);
         BigDecimal rate = exchangeRateService.getTonUsdt();
         return balanceTon.multiply(rate).setScale(FinanceConstants.SCALE, RoundingMode.DOWN);
@@ -106,6 +108,8 @@ public class TonCoinProvider implements CoinProvider {
 
     @Override
     public List<IncomingTransfer> getIncomingTransfers(String address, int limit) throws CryptoException {
+        validateAddress(address);
+
         List<RawTransfer> tonTransfers = getRawIncomingTransfers(address, limit);
 
         if (tonTransfers.isEmpty()) {
@@ -123,6 +127,9 @@ public class TonCoinProvider implements CoinProvider {
 
     @Override
     public String send(String privateKey, String fromAddress, String toAddress, BigDecimal amountUsd) throws CryptoException {
+        validateAddress(fromAddress);
+        validateAddress(toAddress);
+
         BigDecimal rate = exchangeRateService.getTonUsdt();
         BigDecimal amountTon = amountUsd.divide(rate, FinanceConstants.SCALE, RoundingMode.DOWN);
         BigDecimal amountNanoton = amountTon.multiply(NANOTON);
@@ -140,6 +147,9 @@ public class TonCoinProvider implements CoinProvider {
 
     @Override
     public String sendAll(String privateKey, String fromAddress, String toAddress) throws CryptoException {
+        validateAddress(fromAddress);
+        validateAddress(toAddress);
+
         log.info("sending all from {} to {}...", fromAddress, toAddress);
 
         Destination dest = Destination.builder()
