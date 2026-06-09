@@ -4,5 +4,6 @@ public enum UsageAction {
     PAGINATION,
     CRYPTO,
     INTERUSER_SEND,
-    LOTTERY
+    LOTTERY,
+    SEND_MESSAGE
 }

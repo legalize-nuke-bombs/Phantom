@@ -91,6 +91,9 @@ public class ChatService {
             }
         }
 
+        try { usageLimiter.startAction(user, UsageAction.SEND_MESSAGE, 1L); }
+        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+
         String content = request.getContent();
 
         Message message = new Message();
