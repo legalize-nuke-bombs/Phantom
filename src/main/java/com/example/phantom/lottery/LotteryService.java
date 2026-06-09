@@ -17,6 +17,7 @@ import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.util.*;
 
 @Service
+@Slf4j
 public class LotteryService {
 
     private final UserRepository userRepository;
@@ -227,12 +229,16 @@ public class LotteryService {
             return;
         }
 
+        log.info("starting lottery...");
+
         BigDecimal ticketCost = lotterySettings.getTicketCost();
 
         List<LotteryBet> bets = lotteryBetRepository.findAllByLotteryIdWithUsers(lottery.getId());
 
         long ticketsAmountTotal = bets.stream().mapToLong(LotteryBet::getTickets).sum();
+        log.info("tickets bought: {}", ticketsAmountTotal);
         if (ticketsAmountTotal == 0) {
+            log.info("no tickets bought");
             lotteryRepository.delete(lottery);
             createNewLottery();
             return;
@@ -256,6 +262,7 @@ public class LotteryService {
         Random random = provablyFairService.fairRandom(lottery.getSeed1(), lottery.getSeed2());
 
         Long happyTicket = random.nextLong(ticketsAmountTotal);
+        log.info("happy ticket: {}", happyTicket);
 
         User winner = null;
         for (LotteryBet bet : bets) {
