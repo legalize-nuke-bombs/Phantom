@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Validated
 @RestController
+@Validated
 @RequestMapping("/api/experience")
 public class ExperienceController {
 
@@ -38,7 +38,7 @@ public class ExperienceController {
     public ResponseEntity<List<ExperienceChangeRepresentation>> getHistory(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long targetId,
-            @RequestParam @Min(1) Integer limit,
+            @RequestParam(defaultValue = "20") @Min(1) Integer limit,
             @RequestParam(required = false) Long before
     ) {
         return ResponseEntity.ok(service.getHistory(userId, targetId, limit, before));
@@ -47,7 +47,7 @@ public class ExperienceController {
     @GetMapping("/leaderboard")
     public ResponseEntity<List<ProfileCardRepresentation>> getLeaderboard(
             @AuthenticationPrincipal Long userId,
-            @RequestParam @Min(1) Integer limit,
+            @RequestParam(defaultValue = "20") @Min(1) Integer limit,
             @RequestParam(required = false) Long beforeAmount,
             @RequestParam(required = false) Long beforeUserId
     ) {
