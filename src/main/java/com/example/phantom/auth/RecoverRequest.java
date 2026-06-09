@@ -23,8 +23,5 @@ public class RecoverRequest {
     private String newUsername;
 
     @Size(min = PasswordValidator.PASSWORD_MIN_LENGTH, max = PasswordValidator.PASSWORD_MAX_LENGTH)
-    private String newPassword1;
-
-    @Size(max = PasswordValidator.PASSWORD_MAX_LENGTH)
-    private String newPassword2;
+    private String newPassword;
 }

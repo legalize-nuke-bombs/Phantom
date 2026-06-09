@@ -57,16 +57,12 @@ public class AuthService {
     public Map<String, String> register(RegisterRequest request) {
         String username = request.getUsername();
         String displayName = request.getDisplayName();
-        String password1 = request.getPassword1();
-        String password2 = request.getPassword2();
+        String password = request.getPassword();
         String adminKey = request.getOwnerKey();
         Role role = request.getRole();
 
-        try { passwordValidator.validate(password1); }
+        try { passwordValidator.validate(password); }
         catch (PasswordValidatorException e) { throw new BadRequestException(e.getMessage()); }
-        if (!Objects.equals(password1, password2)) {
-            throw new BadRequestException("passwords do not match");
-        }
 
         boolean isOwner;
         try { isOwner = ownerAccessValidator.isOwner(adminKey); }
@@ -98,7 +94,7 @@ public class AuthService {
         user.setGameStatsPrivacySetting(PrivacySetting.EVERYONE);
         user.setExperiencePrivacySetting(PrivacySetting.EVERYONE);
         user.setLotteryPrivacySetting(PrivacySetting.EVERYONE);
-        user.setPasswordHash(passwordEncoder.encode(password1));
+        user.setPasswordHash(passwordEncoder.encode(password));
         user.setPublicRecoveryKey(recoveryKeyPair.publicKey());
         user.setPrivateRecoveryKeyHash(passwordEncoder.encode(recoveryKeyPair.privateKey()));
         try { user = userRepository.save(user); }
@@ -151,8 +147,7 @@ public class AuthService {
     public Map<String, String> recover(RecoverRequest request) {
         String recoveryKey = request.getRecoveryKey();
         String newUsername = request.getNewUsername();
-        String newPassword1 = request.getNewPassword1();
-        String newPassword2 = request.getNewPassword2();
+        String newPassword = request.getNewPassword();
 
         RecoveryKeyProvider.KeyPair recoveryKeyPair;
         try { recoveryKeyPair = recoveryKeyProvider.recoveryKeyToKeyPair(recoveryKey); }
@@ -164,20 +159,14 @@ public class AuthService {
             throw new ForbiddenException("invalid recovery key");
         }
 
-        if (newUsername == null && newPassword1 == null) {
+        if (newUsername == null && newPassword == null) {
             throw new BadRequestException("empty request");
         }
 
-        if (newPassword1 != null) {
-            if (newPassword2 == null) {
-                throw new BadRequestException("newPassword2 is null");
-            }
-            if (!newPassword1.equals(newPassword2)) {
-                throw new BadRequestException("passwords do not match");
-            }
-            try { passwordValidator.validate(newPassword1); }
+        if (newPassword != null) {
+            try { passwordValidator.validate(newPassword); }
             catch (PasswordValidatorException e) { throw new BadRequestException(e.getMessage()); }
-            user.setPasswordHash(passwordEncoder.encode(newPassword1));
+            user.setPasswordHash(passwordEncoder.encode(newPassword));
         }
 
         try {

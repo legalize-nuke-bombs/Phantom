@@ -21,11 +21,7 @@ public class RegisterRequest {
 
     @NotNull
     @Size(min= PasswordValidator.PASSWORD_MIN_LENGTH, max= PasswordValidator.PASSWORD_MAX_LENGTH)
-    private String password1;
-
-    @NotNull
-    @Size(max= PasswordValidator.PASSWORD_MAX_LENGTH)
-    private String password2;
+    private String password;
 
     @Size(max = 256)
     private String ownerKey;
