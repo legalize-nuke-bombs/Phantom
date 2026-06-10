@@ -62,11 +62,10 @@ public class RefService {
 
     @Transactional
     public void registerBet(User user, BigDecimal amount) {
-        RefMember rm = refMemberRepository.findById(user.getId()).orElse(null);
-        if (rm == null) {
+        RefStorage rs = refMemberRepository.findRefStorageByUserIdForPessimisticWrite(user.getId()).orElse(null);
+        if (rs == null) {
             return;
         }
-        RefStorage rs = refStorageRepository.findByIdForPessimisticWrite(rm.getRefStorage().getId()).orElseThrow(() -> new NotFoundException("ref storage not found"));
 
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new BadRequestException("amount is negative");
