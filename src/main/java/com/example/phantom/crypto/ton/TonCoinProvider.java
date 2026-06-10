@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.ton.ton4j.address.Address;
 import org.ton.ton4j.mnemonic.Mnemonic;
@@ -421,6 +422,10 @@ public class TonCoinProvider implements CoinProvider {
         catch (CryptoException e) {
             throw e;
         }
+        catch (ResourceAccessException e) {
+            log.warn("toncenter GET {} unreachable: {}", uri, e.getMessage());
+            throw new CryptoException("toncenter request failed: " + e.getMessage());
+        }
         catch (Exception e) {
             log.error("toncenter GET {} failed", uri, e);
             throw new CryptoException("toncenter request failed: " + e.getMessage());
@@ -440,6 +445,10 @@ public class TonCoinProvider implements CoinProvider {
         }
         catch (CryptoException e) {
             throw e;
+        }
+        catch (ResourceAccessException e) {
+            log.warn("toncenter POST {} unreachable: {}", uri, e.getMessage());
+            throw new CryptoException("toncenter request failed: " + e.getMessage());
         }
         catch (Exception e) {
             log.error("toncenter POST {} failed", uri, e);
