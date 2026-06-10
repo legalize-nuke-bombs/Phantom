@@ -66,7 +66,7 @@ public class RefService {
         if (rm == null) {
             return;
         }
-        RefStorage rs = rm.getRefStorage();
+        RefStorage rs = refStorageRepository.findByIdForPessimisticWrite(rm.getRefStorage().getId()).orElseThrow(() -> new NotFoundException("ref storage not found"));
 
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new BadRequestException("amount is negative");
