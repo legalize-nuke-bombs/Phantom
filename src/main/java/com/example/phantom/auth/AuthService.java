@@ -110,7 +110,7 @@ public class AuthService {
 
         Wallet wallet = new Wallet();
         wallet.setUser(user);
-        wallet.setBalanceCached(BigDecimal.TEN);
+        wallet.setBalanceCached(BigDecimal.ZERO);
         walletRepository.save(wallet);
 
         Experience experience = new Experience();

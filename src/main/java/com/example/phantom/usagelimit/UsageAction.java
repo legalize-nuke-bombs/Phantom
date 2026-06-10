@@ -3,7 +3,7 @@ package com.example.phantom.usagelimit;
 public enum UsageAction {
     PAGINATION,
     CRYPTO,
-    INTERUSER_SEND,
     LOTTERY,
-    SEND_MESSAGE
+    SEND_MESSAGE,
+    SEND_PRESENT
 }
