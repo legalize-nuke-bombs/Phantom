@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.ton.ton4j.address.Address;
 import org.ton.ton4j.mnemonic.Mnemonic;
@@ -35,7 +35,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 
-@Component
+@Service
 @Slf4j
 public class TonCoinProvider implements CoinProvider {
 
@@ -93,7 +93,7 @@ public class TonCoinProvider implements CoinProvider {
         try {
             Address.of(address);
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             throw new ApiException(ErrorCode.INVALID_ADDRESS);
         }
     }
@@ -227,33 +227,32 @@ public class TonCoinProvider implements CoinProvider {
         try {
             return Mnemonic.generateString(24);
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             throw new CryptoException(e.getMessage());
         }
     }
 
     @Override
     public KeyPair deriveKeyPair(String mnemonic) throws CryptoException {
-        Pair keys;
         try {
-            keys = Mnemonic.toKeyPair(mnemonic);
-        }
-        catch (Exception e) {
-            throw new CryptoException(e.getMessage());
-        }
+            Pair keys = Mnemonic.toKeyPair(mnemonic);
 
-        TweetNaclFast.Signature.KeyPair sigKeyPair = TweetNaclFast.Signature.keyPair_fromSeed(keys.getSecretKey());
-        Address walletAddress = WalletV5.builder()
-                .wc(0)
-                .keyPair(sigKeyPair)
-                .walletId(WALLET_ID_V5)
-                .isSigAuthAllowed(true)
-                .build()
-                .getAddress();
-        String address = testnet
-                ? walletAddress.toNonBounceableTestnet()
-                : walletAddress.toNonBounceable();
-        return new KeyPair(address, HexFormat.of().formatHex(keys.getSecretKey()));
+            TweetNaclFast.Signature.KeyPair sigKeyPair = TweetNaclFast.Signature.keyPair_fromSeed(keys.getSecretKey());
+            Address walletAddress = WalletV5.builder()
+                    .wc(0)
+                    .keyPair(sigKeyPair)
+                    .walletId(WALLET_ID_V5)
+                    .isSigAuthAllowed(true)
+                    .build()
+                    .getAddress();
+            String address = testnet
+                    ? walletAddress.toNonBounceableTestnet()
+                    : walletAddress.toNonBounceable();
+            return new KeyPair(address, HexFormat.of().formatHex(keys.getSecretKey()));
+        }
+        catch (Throwable e) {
+            throw new CryptoException("failed to derive key pair: " + e.getMessage());
+        }
     }
 
     @Override
