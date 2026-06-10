@@ -68,8 +68,6 @@ public class PresentService {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
         User receiver = userRepository.findById(receiverId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-        usageLimitService.startAction(user, UsageAction.SEND_PRESENT, 1L);
-
         Wallet wallet = walletService.lock(userId);
 
         if (wallet.getBalanceCached().compareTo(amount) < 0) {
@@ -80,7 +78,7 @@ public class PresentService {
         Present present = new Present();
         present.setClaimed(false);
         present.setTimestamp(Instant.now().getEpochSecond());
-        present.setAmount(amount);
+        present.setAmount(amount.subtract(PresentConstants.SEND_COMMISSION));
         present.setDescription(description != null ? description : "");
         if (!anonymous) present.setSender(user);
         present.setReceiver(receiver);
