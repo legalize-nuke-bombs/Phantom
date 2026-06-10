@@ -9,6 +9,7 @@ import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairService;
+import com.example.phantom.ref.RefService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageLimiter;
@@ -36,6 +37,7 @@ public class LotteryService {
     private final UserRepository userRepository;
     private final WalletService walletService;
     private final ExperienceService experienceService;
+    private final RefService refService;
     private final LotteryRepository lotteryRepository;
     private final LotteryBetRepository lotteryBetRepository;
     private final LotterySettings lotterySettings;
@@ -44,10 +46,11 @@ public class LotteryService {
     private final ProvablyFairService provablyFairService;
     private final PrivacySettingValidator privacySettingValidator;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimiter usageLimiter, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingValidator privacySettingValidator) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimiter usageLimiter, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
+        this.refService = refService;
         this.lotteryRepository = lotteryRepository;
         this.lotteryBetRepository = lotteryBetRepository;
         this.lotterySettings = lotterySettings;
@@ -258,6 +261,10 @@ public class LotteryService {
             experienceChanges.add(experienceChange);
         }
         experienceService.addChanges(experienceChanges);
+
+        for (LotteryBet bet : bets) {
+            refService.registerBet(bet.getUser(), ticketCost.multiply(BigDecimal.valueOf(bet.getTickets())));
+        }
 
         Random random = provablyFairService.fairRandom(lottery.getSeed1(), lottery.getSeed2());
 

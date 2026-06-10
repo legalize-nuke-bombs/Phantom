@@ -5,6 +5,7 @@ import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairService;
+import com.example.phantom.ref.RefService;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
@@ -20,8 +21,8 @@ public class CoinFlipService extends GameService {
 
     private final CoinFlipSettings settings;
 
-    protected CoinFlipService(CoinFlipSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, ProvablyFairService provablyFairService, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
-        super(userRepository, walletService, experienceService, profileService, provablyFairService, usageLimiter, gameRepository, privacySettingValidator);
+    protected CoinFlipService(CoinFlipSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+        super(userRepository, walletService, experienceService, profileService, refService, provablyFairService, usageLimiter, gameRepository, privacySettingValidator);
         this.settings = settings;
     }
 

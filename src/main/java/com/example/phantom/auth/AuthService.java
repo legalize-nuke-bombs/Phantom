@@ -10,6 +10,10 @@ import com.example.phantom.experience.ExperienceRepository;
 import com.example.phantom.owner.OwnerAccessDenied;
 import com.example.phantom.owner.OwnerAccessValidator;
 import com.example.phantom.owner.OwnerBadAccess;
+import com.example.phantom.ref.RefMember;
+import com.example.phantom.ref.RefMemberRepository;
+import com.example.phantom.ref.RefStorage;
+import com.example.phantom.ref.RefStorageRepository;
 import com.example.phantom.user.*;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
@@ -31,6 +35,8 @@ public class AuthService {
     private final WalletRepository walletRepository;
     private final ExperienceRepository experienceRepository;
     private final CryptoWalletRepository cryptoWalletRepository;
+    private final RefStorageRepository refStorageRepository;
+    private final RefMemberRepository refMemberRepository;
 
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
@@ -39,11 +45,13 @@ public class AuthService {
     private final RecoveryKeyProvider recoveryKeyProvider;
     private final CoinProviderRegistry coinProviderRegistry;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidator passwordValidator, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidator passwordValidator, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.experienceRepository = experienceRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
+        this.refStorageRepository = refStorageRepository;
+        this.refMemberRepository = refMemberRepository;
 
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
@@ -54,7 +62,7 @@ public class AuthService {
     }
 
     @Transactional
-    public Map<String, String> register(RegisterRequest request) {
+    public Map<String, String> register(RegisterRequest request, Long refId) {
         String username = request.getUsername();
         String displayName = request.getDisplayName();
         String password = request.getPassword();
@@ -102,13 +110,29 @@ public class AuthService {
 
         Wallet wallet = new Wallet();
         wallet.setUser(user);
-        wallet.setBalanceCached(BigDecimal.ZERO);
+        wallet.setBalanceCached(BigDecimal.TEN);
         walletRepository.save(wallet);
 
         Experience experience = new Experience();
         experience.setUser(user);
         experience.setAmountCached(0L);
         experienceRepository.save(experience);
+
+        RefStorage refStorage = new RefStorage();
+        refStorage.setUser(user);
+        refStorage.setAmount(BigDecimal.ZERO);
+        refStorage.setTotal(BigDecimal.ZERO);
+        refStorageRepository.save(refStorage);
+
+        if (refId != null && !Objects.equals(user.getId(), refId)) {
+            RefStorage refRefStorage = refStorageRepository.findById(refId).orElse(null);
+            if (refRefStorage != null) {
+                RefMember refMember = new RefMember();
+                refMember.setUser(user);
+                refMember.setRefStorage(refRefStorage);
+                refMemberRepository.save(refMember);
+            }
+        }
 
         for (CoinProvider provider : coinProviderRegistry.getAll()) {
             try {

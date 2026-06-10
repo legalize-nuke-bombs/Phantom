@@ -7,6 +7,7 @@ import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairService;
+import com.example.phantom.ref.RefService;
 import com.example.phantom.usagelimit.UsageLimiter;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
@@ -28,16 +29,18 @@ public abstract class GameService {
     private final ExperienceService experienceService;
     private final ProfileService profileService;
     private final ProvablyFairService provablyFairService;
+    private final RefService refService;
     private final UsageLimiter usageLimiter;
     private final GameRepository gameRepository;
     private final PrivacySettingValidator privacySettingValidator;
 
-    protected GameService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, ProvablyFairService provablyFairService, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
+    protected GameService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
         this.profileService = profileService;
         this.provablyFairService = provablyFairService;
+        this.refService = refService;
         this.usageLimiter = usageLimiter;
         this.gameRepository = gameRepository;
         this.privacySettingValidator = privacySettingValidator;
@@ -99,6 +102,8 @@ public abstract class GameService {
                 ExperienceChangeType.BET,
                 gameType().name()
         );
+
+        refService.registerBet(user, game.getBet());
 
         game.setClientSeed(request.getClientSeed());
         game.setResult(result);

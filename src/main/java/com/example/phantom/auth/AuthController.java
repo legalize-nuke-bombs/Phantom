@@ -17,8 +17,10 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    public ResponseEntity<Map<String, String>> register(
+            @Valid @RequestBody RegisterRequest request,
+            @RequestParam(required = false) Long refId) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request, refId));
     }
 
     @PostMapping("/login")
