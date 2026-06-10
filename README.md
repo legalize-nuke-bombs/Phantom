@@ -7,12 +7,13 @@ REST API for a gambling platform.
 * Recovery keys
 * User profiles (view, edit, delete)
 * User experience system
+* Referral system
 * Stats & history
 * User privacy settings
 * Rate limit
 * Usage limit
 * Wallets
-* Interuser balance transfers
+* Presents system
 * Deposits & withdrawals via crypto: TON
 * Games: Upgrader, Cases, Coinflip, Fruits (Slots)
 * Lottery
