@@ -2,12 +2,12 @@ package com.example.phantom.user;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 
-@Component
-public class RecoveryKeyProvider {
+@Service
+public class RecoveryKeyService {
     private final SecureRandom random;
 
     public record KeyPair(String publicKey, String privateKey) {}
@@ -19,7 +19,7 @@ public class RecoveryKeyProvider {
 
     public static final int RECOVERY_KEY_LENGTH = 2 * RECOVERY_KEY_PART_LENGTH + 1;
 
-    public RecoveryKeyProvider() {
+    public RecoveryKeyService() {
         this.random = new SecureRandom();
     }
 

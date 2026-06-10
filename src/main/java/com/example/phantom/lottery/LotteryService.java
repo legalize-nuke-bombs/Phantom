@@ -11,7 +11,7 @@ import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.ref.RefService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitService;
-import com.example.phantom.user.PrivacySettingValidator;
+import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
@@ -42,9 +42,9 @@ public class LotteryService {
     private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
     private final ProvablyFairService provablyFairService;
-    private final PrivacySettingValidator privacySettingValidator;
+    private final PrivacySettingService privacySettingService;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimitService usageLimitService, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingValidator privacySettingValidator) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimitService usageLimitService, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingService privacySettingService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
@@ -55,7 +55,7 @@ public class LotteryService {
         this.usageLimitService = usageLimitService;
         this.profileService = profileService;
         this.provablyFairService = provablyFairService;
-        this.privacySettingValidator = privacySettingValidator;
+        this.privacySettingService = privacySettingService;
     }
 
     public CurrentLotteryRepresentation getCurrent(Long userId) {
@@ -98,7 +98,7 @@ public class LotteryService {
         List<User> winners = lotteries.stream()
                 .map(Lottery::getWinner)
                 .filter(Objects::nonNull)
-                .filter(u -> privacySettingValidator.isVisible(user.getId(), u.getId(), u.getLotteryPrivacySetting()))
+                .filter(u -> privacySettingService.isVisible(user.getId(), u.getId(), u.getLotteryPrivacySetting()))
                 .toList();
         Map<Long, ProfileCardRepresentation> winnerCards = profileService.getCardsForUsers(userId, winners);
 
@@ -132,7 +132,7 @@ public class LotteryService {
 
         List<User> users = bets.stream()
                 .map(LotteryBet::getUser)
-                .filter(u -> privacySettingValidator.isVisible(user.getId(), u.getId(), u.getLotteryPrivacySetting()))
+                .filter(u -> privacySettingService.isVisible(user.getId(), u.getId(), u.getLotteryPrivacySetting()))
                 .toList();
 
         Map<Long, ProfileCardRepresentation> profileCards = profileService.getCardsForUsers(user.getId(), users);

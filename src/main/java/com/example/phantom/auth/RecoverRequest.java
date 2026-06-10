@@ -1,7 +1,7 @@
 package com.example.phantom.auth;
 
 import com.example.phantom.user.PasswordValidationService;
-import com.example.phantom.user.RecoveryKeyProvider;
+import com.example.phantom.user.RecoveryKeyService;
 import com.example.phantom.user.UserConstants;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -15,7 +15,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class RecoverRequest {
     @NotNull
-    @Size(min = RecoveryKeyProvider.RECOVERY_KEY_LENGTH, max = RecoveryKeyProvider.RECOVERY_KEY_LENGTH)
+    @Size(min = RecoveryKeyService.RECOVERY_KEY_LENGTH, max = RecoveryKeyService.RECOVERY_KEY_LENGTH)
     private String recoveryKey;
 
     @Size(min = UserConstants.USERNAME_MIN_LENGTH, max = UserConstants.USERNAME_MAX_LENGTH)

@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class UsageLimiter {
+class UsageLimiter {
     private final Map<Plan, Map<UsageAction, UsageLimitRule>> rules;
     private final Map<Long, Map<UsageAction, UsageLimitState>> states;
 

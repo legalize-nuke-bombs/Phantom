@@ -52,7 +52,7 @@ public class User {
     @Column(nullable = false, length = UserConstants.BCRYPT_HASH_LENGTH)
     private String passwordHash;
 
-    @Column(nullable = false, unique = true, length = RecoveryKeyProvider.RECOVERY_KEY_PART_LENGTH)
+    @Column(nullable = false, unique = true, length = RecoveryKeyService.RECOVERY_KEY_PART_LENGTH)
     private String publicRecoveryKey;
 
     @Column(nullable = false, length = UserConstants.BCRYPT_HASH_LENGTH)

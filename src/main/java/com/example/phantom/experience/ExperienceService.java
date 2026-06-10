@@ -10,7 +10,7 @@ import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitService;
-import com.example.phantom.user.PrivacySettingValidator;
+import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
@@ -31,15 +31,15 @@ public class ExperienceService {
     private final UserRepository userRepository;
     private final ExperienceRepository experienceRepository;
     private final ExperienceChangeRepository experienceChangeRepository;
-    private final PrivacySettingValidator privacySettingValidator;
+    private final PrivacySettingService privacySettingService;
     private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
 
-    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingValidator privacySettingValidator, UsageLimitService usageLimitService, ProfileService profileService) {
+    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingService privacySettingService, UsageLimitService usageLimitService, ProfileService profileService) {
         this.userRepository = userRepository;
         this.experienceRepository = experienceRepository;
         this.experienceChangeRepository = experienceChangeRepository;
-        this.privacySettingValidator = privacySettingValidator;
+        this.privacySettingService = privacySettingService;
         this.usageLimitService = usageLimitService;
         this.profileService = profileService;
     }
@@ -91,7 +91,7 @@ public class ExperienceService {
         User user = requireAuthenticated(userId);
         User target = getUser(targetId);
 
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
+        privacySettingService.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
 
         Experience experience = getExperience(target.getId());
         return new ExperienceRepresentation(experience);
@@ -101,7 +101,7 @@ public class ExperienceService {
         User user = requireAuthenticated(userId);
         User target = getUser(targetId);
 
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
+        privacySettingService.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
 
         usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 

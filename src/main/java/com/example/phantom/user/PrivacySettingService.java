@@ -2,12 +2,12 @@ package com.example.phantom.user;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.Objects;
 
-@Component
-public class PrivacySettingValidator {
+@Service
+public class PrivacySettingService {
 
     public void validate(Long user1Id, Long user2Id, PrivacySetting setting) {
         if (!isVisible(user1Id, user2Id, setting)) {

@@ -2,13 +2,7 @@ package com.example.phantom.game.upgrader;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
-import com.example.phantom.profile.ProfileService;
-import com.example.phantom.provablyfair.ProvablyFairService;
-import com.example.phantom.ref.RefService;
-import com.example.phantom.user.UserRepository;
-import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,8 +14,8 @@ public class UpgraderService extends GameService {
 
     private final UpgraderSettings settings;
 
-    protected UpgraderService(UpgraderSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, GameRepository gameRepository) {
-        super(userRepository, walletService, experienceService, profileService, refService, provablyFairService, gameRepository);
+    protected UpgraderService(UpgraderSettings settings, GameDependencies deps) {
+        super(deps);
         this.settings = settings;
     }
 

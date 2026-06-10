@@ -2,14 +2,8 @@ package com.example.phantom.game.fruits;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
 import com.example.phantom.game.util.slot.SpinRepresentation;
-import com.example.phantom.profile.ProfileService;
-import com.example.phantom.provablyfair.ProvablyFairService;
-import com.example.phantom.ref.RefService;
-import com.example.phantom.user.UserRepository;
-import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,8 +15,8 @@ public class FruitService extends GameService {
 
     private final FruitSettings settings;
 
-    protected FruitService(FruitSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, GameRepository gameRepository) {
-        super(userRepository, walletService, experienceService, profileService, refService, provablyFairService, gameRepository);
+    protected FruitService(FruitSettings settings, GameDependencies deps) {
+        super(deps);
         this.settings = settings;
     }
 

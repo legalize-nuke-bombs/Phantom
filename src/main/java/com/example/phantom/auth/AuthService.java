@@ -7,7 +7,7 @@ import com.example.phantom.crypto.CryptoWallet;
 import com.example.phantom.crypto.CryptoWalletRepository;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceRepository;
-import com.example.phantom.owner.OwnerAccessValidator;
+import com.example.phantom.owner.OwnerAccessService;
 import com.example.phantom.ref.RefMember;
 import com.example.phantom.ref.RefMemberRepository;
 import com.example.phantom.ref.RefStorage;
@@ -40,11 +40,11 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
     private final PasswordValidationService passwordValidationService;
-    private final OwnerAccessValidator ownerAccessValidator;
-    private final RecoveryKeyProvider recoveryKeyProvider;
+    private final OwnerAccessService ownerAccessService;
+    private final RecoveryKeyService recoveryKeyService;
     private final CoinProviderRegistry coinProviderRegistry;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessService ownerAccessService, RecoveryKeyService recoveryKeyService, CoinProviderRegistry coinProviderRegistry) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.experienceRepository = experienceRepository;
@@ -55,8 +55,8 @@ public class AuthService {
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
         this.passwordValidationService = passwordValidationService;
-        this.ownerAccessValidator = ownerAccessValidator;
-        this.recoveryKeyProvider = recoveryKeyProvider;
+        this.ownerAccessService = ownerAccessService;
+        this.recoveryKeyService = recoveryKeyService;
         this.coinProviderRegistry = coinProviderRegistry;
     }
 
@@ -70,7 +70,7 @@ public class AuthService {
 
         passwordValidationService.validate(password);
 
-        boolean isOwner = ownerAccessValidator.isOwner(adminKey);
+        boolean isOwner = ownerAccessService.isOwner(adminKey);
 
         if (!isOwner && role != null) {
             throw new ApiException(ErrorCode.OWNER_KEY_REQUIRED);
@@ -83,8 +83,8 @@ public class AuthService {
             role = Role.USER;
         }
 
-        RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.generateKeyPair();
-        String recoveryKey = recoveryKeyProvider.keyPairToRecoveryKey(recoveryKeyPair);
+        RecoveryKeyService.KeyPair recoveryKeyPair = recoveryKeyService.generateKeyPair();
+        String recoveryKey = recoveryKeyService.keyPairToRecoveryKey(recoveryKeyPair);
 
         User user = new User();
         user.setUsername(username);
@@ -166,7 +166,7 @@ public class AuthService {
         String newUsername = request.getNewUsername();
         String newPassword = request.getNewPassword();
 
-        RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.recoveryKeyToKeyPair(recoveryKey);
+        RecoveryKeyService.KeyPair recoveryKeyPair = recoveryKeyService.recoveryKeyToKeyPair(recoveryKey);
 
         User user = userRepository.findByPublicRecoveryKey(recoveryKeyPair.publicKey()).orElseThrow(() -> new ApiException(ErrorCode.INVALID_RECOVERY_KEY));
 

@@ -6,7 +6,7 @@ import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitService;
-import com.example.phantom.user.PrivacySettingValidator;
+import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
@@ -26,21 +26,21 @@ public class GameHistoryStatService {
     private final GameRepository gameRepository;
     private final ProfileService profileService;
     private final UsageLimitService usageLimitService;
-    private final PrivacySettingValidator privacySettingValidator;
+    private final PrivacySettingService privacySettingService;
 
-    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, ProfileService profileService, UsageLimitService usageLimitService, PrivacySettingValidator privacySettingValidator) {
+    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, ProfileService profileService, UsageLimitService usageLimitService, PrivacySettingService privacySettingService) {
         this.userRepository = userRepository;
         this.gameRepository = gameRepository;
         this.profileService = profileService;
         this.usageLimitService = usageLimitService;
-        this.privacySettingValidator = privacySettingValidator;
+        this.privacySettingService = privacySettingService;
     }
 
     public List<GameRepresentation> getUserHistory(Long userId, Long targetId, Integer limit, Long before) {
         User user = requireAuthenticated(userId);
         User target = getUser(targetId);
 
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getGameHistoryPrivacySetting());
+        privacySettingService.validate(user.getId(), target.getId(), target.getGameHistoryPrivacySetting());
 
         usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
@@ -79,7 +79,7 @@ public class GameHistoryStatService {
         User user = requireAuthenticated(userId);
         User target = getUser(targetId);
 
-        privacySettingValidator.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
+        privacySettingService.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
 
         return new UserGameStatRepresentation(
                 gameRepository.countCompletedByUserId(target.getId()),

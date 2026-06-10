@@ -4,7 +4,7 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceRepository;
-import com.example.phantom.user.PrivacySettingValidator;
+import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import org.springframework.stereotype.Service;
 
@@ -19,11 +19,11 @@ import java.util.stream.Collectors;
 public class ProfileService {
 
     private final ExperienceRepository experienceRepository;
-    private final PrivacySettingValidator privacySettingValidator;
+    private final PrivacySettingService privacySettingService;
 
-    public ProfileService(ExperienceRepository experienceRepository, PrivacySettingValidator privacySettingValidator) {
+    public ProfileService(ExperienceRepository experienceRepository, PrivacySettingService privacySettingService) {
         this.experienceRepository = experienceRepository;
-        this.privacySettingValidator = privacySettingValidator;
+        this.privacySettingService = privacySettingService;
     }
 
     public ProfileCardRepresentation getCardForUser(Long viewerId, User user) {
@@ -31,7 +31,7 @@ public class ProfileService {
             return null;
         }
 
-        Experience experience = privacySettingValidator.isVisible(viewerId, user.getId(), user.getExperiencePrivacySetting())
+        Experience experience = privacySettingService.isVisible(viewerId, user.getId(), user.getExperiencePrivacySetting())
                 ? experienceRepository.findById(user.getId()).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND))
                 : null;
         return new ProfileCardRepresentation(user, experience);
@@ -42,7 +42,7 @@ public class ProfileService {
 
         Set<Long> visibleIds = users.stream()
                 .filter(Objects::nonNull)
-                .filter(u -> privacySettingValidator.isVisible(viewerId, u.getId(), u.getExperiencePrivacySetting()))
+                .filter(u -> privacySettingService.isVisible(viewerId, u.getId(), u.getExperiencePrivacySetting()))
                 .map(User::getId)
                 .collect(Collectors.toSet());
 

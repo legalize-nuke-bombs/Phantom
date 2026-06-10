@@ -17,13 +17,13 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordValidationService passwordValidationService;
-    private final RecoveryKeyProvider recoveryKeyProvider;
+    private final RecoveryKeyService recoveryKeyService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, RecoveryKeyProvider recoveryKeyProvider) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, RecoveryKeyService recoveryKeyService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.passwordValidationService = passwordValidationService;
-        this.recoveryKeyProvider = recoveryKeyProvider;
+        this.recoveryKeyService = recoveryKeyService;
     }
 
     public UserStatRepresentation getStats() {
@@ -107,8 +107,8 @@ public class UserService {
             throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
-        RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.generateKeyPair();
-        String recoveryKey = recoveryKeyProvider.keyPairToRecoveryKey(recoveryKeyPair);
+        RecoveryKeyService.KeyPair recoveryKeyPair = recoveryKeyService.generateKeyPair();
+        String recoveryKey = recoveryKeyService.keyPairToRecoveryKey(recoveryKeyPair);
 
         user.setPublicRecoveryKey(recoveryKeyPair.publicKey());
         user.setPrivateRecoveryKeyHash(passwordEncoder.encode(recoveryKeyPair.privateKey()));

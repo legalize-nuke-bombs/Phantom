@@ -26,15 +26,15 @@ public class OwnerService {
     private final UserRepository userRepository;
     private final WithdrawalRepository withdrawalRepository;
 
-    private final OwnerAccessValidator ownerAccessValidator;
+    private final OwnerAccessService ownerAccessService;
     private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
 
-    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessValidator ownerAccessValidator, UsageLimitService usageLimitService, ProfileService profileService) {
+    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, UsageLimitService usageLimitService, ProfileService profileService) {
         this.userRepository = userRepository;
         this.withdrawalRepository = withdrawalRepository;
 
-        this.ownerAccessValidator = ownerAccessValidator;
+        this.ownerAccessService = ownerAccessService;
         this.usageLimitService = usageLimitService;
         this.profileService = profileService;
     }
@@ -56,7 +56,7 @@ public class OwnerService {
             throw new ApiException(ErrorCode.ROLE_UNCHANGED);
         }
 
-        boolean isOwner = ownerAccessValidator.isOwner(ownerKey);
+        boolean isOwner = ownerAccessService.isOwner(ownerKey);
 
         if ((target.getRole() == Role.OWNER || role == Role.OWNER) && !isOwner) {
             throw new ApiException(ErrorCode.OWNER_KEY_REQUIRED);
