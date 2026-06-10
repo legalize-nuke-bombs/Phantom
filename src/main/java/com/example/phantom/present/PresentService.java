@@ -97,7 +97,7 @@ public class PresentService {
     public PresentRepresentation claim(Long userId, ClaimPresentRequest request) {
         Long presentId = request.getPresentId();
 
-        Present present = presentRepository.findById(presentId).orElseThrow(() -> new NotFoundException("present not found"));
+        Present present = presentRepository.findByIdForPessimisticWrite(presentId).orElseThrow(() -> new NotFoundException("present not found"));
         if (!Objects.equals(userId, present.getReceiver().getId())) {
             throw new NotFoundException("present not found");
         }
@@ -105,7 +105,6 @@ public class PresentService {
             throw new BadRequestException("present was already claimed");
         }
 
-        present = presentRepository.findByIdForPessimisticWrite(presentId).orElseThrow(() -> new NotFoundException("present not found"));
         Wallet wallet = walletService.lock(userId);
 
         present.setClaimed(true);
