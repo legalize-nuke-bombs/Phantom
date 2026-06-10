@@ -1,14 +1,13 @@
 package com.example.phantom.game.fruits;
 
-import com.example.phantom.exception.BadRequestException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
 import com.example.phantom.game.util.slot.SpinRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.ref.RefService;
-import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
@@ -22,11 +21,10 @@ public class FruitService extends GameService {
 
     private final FruitSettings settings;
 
-    protected FruitService(FruitSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
-        super(userRepository, walletService, experienceService, profileService, refService, provablyFairService, usageLimiter, gameRepository, privacySettingValidator);
+    protected FruitService(FruitSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, GameRepository gameRepository) {
+        super(userRepository, walletService, experienceService, profileService, refService, provablyFairService, gameRepository);
         this.settings = settings;
     }
-
 
     @Override
     protected GameSettings get() {
@@ -42,7 +40,7 @@ public class FruitService extends GameService {
     protected Game initGame(Map<String, String> data) {
         String betStr = data.get("bet");
         if (betStr == null) {
-            throw new BadRequestException("bet is required");
+            throw new ApiException(ErrorCode.INVALID_BET);
         }
 
         BigDecimal bet;
@@ -50,11 +48,11 @@ public class FruitService extends GameService {
             bet = new BigDecimal(betStr);
         }
         catch (Exception e) {
-            throw new BadRequestException("bet is not a number");
+            throw new ApiException(ErrorCode.INVALID_BET);
         }
 
         if (bet.compareTo(new BigDecimal(settings.getMinBet())) < 0) {
-            throw new BadRequestException("insufficient bet");
+            throw new ApiException(ErrorCode.INVALID_BET);
         }
 
         Game game = new Game();

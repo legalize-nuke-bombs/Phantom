@@ -1,7 +1,7 @@
 package com.example.phantom.game;
 
-import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.NotFoundException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
@@ -58,15 +58,16 @@ public class GameController {
     }
 
     private GameService getService(String game) {
+        GameType type;
         try {
-            game = game.toUpperCase();
+            type = GameType.valueOf(game.toUpperCase());
         }
-        catch (BadRequestException e) {
-            throw new BadRequestException("invalid game type");
+        catch (IllegalArgumentException e) {
+            throw new ApiException(ErrorCode.INVALID_GAME_TYPE);
         }
-        GameService service = services.get(GameType.valueOf(game));
+        GameService service = services.get(type);
         if (service == null) {
-            throw new NotFoundException("game not found");
+            throw new ApiException(ErrorCode.GAME_NOT_FOUND);
         }
         return service;
     }

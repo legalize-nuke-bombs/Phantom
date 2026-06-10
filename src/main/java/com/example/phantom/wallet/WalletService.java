@@ -1,8 +1,7 @@
 package com.example.phantom.wallet;
 
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.user.PrivacySettingValidator;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -16,28 +15,22 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final UserRepository userRepository;
-    private final UsageLimiter usageLimiter;
-    private final PrivacySettingValidator privacySettingValidator;
 
-    public WalletService(WalletRepository walletRepository, UserRepository userRepository, UsageLimiter usageLimiter, PrivacySettingValidator privacySettingValidator) {
+    public WalletService(WalletRepository walletRepository, UserRepository userRepository) {
         this.walletRepository = walletRepository;
         this.userRepository = userRepository;
-        this.usageLimiter = usageLimiter;
-        this.privacySettingValidator = privacySettingValidator;
     }
 
     public Wallet lock(Long userId) {
-        return walletRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+        return walletRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new ApiException(ErrorCode.WALLET_NOT_FOUND));
     }
 
     public Wallet getWallet(Long userId) {
-        return walletRepository.findById(userId).orElseThrow(() -> new NotFoundException("wallet not found"));
+        return walletRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.WALLET_NOT_FOUND));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void addChange(Wallet wallet, BigDecimal amount) {
-        // history is not being recorded for security reasons
-
         wallet.setBalanceCached(wallet.getBalanceCached().add(amount));
         walletRepository.save(wallet);
     }
@@ -49,6 +42,6 @@ public class WalletService {
     }
 
     private User getUser(Long userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
     }
 }

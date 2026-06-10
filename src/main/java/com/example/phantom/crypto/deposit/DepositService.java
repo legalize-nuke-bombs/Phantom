@@ -5,8 +5,8 @@ import com.example.phantom.crypto.CoinProviderRegistry;
 import com.example.phantom.crypto.CryptoException;
 import com.example.phantom.crypto.CryptoWallet;
 import com.example.phantom.crypto.CryptoWalletRepository;
-import com.example.phantom.exception.BadGatewayException;
-import com.example.phantom.exception.NotFoundException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.User;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
@@ -41,14 +41,14 @@ public class DepositService {
     public List<Deposit> fetchDeposits(User user, String coin) {
         CoinProvider provider = coinProviderRegistry.get(coin);
         CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(user.getId(), coin)
-                .orElseThrow(() -> new NotFoundException("wallet not found"));
+                .orElseThrow(() -> new ApiException(ErrorCode.CRYPTO_WALLET_NOT_FOUND));
 
         List<CoinProvider.IncomingTransfer> transfers;
         try {
             transfers = provider.getIncomingTransfers(wallet.getAddress(), TX_FETCH_LIMIT);
         }
         catch (CryptoException e) {
-            throw new BadGatewayException(e.getMessage());
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
         }
 
         if (transfers.isEmpty()) {

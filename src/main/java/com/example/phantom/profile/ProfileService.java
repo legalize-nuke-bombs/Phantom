@@ -1,6 +1,7 @@
 package com.example.phantom.profile;
 
-import com.example.phantom.exception.NotFoundException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceRepository;
 import com.example.phantom.user.PrivacySettingValidator;
@@ -31,7 +32,7 @@ public class ProfileService {
         }
 
         Experience experience = privacySettingValidator.isVisible(viewerId, user.getId(), user.getExperiencePrivacySetting())
-                ? experienceRepository.findById(user.getId()).orElseThrow(() -> new NotFoundException("experience record not found"))
+                ? experienceRepository.findById(user.getId()).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND))
                 : null;
         return new ProfileCardRepresentation(user, experience);
     }

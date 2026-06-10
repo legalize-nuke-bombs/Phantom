@@ -7,9 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 
 public interface SweepLogRepository extends JpaRepository<SweepLog, Long> {
-    @Query("SELECT l FROM SweepLog l ORDER BY l.id DESC")
-    List<SweepLog> findAllPageable(Pageable pageable);
-
-    @Query("SELECT l FROM SweepLog l WHERE l.id < ?1 ORDER BY l.id DESC")
-    List<SweepLog> findAllBeforePageable(Long before, Pageable pageable);
+    @Query("SELECT l FROM SweepLog l WHERE (?1 IS NULL OR l.id < ?1) ORDER BY l.id DESC")
+    List<SweepLog> findAllPageable(Long before, Pageable pageable);
 }

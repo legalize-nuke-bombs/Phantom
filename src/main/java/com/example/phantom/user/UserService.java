@@ -1,6 +1,7 @@
 package com.example.phantom.user;
 
-import com.example.phantom.exception.*;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,13 +16,13 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final PasswordValidator passwordValidator;
+    private final PasswordValidationService passwordValidationService;
     private final RecoveryKeyProvider recoveryKeyProvider;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, PasswordValidator passwordValidator, RecoveryKeyProvider recoveryKeyProvider) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, RecoveryKeyProvider recoveryKeyProvider) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.passwordValidator = passwordValidator;
+        this.passwordValidationService = passwordValidationService;
         this.recoveryKeyProvider = recoveryKeyProvider;
     }
 
@@ -34,12 +35,12 @@ public class UserService {
     }
 
     public UserFullRepresentation getUserFullRepresentationById(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
         return new UserFullRepresentation(user);
     }
 
     public UserFullRepresentation getUserFullRepresentationByUsername(String username) {
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
         return new UserFullRepresentation(user);
     }
 
@@ -51,7 +52,7 @@ public class UserService {
         PrivacySetting experiencePrivacySetting = request.getExperiencePrivacySetting();
         PrivacySetting lotteryPrivacySetting = request.getLotteryPrivacySetting();
 
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
         if (displayName != null) user.setDisplayName(displayName);
         if (gameHistoryPrivacySetting != null) user.setGameHistoryPrivacySetting(gameHistoryPrivacySetting);
@@ -71,18 +72,17 @@ public class UserService {
         String password = request.getPassword();
 
         if (username == null && password == null) {
-            throw new BadRequestException("empty request");
+            throw new ApiException(ErrorCode.EMPTY_REQUEST);
         }
 
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-            throw new ForbiddenException("invalid password");
+            throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
         if (password != null) {
-            try { passwordValidator.validate(password); }
-            catch (PasswordValidatorException e) { throw new BadRequestException(e.getMessage()); }
+            passwordValidationService.validate(password);
             user.setPasswordHash(passwordEncoder.encode(password));
         }
 
@@ -91,7 +91,7 @@ public class UserService {
             userRepository.save(user);
         }
         catch (DataIntegrityViolationException e) {
-            throw new ConflictException("username already exists");
+            throw new ApiException(ErrorCode.USERNAME_TAKEN);
         }
 
         return Map.of("message", "patched");
@@ -101,16 +101,14 @@ public class UserService {
     public Map<String, String> newMyRecoveryKey(Long userId, PasswordRequest request) {
         String password = request.getPassword();
 
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new ForbiddenException("invalid password");
+            throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
         RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.generateKeyPair();
-        String recoveryKey;
-        try { recoveryKey = recoveryKeyProvider.keyPairToRecoveryKey(recoveryKeyPair); }
-        catch (BadRecoveryKey e) { throw new RuntimeException("failed to generate recovery key"); }
+        String recoveryKey = recoveryKeyProvider.keyPairToRecoveryKey(recoveryKeyPair);
 
         user.setPublicRecoveryKey(recoveryKeyPair.publicKey());
         user.setPrivateRecoveryKeyHash(passwordEncoder.encode(recoveryKeyPair.privateKey()));
@@ -123,10 +121,10 @@ public class UserService {
     public void deleteMe(Long userId, PasswordRequest request) {
         String password = request.getPassword();
 
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new ForbiddenException("invalid password");
+            throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
         userRepository.delete(user);

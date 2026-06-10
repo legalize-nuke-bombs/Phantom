@@ -5,16 +5,14 @@ import com.example.phantom.chat.banlist.BanRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
-import com.example.phantom.exception.ForbiddenException;
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceRepository;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
@@ -38,9 +36,9 @@ public class ChatService {
     private final ChatModeratorActionRepository chatModeratorActionRepository;
     private final ProfileService profileService;
 
-    private final UsageLimiter usageLimiter;
+    private final UsageLimitService usageLimitService;
 
-    public ChatService(UserRepository userRepository, ExperienceRepository experienceRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, UsageLimiter usageLimiter) {
+    public ChatService(UserRepository userRepository, ExperienceRepository experienceRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, UsageLimitService usageLimitService) {
         this.userRepository = userRepository;
         this.experienceRepository = experienceRepository;
         this.messageRepository = messageRepository;
@@ -48,20 +46,17 @@ public class ChatService {
         this.chatModeratorActionRepository = chatModeratorActionRepository;
         this.profileService = profileService;
 
-        this.usageLimiter = usageLimiter;
+        this.usageLimitService = usageLimitService;
     }
 
     public List<MessageRepresentation> get(Long userId, Integer limit, Long before) {
         User user = getUser(userId);
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<Message> messages = before != null
-                ? messageRepository.findAllBeforeWithUsersPageable(before, pageable)
-                : messageRepository.findAllWithUsersPageable(pageable);
+        List<Message> messages = messageRepository.findAllWithUsersPageable(before, pageable);
 
         List<User> users = messages.stream().map(Message::getUser).toList();
         Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
@@ -82,17 +77,16 @@ public class ChatService {
 
         Ban ban = banRepository.findById(user.getId()).orElse(null);
         if (ban != null && ban.isActive()) {
-            throw new ForbiddenException("you are banned");
+            throw new ApiException(ErrorCode.BANNED);
         }
 
         if (!user.getRole().chatModeratorAccess()) {
             if (getExperience(user.getId()).getAmountCached() < ChatConstants.MIN_EXPERIENCE) {
-                throw new ForbiddenException("min experience = " + ChatConstants.MIN_EXPERIENCE);
+                throw new ApiException(ErrorCode.INSUFFICIENT_EXPERIENCE);
             }
         }
 
-        try { usageLimiter.startAction(user, UsageAction.SEND_MESSAGE, 1L); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.SEND_MESSAGE, 1L);
 
         String content = request.getContent();
 
@@ -113,7 +107,7 @@ public class ChatService {
         if (!Objects.equals(user.getId(), message.getUser().getId())) {
             if (user.getRole().chatModeratorAccess()) {
                 if (message.getUser().getRole().chatModeratorAccess()) {
-                    throw new ForbiddenException("you don't have permission to delete messages of this user");
+                    throw new ApiException(ErrorCode.NO_PERMISSION);
                 }
                 ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
                 chatModeratorAction.setUser(user);
@@ -126,7 +120,7 @@ public class ChatService {
                 chatModeratorActionRepository.save(chatModeratorAction);
             }
             else {
-                throw new ForbiddenException("you don't have permission to delete other user messages");
+                throw new ApiException(ErrorCode.NO_PERMISSION);
             }
         }
 
@@ -134,14 +128,14 @@ public class ChatService {
     }
 
     private User getUser(Long userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
     }
 
     private Message getMessage(Long messageId) {
-        return messageRepository.findById(messageId).orElseThrow(() -> new NotFoundException("message not found"));
+        return messageRepository.findById(messageId).orElseThrow(() -> new ApiException(ErrorCode.MESSAGE_NOT_FOUND));
     }
 
     private Experience getExperience(Long userId) {
-        return experienceRepository.findById(userId).orElseThrow(() -> new NotFoundException("experience record not found"));
+        return experienceRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND));
     }
 }

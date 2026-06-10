@@ -1,12 +1,11 @@
 package com.example.phantom.chat.chatmoderatoraction;
 
-import com.example.phantom.exception.TooManyRequestsException;
-import com.example.phantom.exception.UnauthorizedException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageLimitReached;
 import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
@@ -24,27 +23,24 @@ public class ChatModeratorActionService {
     private final UserRepository userRepository;
     private final ProfileService profileService;
 
-    private final UsageLimiter usageLimiter;
+    private final UsageLimitService usageLimitService;
 
-    public ChatModeratorActionService(ChatModeratorActionRepository chatModeratorActionRepository, UserRepository userRepository, ProfileService profileService, UsageLimiter usageLimiter) {
+    public ChatModeratorActionService(ChatModeratorActionRepository chatModeratorActionRepository, UserRepository userRepository, ProfileService profileService, UsageLimitService usageLimitService) {
         this.chatModeratorActionRepository = chatModeratorActionRepository;
         this.userRepository = userRepository;
         this.profileService = profileService;
 
-        this.usageLimiter = usageLimiter;
+        this.usageLimitService = usageLimitService;
     }
 
     public List<ChatModeratorActionRepresentation> get(Long userId, Integer limit, Long before) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new UnauthorizedException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<ChatModeratorAction> actions = before != null
-                ? chatModeratorActionRepository.findAllBeforeWithUsersPageable(before, pageable)
-                : chatModeratorActionRepository.findAllWithUsersPageable(pageable);
+        List<ChatModeratorAction> actions = chatModeratorActionRepository.findAllWithUsersPageable(before, pageable);
 
         List<User> users = new ArrayList<>();
         for (ChatModeratorAction action : actions) {

@@ -1,6 +1,7 @@
 package com.example.phantom.provablyfair;
 
-import com.example.phantom.exception.BadRequestException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 
 import java.nio.ByteBuffer;
@@ -48,7 +49,7 @@ public class ProvablyFairService {
 
     private byte[] parseSeed(String seed) {
         if (seed.length() != SEED_LENGTH) {
-            throw new BadRequestException("invalid seed length");
+            throw new ApiException(ErrorCode.INVALID_SEED);
         }
 
         byte[] rawSeed;
@@ -56,7 +57,7 @@ public class ProvablyFairService {
             rawSeed = HexFormat.of().parseHex(seed);
         }
         catch (IllegalArgumentException e) {
-            throw new BadRequestException("invalid seed");
+            throw new ApiException(ErrorCode.INVALID_SEED);
         }
 
         return rawSeed;

@@ -1,8 +1,7 @@
 package com.example.phantom.experience;
 
-import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.experiencechange.ExperienceChange;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepository;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepresentation;
@@ -10,8 +9,7 @@ import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitReached;
-import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -34,24 +32,24 @@ public class ExperienceService {
     private final ExperienceRepository experienceRepository;
     private final ExperienceChangeRepository experienceChangeRepository;
     private final PrivacySettingValidator privacySettingValidator;
-    private final UsageLimiter usageLimiter;
+    private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
 
-    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingValidator privacySettingValidator, UsageLimiter usageLimiter, ProfileService profileService) {
+    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingValidator privacySettingValidator, UsageLimitService usageLimitService, ProfileService profileService) {
         this.userRepository = userRepository;
         this.experienceRepository = experienceRepository;
         this.experienceChangeRepository = experienceChangeRepository;
         this.privacySettingValidator = privacySettingValidator;
-        this.usageLimiter = usageLimiter;
+        this.usageLimitService = usageLimitService;
         this.profileService = profileService;
     }
 
     public Experience lock(Long experienceId) {
-        return experienceRepository.findByIdForPessimisticWrite(experienceId).orElseThrow(() -> new NotFoundException("experience record not found"));
+        return experienceRepository.findByIdForPessimisticWrite(experienceId).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND));
     }
 
     public Experience getExperience(Long experienceId) {
-        return experienceRepository.findById(experienceId).orElseThrow(() -> new NotFoundException("experience record not found"));
+        return experienceRepository.findById(experienceId).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -90,7 +88,7 @@ public class ExperienceService {
     }
 
     public ExperienceRepresentation get(Long userId, Long targetId) {
-        User user = getUser(userId);
+        User user = requireAuthenticated(userId);
         User target = getUser(targetId);
 
         privacySettingValidator.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
@@ -100,44 +98,42 @@ public class ExperienceService {
     }
 
     public List<ExperienceChangeRepresentation> getHistory(Long userId, Long targetId, Integer limit, Long before) {
-        User user = getUser(userId);
+        User user = requireAuthenticated(userId);
         User target = getUser(targetId);
 
         privacySettingValidator.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<ExperienceChange> changes = before != null
-                ? experienceChangeRepository.findByUserIdBeforePageable(target.getId(), before, pageable)
-                : experienceChangeRepository.findByUserIdPageable(target.getId(), pageable);
+        List<ExperienceChange> changes = experienceChangeRepository.findByUserIdPageable(target.getId(), before, pageable);
 
         return changes.stream().map(ExperienceChangeRepresentation::new).toList();
     }
 
     public List<ProfileCardRepresentation> getLeaderboard(Long userId, Integer limit, Long beforeAmount, Long beforeUserId) {
-        User user = getUser(userId);
+        User user = requireAuthenticated(userId);
 
         if ((beforeAmount == null) != (beforeUserId == null)) {
-            throw new BadRequestException("beforeAmount and beforeUserId must be both set or both empty");
+            throw new ApiException(ErrorCode.INVALID_CURSOR);
         }
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<User> users = beforeAmount != null
-                ? experienceRepository.findBestUsersUsingPrivacyPolicyBefore(user.getId(), beforeAmount, beforeUserId, pageable)
-                : experienceRepository.findBestUsersUsingPrivacyPolicy(user.getId(), pageable);
+        List<User> users = experienceRepository.findBestUsersUsingPrivacyPolicy(user.getId(), beforeAmount, beforeUserId, pageable);
 
         Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
         return users.stream().map(u -> cardsByUserId.get(u.getId())).toList();
     }
 
+    private User requireAuthenticated(Long userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
+    }
+
     private User getUser(Long userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
     }
 }

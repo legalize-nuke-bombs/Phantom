@@ -1,13 +1,11 @@
 package com.example.phantom.ref;
 
-import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitReached;
-import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
@@ -28,23 +26,22 @@ public class RefService {
     private final RefMemberRepository refMemberRepository;
     private final WalletService walletService;
     private final ProfileService profileService;
-    private final UsageLimiter usageLimiter;
+    private final UsageLimitService usageLimitService;
 
-    public RefService(UserRepository userRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, WalletService walletService, ProfileService profileService, UsageLimiter usageLimiter) {
+    public RefService(UserRepository userRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, WalletService walletService, ProfileService profileService, UsageLimitService usageLimitService) {
         this.userRepository = userRepository;
         this.refStorageRepository = refStorageRepository;
         this.refMemberRepository = refMemberRepository;
         this.walletService = walletService;
         this.profileService = profileService;
-        this.usageLimiter = usageLimiter;
+        this.usageLimitService = usageLimitService;
     }
 
     public List<ProfileCardRepresentation> getRefMembers(Long userId, Integer limit, Long before) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        RefStorage rs = refStorageRepository.findById(userId).orElseThrow(() -> new NotFoundException("ref storage not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
+        RefStorage rs = refStorageRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.REF_STORAGE_NOT_FOUND));
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, limit.longValue()); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
@@ -55,7 +52,7 @@ public class RefService {
     }
 
     public RefStorageRepresentation getRefStorage(Long userId) {
-        RefStorage rs = refStorageRepository.findById(userId).orElseThrow(() -> new NotFoundException("ref storage not found"));
+        RefStorage rs = refStorageRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.REF_STORAGE_NOT_FOUND));
 
         return new RefStorageRepresentation(rs);
     }
@@ -68,7 +65,7 @@ public class RefService {
         }
 
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BadRequestException("amount is negative");
+            throw new ApiException(ErrorCode.INVALID_AMOUNT);
         }
 
         BigDecimal toAdd = amount.multiply(RefConstants.REF_EDGE);
@@ -81,7 +78,7 @@ public class RefService {
 
     @Transactional
     public RefStorageRepresentation claim(Long userId) {
-        RefStorage rs = refStorageRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new NotFoundException("ref storage not found"));
+        RefStorage rs = refStorageRepository.findByIdForPessimisticWrite(userId).orElseThrow(() -> new ApiException(ErrorCode.REF_STORAGE_NOT_FOUND));
         Wallet wallet = walletService.lock(userId);
 
         walletService.addChange(wallet, rs.getAmount());

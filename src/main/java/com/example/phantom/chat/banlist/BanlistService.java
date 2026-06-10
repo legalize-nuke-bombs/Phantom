@@ -3,10 +3,8 @@ package com.example.phantom.chat.banlist;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
-import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.ForbiddenException;
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.UnauthorizedException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -29,9 +27,9 @@ public class BanlistService {
     }
 
     public BanRepresentation getById(Long userId) {
-        Ban ban = banRepository.findById(userId).orElseThrow(() -> new NotFoundException("user is not banned"));
+        Ban ban = banRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_BANNED));
         if (!ban.isActive()) {
-            throw new NotFoundException("user is not banned");
+            throw new ApiException(ErrorCode.NOT_BANNED);
         }
         return new BanRepresentation(ban);
     }
@@ -43,19 +41,19 @@ public class BanlistService {
         String reason = request.getReason();
         Long duration = request.getDuration();
 
-        User target = userRepository.findById(targetId).orElseThrow(() -> new NotFoundException("target not found"));
+        User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         if (Objects.equals(userId, target.getId())) {
-            throw new BadRequestException("can't ban yourself");
+            throw new ApiException(ErrorCode.CANT_BAN_SELF);
         }
 
         if (target.getRole().chatModeratorAccess()) {
-            throw new ForbiddenException("can't ban chat moderator");
+            throw new ApiException(ErrorCode.CANT_BAN_MODERATOR);
         }
 
         Ban ban = banRepository.findById(target.getId()).orElse(null);
         if (ban != null && ban.isActive()) {
-            throw new BadRequestException("target is already banned");
+            throw new ApiException(ErrorCode.ALREADY_BANNED);
         }
 
         Long now = Instant.now().getEpochSecond();
@@ -91,12 +89,12 @@ public class BanlistService {
         String reason = request.getReason();
 
         if (!userRepository.existsById(targetId)) {
-            throw new NotFoundException("target not found");
+            throw new ApiException(ErrorCode.USER_NOT_FOUND);
         }
 
-        Ban ban = banRepository.findById(targetId).orElseThrow(() -> new NotFoundException("target is not banned"));
+        Ban ban = banRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.NOT_BANNED));
         if (!ban.isActive()) {
-            throw new NotFoundException("target is not banned");
+            throw new ApiException(ErrorCode.NOT_BANNED);
         }
 
         ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
@@ -113,9 +111,9 @@ public class BanlistService {
     }
 
     private User getChatModerator(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new UnauthorizedException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
         if (!user.getRole().chatModeratorAccess()) {
-            throw new ForbiddenException("you don't have permission to ban users");
+            throw new ApiException(ErrorCode.NO_PERMISSION);
         }
         return user;
     }

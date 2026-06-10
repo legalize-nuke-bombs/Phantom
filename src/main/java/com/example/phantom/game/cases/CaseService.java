@@ -1,13 +1,12 @@
 package com.example.phantom.game.cases;
 
-import com.example.phantom.exception.BadRequestException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.ref.RefService;
-import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
@@ -21,11 +20,10 @@ public class CaseService extends GameService {
 
     private final CaseSettings settings;
 
-    protected CaseService(CaseSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
-        super(userRepository, walletService, experienceService, profileService, refService, provablyFairService, usageLimiter, gameRepository, privacySettingValidator);
+    protected CaseService(CaseSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, GameRepository gameRepository) {
+        super(userRepository, walletService, experienceService, profileService, refService, provablyFairService, gameRepository);
         this.settings = settings;
     }
-
 
     @Override
     public GameSettings get() {
@@ -39,7 +37,7 @@ public class CaseService extends GameService {
     protected Game initGame(Map<String, String> data) {
         String caseName = data.get("caseName");
         if (caseName == null) {
-            throw new BadRequestException("caseName is required");
+            throw new ApiException(ErrorCode.INVALID_CASE);
         }
 
         Case thecase = findCase(caseName);
@@ -61,6 +59,6 @@ public class CaseService extends GameService {
         for (Case thecase : settings.getCases()) {
             if (Objects.equals(thecase.getName(), caseName)) return thecase;
         }
-        throw new BadRequestException("invalid caseName");
+        throw new ApiException(ErrorCode.INVALID_CASE);
     }
 }

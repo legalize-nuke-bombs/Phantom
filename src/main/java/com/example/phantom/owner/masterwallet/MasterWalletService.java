@@ -3,10 +3,8 @@ package com.example.phantom.owner.masterwallet;
 import com.example.phantom.crypto.CoinProvider;
 import com.example.phantom.crypto.CoinProviderRegistry;
 import com.example.phantom.crypto.CryptoException;
-import com.example.phantom.exception.BadGatewayException;
-import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.ForbiddenException;
-import com.example.phantom.exception.NotFoundException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -41,7 +39,7 @@ public class MasterWalletService {
         CoinProvider provider = coinProviderRegistry.get(coin);
 
         Variable address = variableRepository.findById(coin + "_MASTER_WALLET_ADDRESS")
-                .orElseThrow(() -> new BadRequestException(coin + " master wallet has not been set"));
+                .orElseThrow(() -> new ApiException(ErrorCode.MASTER_WALLET_NOT_SET));
 
         String addressValue = address.getValue();
 
@@ -50,7 +48,7 @@ public class MasterWalletService {
             balance = provider.getBalanceUsd(addressValue);
         }
         catch (CryptoException e) {
-            throw new BadGatewayException("failed to check balance");
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
         }
 
         MasterWalletRepresentation representation = new MasterWalletRepresentation();
@@ -70,7 +68,7 @@ public class MasterWalletService {
             keyPair = provider.deriveKeyPair(request.getMnemonic());
         }
         catch (CryptoException e) {
-            throw new BadRequestException("bad mnemonic");
+            throw new ApiException(ErrorCode.BAD_MNEMONIC);
         }
 
         Variable addressVar = new Variable();
@@ -87,10 +85,10 @@ public class MasterWalletService {
     }
 
     private void getOwner(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
         if (user.getRole() != Role.OWNER) {
-            throw new ForbiddenException("you don't have permission to access master wallets");
+            throw new ApiException(ErrorCode.NO_PERMISSION);
         }
     }
 }

@@ -8,13 +8,13 @@ import lombok.Setter;
 @Setter
 public class PatchMeSecureRequest {
     @NotNull
-    @Size(max = PasswordValidator.PASSWORD_MAX_LENGTH)
+    @Size(max = PasswordValidationService.PASSWORD_MAX_LENGTH)
     private String currentPassword;
 
     @Size(min= UserConstants.USERNAME_MIN_LENGTH, max= UserConstants.USERNAME_MAX_LENGTH)
     @Pattern(regexp= UserConstants.USERNAME_PATTERN)
     private String username;
 
-    @Size(min= PasswordValidator.PASSWORD_MIN_LENGTH, max= PasswordValidator.PASSWORD_MAX_LENGTH)
+    @Size(min= PasswordValidationService.PASSWORD_MIN_LENGTH, max= PasswordValidationService.PASSWORD_MAX_LENGTH)
     private String password;
 }

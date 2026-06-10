@@ -1,6 +1,7 @@
 package com.example.phantom.crypto;
 
-import com.example.phantom.exception.BadRequestException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -20,7 +21,7 @@ public class CoinProviderRegistry {
 
     public CoinProvider get(String coin) {
         CoinProvider provider = providers.get(coin);
-        if (provider == null) throw new BadRequestException("unsupported coin");
+        if (provider == null) throw new ApiException(ErrorCode.UNSUPPORTED_COIN);
         return provider;
     }
 

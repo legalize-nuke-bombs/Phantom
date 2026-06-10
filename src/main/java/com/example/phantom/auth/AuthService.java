@@ -7,9 +7,7 @@ import com.example.phantom.crypto.CryptoWallet;
 import com.example.phantom.crypto.CryptoWalletRepository;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceRepository;
-import com.example.phantom.owner.OwnerAccessDenied;
 import com.example.phantom.owner.OwnerAccessValidator;
-import com.example.phantom.owner.OwnerBadAccess;
 import com.example.phantom.ref.RefMember;
 import com.example.phantom.ref.RefMemberRepository;
 import com.example.phantom.ref.RefStorage;
@@ -21,7 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.example.phantom.exception.*;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -40,12 +39,12 @@ public class AuthService {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
-    private final PasswordValidator passwordValidator;
+    private final PasswordValidationService passwordValidationService;
     private final OwnerAccessValidator ownerAccessValidator;
     private final RecoveryKeyProvider recoveryKeyProvider;
     private final CoinProviderRegistry coinProviderRegistry;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidator passwordValidator, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessValidator ownerAccessValidator, RecoveryKeyProvider recoveryKeyProvider, CoinProviderRegistry coinProviderRegistry) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.experienceRepository = experienceRepository;
@@ -55,7 +54,7 @@ public class AuthService {
 
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
-        this.passwordValidator = passwordValidator;
+        this.passwordValidationService = passwordValidationService;
         this.ownerAccessValidator = ownerAccessValidator;
         this.recoveryKeyProvider = recoveryKeyProvider;
         this.coinProviderRegistry = coinProviderRegistry;
@@ -69,19 +68,15 @@ public class AuthService {
         String adminKey = request.getOwnerKey();
         Role role = request.getRole();
 
-        try { passwordValidator.validate(password); }
-        catch (PasswordValidatorException e) { throw new BadRequestException(e.getMessage()); }
+        passwordValidationService.validate(password);
 
-        boolean isOwner;
-        try { isOwner = ownerAccessValidator.isOwner(adminKey); }
-        catch (OwnerBadAccess e) { throw new BadRequestException(e.getMessage()); }
-        catch (OwnerAccessDenied e) { throw new ForbiddenException(e.getMessage()); }
+        boolean isOwner = ownerAccessValidator.isOwner(adminKey);
 
         if (!isOwner && role != null) {
-            throw new ForbiddenException("owner key not specified");
+            throw new ApiException(ErrorCode.OWNER_KEY_REQUIRED);
         }
         if (isOwner && role == null) {
-            throw new BadRequestException("role not specified");
+            throw new ApiException(ErrorCode.ROLE_REQUIRED);
         }
 
         if (role == null) {
@@ -89,9 +84,7 @@ public class AuthService {
         }
 
         RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.generateKeyPair();
-        String recoveryKey;
-        try { recoveryKey = recoveryKeyProvider.keyPairToRecoveryKey(recoveryKeyPair); }
-        catch (BadRecoveryKey e) { throw new RuntimeException("failed to generate recovery key"); }
+        String recoveryKey = recoveryKeyProvider.keyPairToRecoveryKey(recoveryKeyPair);
 
         User user = new User();
         user.setUsername(username);
@@ -106,7 +99,7 @@ public class AuthService {
         user.setPublicRecoveryKey(recoveryKeyPair.publicKey());
         user.setPrivateRecoveryKeyHash(passwordEncoder.encode(recoveryKeyPair.privateKey()));
         try { user = userRepository.save(user); }
-        catch (DataIntegrityViolationException e) { throw new ConflictException("username already exists"); }
+        catch (DataIntegrityViolationException e) { throw new ApiException(ErrorCode.USERNAME_TAKEN); }
 
         Wallet wallet = new Wallet();
         wallet.setUser(user);
@@ -159,9 +152,9 @@ public class AuthService {
         String username = request.getUsername();
         String password = request.getPassword();
 
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new NotFoundException("username does not exist"));
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new ForbiddenException("password is invalid");
+            throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
         return Map.of("token", jwtTokenProvider.generateToken(user.getId()));
@@ -173,23 +166,20 @@ public class AuthService {
         String newUsername = request.getNewUsername();
         String newPassword = request.getNewPassword();
 
-        RecoveryKeyProvider.KeyPair recoveryKeyPair;
-        try { recoveryKeyPair = recoveryKeyProvider.recoveryKeyToKeyPair(recoveryKey); }
-        catch (BadRecoveryKey e) { throw new BadRequestException("bad recovery key"); }
+        RecoveryKeyProvider.KeyPair recoveryKeyPair = recoveryKeyProvider.recoveryKeyToKeyPair(recoveryKey);
 
-        User user = userRepository.findByPublicRecoveryKey(recoveryKeyPair.publicKey()).orElseThrow(() -> new ForbiddenException("invalid recovery key"));
+        User user = userRepository.findByPublicRecoveryKey(recoveryKeyPair.publicKey()).orElseThrow(() -> new ApiException(ErrorCode.INVALID_RECOVERY_KEY));
 
         if (!passwordEncoder.matches(recoveryKeyPair.privateKey(), user.getPrivateRecoveryKeyHash())) {
-            throw new ForbiddenException("invalid recovery key");
+            throw new ApiException(ErrorCode.INVALID_RECOVERY_KEY);
         }
 
         if (newUsername == null && newPassword == null) {
-            throw new BadRequestException("empty request");
+            throw new ApiException(ErrorCode.EMPTY_REQUEST);
         }
 
         if (newPassword != null) {
-            try { passwordValidator.validate(newPassword); }
-            catch (PasswordValidatorException e) { throw new BadRequestException(e.getMessage()); }
+            passwordValidationService.validate(newPassword);
             user.setPasswordHash(passwordEncoder.encode(newPassword));
         }
 
@@ -197,7 +187,7 @@ public class AuthService {
             if (newUsername != null) user.setUsername(newUsername);
             userRepository.save(user);
         }
-        catch (DataIntegrityViolationException e) { throw new ConflictException("username already exists"); }
+        catch (DataIntegrityViolationException e) { throw new ApiException(ErrorCode.USERNAME_TAKEN); }
 
         return Map.of("message", "recovered");
     }

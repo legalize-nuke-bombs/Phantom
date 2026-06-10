@@ -1,12 +1,11 @@
 package com.example.phantom.game;
 
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitReached;
-import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -26,31 +25,28 @@ public class GameHistoryStatService {
     private final UserRepository userRepository;
     private final GameRepository gameRepository;
     private final ProfileService profileService;
-    private final UsageLimiter usageLimiter;
+    private final UsageLimitService usageLimitService;
     private final PrivacySettingValidator privacySettingValidator;
 
-    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, ProfileService profileService, UsageLimiter usageLimiter, PrivacySettingValidator privacySettingValidator) {
+    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, ProfileService profileService, UsageLimitService usageLimitService, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
         this.gameRepository = gameRepository;
         this.profileService = profileService;
-        this.usageLimiter = usageLimiter;
+        this.usageLimitService = usageLimitService;
         this.privacySettingValidator = privacySettingValidator;
     }
 
     public List<GameRepresentation> getUserHistory(Long userId, Long targetId, Integer limit, Long before) {
-        User user = getUser(userId);
+        User user = requireAuthenticated(userId);
         User target = getUser(targetId);
 
         privacySettingValidator.validate(user.getId(), target.getId(), target.getGameHistoryPrivacySetting());
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<Game> games = before != null
-                ? gameRepository.findHistoryByUserBefore(target.getId(), before, pageable)
-                : gameRepository.findHistoryByUser(target.getId(), pageable);
+        List<Game> games = gameRepository.findHistoryByUser(target.getId(), before, pageable);
 
         ProfileCardRepresentation targetCard = profileService.getCardForUser(userId, target);
 
@@ -58,16 +54,13 @@ public class GameHistoryStatService {
     }
 
     public List<GameRepresentation> getPlatformHistory(Long userId, Integer limit, Long before) {
-        User user = getUser(userId);
+        User user = requireAuthenticated(userId);
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<Game> games = before != null
-                ? gameRepository.findHistoryWithUsersUsingPrivacyPolicyBefore(user.getId(), before, pageable)
-                : gameRepository.findHistoryWithUsersUsingPrivacyPolicy(user.getId(), pageable);
+        List<Game> games = gameRepository.findHistoryWithUsersUsingPrivacyPolicy(user.getId(), before, pageable);
 
         List<User> users = games.stream().map(Game::getUser).toList();
         Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
@@ -83,7 +76,7 @@ public class GameHistoryStatService {
     }
 
     public UserGameStatRepresentation getUserStats(Long userId, Long targetId) {
-        User user = getUser(userId);
+        User user = requireAuthenticated(userId);
         User target = getUser(targetId);
 
         privacySettingValidator.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
@@ -104,7 +97,11 @@ public class GameHistoryStatService {
         );
     }
 
+    private User requireAuthenticated(Long userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
+    }
+
     private User getUser(Long userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
     }
 }

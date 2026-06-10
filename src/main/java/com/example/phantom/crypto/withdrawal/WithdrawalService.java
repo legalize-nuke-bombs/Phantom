@@ -4,8 +4,8 @@ import com.example.phantom.crypto.CoinProvider;
 import com.example.phantom.crypto.CoinProviderRegistry;
 import com.example.phantom.crypto.CryptoException;
 import com.example.phantom.crypto.TransferStatus;
-import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.ServiceUnavailable;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.User;
 import com.example.phantom.variable.Variable;
 import com.example.phantom.variable.VariableRepository;
@@ -50,13 +50,13 @@ public class WithdrawalService {
 
         BigDecimal commission = provider.getWithdrawalCommission();
         if (amount.compareTo(commission) <= 0) {
-            throw new BadRequestException("amount must be greater than commission");
+            throw new ApiException(ErrorCode.AMOUNT_BELOW_COMMISSION);
         }
 
         Wallet wallet = walletService.lock(user.getId());
 
         if (wallet.getBalanceCached().compareTo(amount) < 0) {
-            throw new BadRequestException("insufficient balance");
+            throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
         }
 
         walletService.addChange(wallet, amount.negate());
@@ -74,15 +74,15 @@ public class WithdrawalService {
     public Withdrawal send(Withdrawal withdrawal) {
         CoinProvider provider = coinProviderRegistry.get(withdrawal.getCoin());
         Variable masterAddress = variableRepository.findById(withdrawal.getCoin() + "_MASTER_WALLET_ADDRESS")
-                .orElseThrow(() -> new ServiceUnavailable("withdrawal failed, try again later"));
+                .orElseThrow(() -> new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE));
         Variable masterPrivateKey = variableRepository.findById(withdrawal.getCoin() + "_MASTER_WALLET_PRIVATE_KEY")
-                .orElseThrow(() -> new ServiceUnavailable("withdrawal failed, try again later"));
+                .orElseThrow(() -> new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE));
 
         BigDecimal toSend = withdrawal.getAmount().subtract(provider.getWithdrawalCommission());
 
         try {
             if (provider.getBalanceUsd(masterAddress.getValue()).compareTo(toSend) < 0) {
-                throw new ServiceUnavailable("master wallet insufficient balance");
+                throw new ApiException(ErrorCode.MASTER_WALLET_DRAINED);
             }
 
             String hash = provider.send(
@@ -93,7 +93,7 @@ public class WithdrawalService {
             withdrawal.setHash(hash);
         }
         catch (CryptoException e) {
-            throw new ServiceUnavailable(e.getMessage());
+            throw new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE);
         }
 
         return withdrawalRepository.save(withdrawal);

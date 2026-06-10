@@ -17,16 +17,9 @@ public interface ExperienceRepository extends JpaRepository<Experience, Long> {
 
     @Query("""
     SELECT e.user FROM Experience e
-    WHERE (e.user.id = ?1 OR e.user.experiencePrivacySetting = com.example.phantom.user.PrivacySetting.EVERYONE)
-    ORDER BY e.amountCached DESC, e.user.id DESC
-""")
-    List<User> findBestUsersUsingPrivacyPolicy(Long viewerId, Pageable pageable);
-
-    @Query("""
-    SELECT e.user FROM Experience e
     WHERE (e.user.id = ?1 OR e.user.experiencePrivacySetting = com.example.phantom.user.PrivacySetting.EVERYONE) AND
-    (e.amountCached < ?2 OR (e.amountCached = ?2 AND e.user.id < ?3))
+    (?2 IS NULL OR e.amountCached < ?2 OR (e.amountCached = ?2 AND e.user.id < ?3))
     ORDER BY e.amountCached DESC, e.user.id DESC
 """)
-    List<User> findBestUsersUsingPrivacyPolicyBefore(Long viewerId, Long beforeAmount, Long beforeUserId, Pageable pageable);
+    List<User> findBestUsersUsingPrivacyPolicy(Long viewerId, Long beforeAmount, Long beforeUserId, Pageable pageable);
 }

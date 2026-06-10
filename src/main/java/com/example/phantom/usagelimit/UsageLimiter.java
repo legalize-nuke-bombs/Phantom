@@ -1,5 +1,7 @@
 package com.example.phantom.usagelimit;
 
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.Plan;
 import com.example.phantom.user.User;
 import java.time.Instant;
@@ -24,48 +26,45 @@ public class UsageLimiter {
         rules.forEach((plan, rule) -> {
             this.rules.putIfAbsent(plan, new ConcurrentHashMap<>());
             this.rules.get(plan).put(action, rule);
-        }
-        );
+        });
     }
 
-    public void startAction(User user, UsageAction action, Long tokens) throws UsageLimitReached {
+    public void startAction(User user, UsageAction action, long tokens) {
         long now = Instant.now().getEpochSecond();
 
         Map<UsageAction, UsageLimitRule> planRules = rules.get(user.getPlan());
 
         UsageLimitRule rule = planRules != null ? planRules.get(action) : null;
-        if (rule == null) throw new RuntimeException("rule not found");
+        if (rule == null) {
+            throw new RuntimeException("rule not found");
+        }
 
-        try {
-            states.compute(user.getId(), (key1, userStates) -> {
-                if (userStates == null) {
-                    userStates = new ConcurrentHashMap<>();
+        states.compute(user.getId(), (key1, userStates) -> {
+            if (userStates == null) {
+                userStates = new ConcurrentHashMap<>();
+            }
+
+            userStates.compute(action, (key2, state) -> {
+                if (state == null || (now - state.getTimestamp() > rule.getSeconds())) {
+                    state = new UsageLimitState(now, 0L);
                 }
-
-                userStates.compute(action, (key2, state) -> {
-                    if (state == null || (now - state.getTimestamp() > rule.getSeconds())) {
-                        state = new UsageLimitState(now, 0L);
-                    }
-                    if (state.getTokens() + tokens > rule.getTokens()) {
-                        throw new UsageLimitReachedRuntime(action.name(), state.getTimestamp() + rule.getSeconds() - now);
-                    }
-                    state.setTokens(state.getTokens() + tokens);
-                    return state;
-                });
-
-                return userStates;
+                if (state.getTokens() + tokens > rule.getTokens()) {
+                    long retryIn = state.getTimestamp() + rule.getSeconds() - now;
+                    throw new ApiException(ErrorCode.RATE_LIMITED, "try again in " + retryIn + " seconds");
+                }
+                state.setTokens(state.getTokens() + tokens);
+                return state;
             });
-        }
-        catch (UsageLimitReachedRuntime e) {
-            throw new UsageLimitReached(e.getMessage());
-        }
+
+            return userStates;
+        });
     }
 
     public UsageLimitRepresentation get(User user) {
         UsageLimitRepresentation representation = new UsageLimitRepresentation();
         representation.setData(new TreeMap<>());
 
-        Long now = Instant.now().getEpochSecond();;
+        long now = Instant.now().getEpochSecond();
 
         Map<UsageAction, UsageLimitRule> planRules = rules.get(user.getPlan());
         Map<UsageAction, UsageLimitState> userStates = states.get(user.getId());

@@ -1,13 +1,12 @@
 package com.example.phantom.game.upgrader;
 
-import com.example.phantom.exception.BadRequestException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.game.*;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.ref.RefService;
-import com.example.phantom.usagelimit.UsageLimiter;
-import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.stereotype.Service;
@@ -21,11 +20,10 @@ public class UpgraderService extends GameService {
 
     private final UpgraderSettings settings;
 
-    protected UpgraderService(UpgraderSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, UsageLimiter usageLimiter, GameRepository gameRepository, PrivacySettingValidator privacySettingValidator) {
-        super(userRepository, walletService, experienceService, profileService, refService, provablyFairService, usageLimiter, gameRepository, privacySettingValidator);
+    protected UpgraderService(UpgraderSettings settings, UserRepository userRepository, WalletService walletService, ExperienceService experienceService, ProfileService profileService, RefService refService, ProvablyFairService provablyFairService, GameRepository gameRepository) {
+        super(userRepository, walletService, experienceService, profileService, refService, provablyFairService, gameRepository);
         this.settings = settings;
     }
-
 
     @Override
     public GameSettings get() {
@@ -40,7 +38,7 @@ public class UpgraderService extends GameService {
         String betStr = data.get("bet");
         String percentStr = data.get("percent");
         if (betStr == null || percentStr == null) {
-            throw new BadRequestException("bet and percent are required");
+            throw new ApiException(ErrorCode.INVALID_BET);
         }
 
         BigDecimal bet;
@@ -50,16 +48,16 @@ public class UpgraderService extends GameService {
             percent = Integer.parseInt(percentStr);
         }
         catch (NumberFormatException e) {
-            throw new BadRequestException("invalid bet or percent");
+            throw new ApiException(ErrorCode.INVALID_BET);
         }
 
         if (bet.compareTo(settings.getMinimalBet()) < 0) {
-            throw new BadRequestException("insufficient bet");
+            throw new ApiException(ErrorCode.INVALID_BET);
         }
 
         BigDecimal multiplier = settings.getPercents().get(percent);
         if (multiplier == null) {
-            throw new BadRequestException("option not available");
+            throw new ApiException(ErrorCode.GAME_OPTION_UNAVAILABLE);
         }
 
         Game round = new Game();

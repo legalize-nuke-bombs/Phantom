@@ -1,13 +1,11 @@
 package com.example.phantom.present;
 
-import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitReached;
-import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
@@ -28,24 +26,23 @@ public class PresentService {
     private final UserRepository userRepository;
     private final WalletService walletService;
     private final PresentRepository presentRepository;
-    private final UsageLimiter usageLimiter;
+    private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
 
-    public PresentService(UserRepository userRepository, WalletService walletService, PresentRepository presentRepository, UsageLimiter usageLimiter, ProfileService profileService) {
+    public PresentService(UserRepository userRepository, WalletService walletService, PresentRepository presentRepository, UsageLimitService usageLimitService, ProfileService profileService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.presentRepository = presentRepository;
-        this.usageLimiter = usageLimiter;
+        this.usageLimitService = usageLimitService;
         this.profileService = profileService;
     }
 
     public List<PresentRepresentation> get(Long userId, Boolean claimed, Integer limit, Long before) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, limit.longValue()); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
-        List<Present> presents = presentRepository.findByReceiverIdClaimedWithSenders(user.getId(), claimed, before,  PageRequest.of(0, limit));
+        List<Present> presents = presentRepository.findByReceiverIdClaimedWithSenders(user.getId(), claimed, before, PageRequest.of(0, limit));
         List<User> senders = presents.stream().map(Present::getSender).toList();
 
         Map<Long, ProfileCardRepresentation> profileCardMap = profileService.getCardsForUsers(userId, senders);
@@ -65,19 +62,18 @@ public class PresentService {
         Boolean anonymous = request.getAnonymous();
 
         if (Objects.equals(userId, receiverId)) {
-            throw new BadRequestException("cant self send");
+            throw new ApiException(ErrorCode.CANT_SELF_SEND);
         }
 
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
-        User receiver = userRepository.findById(receiverId).orElseThrow(() -> new NotFoundException("receiver not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
+        User receiver = userRepository.findById(receiverId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-        try { usageLimiter.startAction(user, UsageAction.SEND_PRESENT, 1L); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.SEND_PRESENT, 1L);
 
         Wallet wallet = walletService.lock(userId);
 
         if (wallet.getBalanceCached().compareTo(amount) < 0) {
-            throw new BadRequestException("insufficient balance");
+            throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
         }
         walletService.addChange(wallet, amount.negate());
 
@@ -97,12 +93,12 @@ public class PresentService {
     public PresentRepresentation claim(Long userId, ClaimPresentRequest request) {
         Long presentId = request.getPresentId();
 
-        Present present = presentRepository.findByIdForPessimisticWrite(presentId).orElseThrow(() -> new NotFoundException("present not found"));
+        Present present = presentRepository.findByIdForPessimisticWrite(presentId).orElseThrow(() -> new ApiException(ErrorCode.PRESENT_NOT_FOUND));
         if (!Objects.equals(userId, present.getReceiver().getId())) {
-            throw new NotFoundException("present not found");
+            throw new ApiException(ErrorCode.PRESENT_NOT_FOUND);
         }
         if (present.getClaimed()) {
-            throw new BadRequestException("present was already claimed");
+            throw new ApiException(ErrorCode.PRESENT_ALREADY_CLAIMED);
         }
 
         Wallet wallet = walletService.lock(userId);

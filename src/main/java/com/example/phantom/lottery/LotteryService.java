@@ -1,8 +1,7 @@
 package com.example.phantom.lottery;
 
-import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.experience.experiencechange.ExperienceChange;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
@@ -11,8 +10,7 @@ import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.ref.RefService;
 import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitReached;
-import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.PrivacySettingValidator;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -41,12 +39,12 @@ public class LotteryService {
     private final LotteryRepository lotteryRepository;
     private final LotteryBetRepository lotteryBetRepository;
     private final LotterySettings lotterySettings;
-    private final UsageLimiter usageLimiter;
+    private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
     private final ProvablyFairService provablyFairService;
     private final PrivacySettingValidator privacySettingValidator;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimiter usageLimiter, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingValidator privacySettingValidator) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimitService usageLimitService, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingValidator privacySettingValidator) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
@@ -54,7 +52,7 @@ public class LotteryService {
         this.lotteryRepository = lotteryRepository;
         this.lotteryBetRepository = lotteryBetRepository;
         this.lotterySettings = lotterySettings;
-        this.usageLimiter = usageLimiter;
+        this.usageLimitService = usageLimitService;
         this.profileService = profileService;
         this.provablyFairService = provablyFairService;
         this.privacySettingValidator = privacySettingValidator;
@@ -91,14 +89,11 @@ public class LotteryService {
     public List<FinishedLotteryRepresentation> getHistory(Long userId, Integer limit, Long before) {
         User user = getUser(userId);
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<Lottery> lotteries = before != null
-                ? lotteryRepository.findFinishedWithWinnersBefore(before, pageable)
-                : lotteryRepository.findFinishedWithWinners(pageable);
+        List<Lottery> lotteries = lotteryRepository.findFinishedWithWinners(before, pageable);
 
         List<User> winners = lotteries.stream()
                 .map(Lottery::getWinner)
@@ -124,19 +119,16 @@ public class LotteryService {
 
     public List<LotteryBetRepresentation> getBets(Long userId, Long id, Integer limit, Long beforeTickets, Long beforeId) {
         if ((beforeTickets == null) != (beforeId == null)) {
-            throw new BadRequestException("beforeTickets and beforeId must be both set or both empty");
+            throw new ApiException(ErrorCode.INVALID_CURSOR);
         }
 
         User user = getUser(userId);
 
-        try { usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit)); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<LotteryBet> bets = beforeTickets != null
-                ? lotteryBetRepository.findAllByLotteryIdBeforeWithUsers(id, beforeTickets, beforeId, pageable)
-                : lotteryBetRepository.findAllByLotteryIdWithUsers(id, pageable);
+        List<LotteryBet> bets = lotteryBetRepository.findAllByLotteryIdWithUsers(id, beforeTickets, beforeId, pageable);
 
         List<User> users = bets.stream()
                 .map(LotteryBet::getUser)
@@ -156,8 +148,7 @@ public class LotteryService {
     public Map<String, String> buyTickets(Long userId, LotteryTicketAmountRequest request) {
         User user = getUser(userId);
 
-        try { usageLimiter.startAction(user, UsageAction.LOTTERY, 1L); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.LOTTERY, 1L);
 
         Wallet wallet = walletService.lock(userId);
 
@@ -165,13 +156,13 @@ public class LotteryService {
         BigDecimal ticketsCost = lotterySettings.getTicketCost().multiply(new BigDecimal(ticketsAmount));
 
         if (wallet.getBalanceCached().compareTo(ticketsCost) < 0) {
-            throw new BadRequestException("insufficient balance");
+            throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
         }
 
         Lottery lottery = getCurrentLottery();
 
         if (Instant.now().getEpochSecond() >= lottery.getTimestamp() + lotterySettings.getBlock()) {
-            throw new BadRequestException("lottery does not sell tickets anymore");
+            throw new ApiException(ErrorCode.LOTTERY_SALES_CLOSED);
         }
 
         walletService.addChange(wallet, ticketsCost.negate());
@@ -194,8 +185,7 @@ public class LotteryService {
     public Map<String, String> refundTickets(Long userId, LotteryTicketAmountRequest request) {
         User user = getUser(userId);
 
-        try { usageLimiter.startAction(user, UsageAction.LOTTERY, 1L); }
-        catch (UsageLimitReached e) { throw new TooManyRequestsException(e.getMessage()); }
+        usageLimitService.startAction(user, UsageAction.LOTTERY, 1L);
 
         Wallet wallet = walletService.lock(userId);
 
@@ -205,14 +195,14 @@ public class LotteryService {
         Lottery lottery = getCurrentLottery();
 
         if (Instant.now().getEpochSecond() >= lottery.getTimestamp() + lotterySettings.getBlock()) {
-            throw new BadRequestException("lottery does not refund tickets anymore");
+            throw new ApiException(ErrorCode.LOTTERY_REFUND_CLOSED);
         }
 
         LotteryBet lotteryBet = lotteryBetRepository.findByLotteryIdAndUserIdForPessimisticWrite(lottery.getId(), user.getId())
-                .orElseThrow(() -> new BadRequestException("you have not bought any tickets"));
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_ENOUGH_TICKETS));
 
         if (lotteryBet.getTickets() < ticketsAmount) {
-            throw new BadRequestException("you don't have enough tickets");
+            throw new ApiException(ErrorCode.NOT_ENOUGH_TICKETS);
         }
 
         walletService.addChange(wallet, ticketsCost);
@@ -313,10 +303,10 @@ public class LotteryService {
     }
 
     private User getUser(Long userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
     }
 
     private Lottery getCurrentLottery() {
-        return lotteryRepository.findCurrent().orElseThrow(() -> new NotFoundException("current lottery does not exist yet"));
+        return lotteryRepository.findCurrent().orElseThrow(() -> new ApiException(ErrorCode.LOTTERY_NOT_FOUND));
     }
 }

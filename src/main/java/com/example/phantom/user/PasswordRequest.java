@@ -8,6 +8,6 @@ import lombok.Setter;
 @Setter
 public class PasswordRequest {
     @NotNull
-    @Size(max = PasswordValidator.PASSWORD_MAX_LENGTH)
+    @Size(max = PasswordValidationService.PASSWORD_MAX_LENGTH)
     private String password;
 }

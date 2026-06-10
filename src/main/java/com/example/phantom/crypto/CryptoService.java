@@ -7,14 +7,12 @@ import com.example.phantom.crypto.withdrawal.WithdrawRequest;
 import com.example.phantom.crypto.withdrawal.Withdrawal;
 import com.example.phantom.crypto.withdrawal.WithdrawalRepresentation;
 import com.example.phantom.crypto.withdrawal.WithdrawalService;
-import com.example.phantom.exception.BadRequestException;
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.TooManyRequestsException;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitReached;
-import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -28,7 +26,7 @@ public class CryptoService {
     private final CryptoWalletRepository cryptoWalletRepository;
     private final DepositService depositService;
     private final WithdrawalService withdrawalService;
-    private final UsageLimiter usageLimiter;
+    private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
 
     public CryptoService(
@@ -36,19 +34,19 @@ public class CryptoService {
             CryptoWalletRepository cryptoWalletRepository,
             DepositService depositService,
             WithdrawalService withdrawalService,
-            UsageLimiter usageLimiter,
+            UsageLimitService usageLimitService,
             ProfileService profileService
     ) {
         this.userRepository = userRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.depositService = depositService;
         this.withdrawalService = withdrawalService;
-        this.usageLimiter = usageLimiter;
+        this.usageLimitService = usageLimitService;
         this.profileService = profileService;
     }
 
     public CryptoWalletRepresentation getWallet(Long userId, String coin) {
-        CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(userId, coinToUpperCase(coin)).orElseThrow(() -> new NotFoundException("wallet not found"));
+        CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(userId, coinToUpperCase(coin)).orElseThrow(() -> new ApiException(ErrorCode.CRYPTO_WALLET_NOT_FOUND));
         return new CryptoWalletRepresentation(wallet);
     }
 
@@ -86,20 +84,15 @@ public class CryptoService {
             return coin.toUpperCase();
         }
         catch (Exception e) {
-            throw new BadRequestException("invalid coin");
+            throw new ApiException(ErrorCode.UNSUPPORTED_COIN);
         }
     }
 
     private User getUser(Long userId) {
-        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
     }
 
     private void rateLimit(User user) {
-        try {
-            usageLimiter.startAction(user, UsageAction.CRYPTO, 1L);
-        }
-        catch (UsageLimitReached e) {
-            throw new TooManyRequestsException(e.getMessage());
-        }
+        usageLimitService.startAction(user, UsageAction.CRYPTO, 1L);
     }
 }

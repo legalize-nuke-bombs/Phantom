@@ -5,12 +5,10 @@ import com.example.phantom.crypto.CoinProviderRegistry;
 import com.example.phantom.crypto.CryptoException;
 import com.example.phantom.crypto.CryptoWallet;
 import com.example.phantom.crypto.CryptoWalletRepository;
-import com.example.phantom.exception.ForbiddenException;
-import com.example.phantom.exception.NotFoundException;
-import com.example.phantom.exception.TooManyRequestsException;
-import com.example.phantom.usagelimit.UsageLimitReached;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimiter;
+import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -38,7 +36,7 @@ public class SweepService {
     private final VariableRepository variableRepository;
     private final SweepLogRepository sweepLogRepository;
     private final CoinProviderRegistry coinProviderRegistry;
-    private final UsageLimiter usageLimiter;
+    private final UsageLimitService usageLimitService;
     private volatile Instant lastSweep;
 
     public SweepService(
@@ -47,32 +45,25 @@ public class SweepService {
             VariableRepository variableRepository,
             SweepLogRepository sweepLogRepository,
             CoinProviderRegistry coinProviderRegistry,
-            UsageLimiter usageLimiter
+            UsageLimitService usageLimitService
     ) {
         this.userRepository = userRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.variableRepository = variableRepository;
         this.sweepLogRepository = sweepLogRepository;
         this.coinProviderRegistry = coinProviderRegistry;
-        this.usageLimiter = usageLimiter;
+        this.usageLimitService = usageLimitService;
         this.lastSweep = Instant.now();
     }
 
     public List<SweepLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
         User user = getOwner(userId);
 
-        try {
-            usageLimiter.startAction(user, UsageAction.PAGINATION, Long.valueOf(limit));
-        }
-        catch (UsageLimitReached e) {
-            throw new TooManyRequestsException(e.getMessage());
-        }
+        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<SweepLog> logs = before != null
-                ? sweepLogRepository.findAllBeforePageable(before, pageable)
-                : sweepLogRepository.findAllPageable(pageable);
+        List<SweepLog> logs = sweepLogRepository.findAllPageable(before, pageable);
 
         return logs.stream().map(SweepLogRepresentation::new).toList();
     }
@@ -80,7 +71,7 @@ public class SweepService {
     public Map<String, String> getSchedule(Long userId) {
         getOwner(userId);
 
-        Variable v = variableRepository.findById("SWEEP_SCHEDULE").orElseThrow(() -> new NotFoundException("sweep schedule does not exist"));
+        Variable v = variableRepository.findById("SWEEP_SCHEDULE").orElseThrow(() -> new ApiException(ErrorCode.SWEEP_SCHEDULE_NOT_FOUND));
 
         return Map.of("seconds", v.getValue());
     }
@@ -103,7 +94,7 @@ public class SweepService {
             variableRepository.deleteById("SWEEP_SCHEDULE");
         }
         catch (DataIntegrityViolationException e) {
-            throw new NotFoundException("sweep schedule does not exist");
+            throw new ApiException(ErrorCode.SWEEP_SCHEDULE_NOT_FOUND);
         }
     }
 
@@ -169,10 +160,10 @@ public class SweepService {
     }
 
     private User getOwner(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
         if (user.getRole() != Role.OWNER) {
-            throw new ForbiddenException("you don't have permission to use sweep service");
+            throw new ApiException(ErrorCode.NO_PERMISSION);
         }
 
         return user;

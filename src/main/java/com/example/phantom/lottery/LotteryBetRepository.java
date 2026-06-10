@@ -26,17 +26,9 @@ public interface LotteryBetRepository extends JpaRepository<LotteryBet, Long> {
     @Query("""
             SELECT lb FROM LotteryBet lb
             JOIN FETCH lb.user
-            WHERE lb.lottery.id = ?1 AND lb.tickets != 0
-            ORDER BY lb.tickets DESC, lb.id DESC
-""")
-    List<LotteryBet> findAllByLotteryIdWithUsers(Long lotteryId, Pageable pageable);
-
-    @Query("""
-            SELECT lb FROM LotteryBet  lb
-            JOIN FETCH lb.user
             WHERE lb.lottery.id = ?1 AND lb.tickets != 0 AND
-            (lb.tickets < ?2 OR (lb.tickets = ?2 AND lb.id < ?3))
+            (?2 IS NULL OR lb.tickets < ?2 OR (lb.tickets = ?2 AND lb.id < ?3))
             ORDER BY lb.tickets DESC, lb.id DESC
 """)
-    List<LotteryBet> findAllByLotteryIdBeforeWithUsers(Long lotteryId, Long beforeTickets, Long beforeId, Pageable pageable);
+    List<LotteryBet> findAllByLotteryIdWithUsers(Long lotteryId, Long beforeTickets, Long beforeId, Pageable pageable);
 }

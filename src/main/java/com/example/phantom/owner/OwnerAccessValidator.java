@@ -1,5 +1,7 @@
 package com.example.phantom.owner;
 
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.security.MessageDigest;
@@ -16,15 +18,15 @@ public class OwnerAccessValidator {
         if (this.ownerKeyRaw.length < OwnerConstants.KEY_MIN_RAW_LENGTH) { throw new RuntimeException("owner key must be at least " + OwnerConstants.KEY_MIN_RAW_LENGTH + " bytes"); }
     }
 
-    public boolean isOwner(String key) throws OwnerBadAccess, OwnerAccessDenied {
+    public boolean isOwner(String key) {
         if (key == null) return false;
 
         byte[] keyRaw;
         try { keyRaw = Base64.getDecoder().decode(key); }
-        catch (Exception e) { throw new OwnerBadAccess("owner key must be encoded in base64"); }
+        catch (Exception e) { throw new ApiException(ErrorCode.OWNER_KEY_MALFORMED); }
 
-        if (!MessageDigest.isEqual(keyRaw, ownerKeyRaw)) { // constant time method to prevent timing attack
-            throw new OwnerAccessDenied("invalid owner key");
+        if (!MessageDigest.isEqual(keyRaw, ownerKeyRaw)) {
+            throw new ApiException(ErrorCode.OWNER_KEY_INVALID);
         }
 
         return true;
