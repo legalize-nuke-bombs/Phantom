@@ -11,4 +11,8 @@ public interface RefStorageRepository extends JpaRepository<RefStorage, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT rs FROM RefStorage rs WHERE rs.id = ?1")
     Optional<RefStorage> findByIdForPessimisticWrite(Long rsId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT rs FROM RefStorage rs WHERE rs.id = (SELECT rm.refStorage.id FROM RefMember rm WHERE rm.user.id = ?1)")
+    Optional<RefStorage> findByMemberIdForPessimisticWrite(Long userId);
 }

@@ -62,7 +62,7 @@ public class RefService {
 
     @Transactional
     public void registerBet(User user, BigDecimal amount) {
-        RefStorage rs = refMemberRepository.findRefStorageByUserIdForPessimisticWrite(user.getId()).orElse(null);
+        RefStorage rs = refStorageRepository.findByMemberIdForPessimisticWrite(user.getId()).orElse(null);
         if (rs == null) {
             return;
         }
