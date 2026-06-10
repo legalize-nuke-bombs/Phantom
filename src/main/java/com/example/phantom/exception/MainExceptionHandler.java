@@ -20,9 +20,9 @@ public class MainExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(Throwable.class)
-    public ProblemDetail handleUnexpected(Throwable e) {
-        log.error("unhandled throwable", e);
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail handleUnexpected(Exception e) {
+        log.error("unhandled exception", e);
         ProblemDetail problem = ProblemDetail.forStatus(ErrorCode.INTERNAL_ERROR.status);
         problem.setProperty("code", ErrorCode.INTERNAL_ERROR.name());
         return problem;
