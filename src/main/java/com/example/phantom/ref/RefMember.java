@@ -11,9 +11,8 @@ import org.hibernate.annotations.OnDeleteAction;
 @Entity
 @Table(name = "ref_members", indexes = {
         @Index(name = "idx_ref_members_ref_storage_id", columnList = "ref_storage_id")
-}, uniqueConstraints = {
-        @UniqueConstraint(columnNames = "user_id ref_storage_id")
-})
+}
+)
 @Getter
 @Setter
 @NoArgsConstructor
