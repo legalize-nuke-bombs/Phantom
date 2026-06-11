@@ -239,6 +239,7 @@ public class LotteryService {
             return;
         }
 
+        log.info("granting rewards for bets...");
         List<ExperienceChange> experienceChanges = new ArrayList<>();
         for (LotteryBet bet : bets) {
             if (bet.getUser() == null) {
@@ -259,11 +260,11 @@ public class LotteryService {
             refService.registerBet(bet.getUser(), ticketCost.multiply(BigDecimal.valueOf(bet.getTickets())));
         }
         experienceService.addChanges(experienceChanges);
+        log.info("rewards for bets granted");
 
         Random random = provablyFairService.fairRandom(lottery.getSeed1(), lottery.getSeed2());
 
         Long happyTicket = random.nextLong(ticketsAmountTotal);
-        log.info("happy ticket: {}", happyTicket);
         lottery.setHappyTicket(happyTicket);
 
         User winner = null;
@@ -277,6 +278,10 @@ public class LotteryService {
 
         BigDecimal prize = ticketCost.multiply(new BigDecimal(ticketsAmountTotal)).multiply(new BigDecimal("0.95"));
 
+        log.info("happy ticket: {}", happyTicket);
+        log.info("prize: {}", prize);
+        log.info("winner: {}", winner != null ? winner.getId() : null);
+
         lottery.setWinner(winner);
         lottery.setPrize(prize);
         lottery.setTicketsAmountTotal(ticketsAmountTotal);
@@ -287,7 +292,7 @@ public class LotteryService {
             walletService.addChange(winnerWallet, prize);
         }
 
-        lotteryCreatorService.createNewLottery();;
+        lotteryCreatorService.createNewLottery();
     }
 
     private User getUser(Long userId) {
