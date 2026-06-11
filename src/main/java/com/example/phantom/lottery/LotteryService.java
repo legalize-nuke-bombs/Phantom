@@ -132,6 +132,7 @@ public class LotteryService {
 
         List<User> users = bets.stream()
                 .map(LotteryBet::getUser)
+                .filter(Objects::nonNull)
                 .filter(u -> privacySettingService.isVisible(user.getId(), u.getId(), u.getLotteryPrivacySetting()))
                 .toList();
 
