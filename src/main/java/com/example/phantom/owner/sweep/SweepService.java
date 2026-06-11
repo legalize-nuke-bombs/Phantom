@@ -98,7 +98,7 @@ public class SweepService {
         }
     }
 
-    @Scheduled(fixedDelay = 1000)
+    @Scheduled(fixedDelay = 10 * 1000)
     public void sweep() {
         Variable v = variableRepository.findById("SWEEP_SCHEDULE").orElse(null);
         if (v == null) {
@@ -110,6 +110,8 @@ public class SweepService {
             return;
         }
 
+        log.info("starting sweep...");
+
         lastSweep = now;
 
         List<SweepLog> sweepLogs = new ArrayList<>();
@@ -117,11 +119,17 @@ public class SweepService {
             sweepCoin(provider, sweepLogs);
         }
         sweepLogRepository.saveAll(sweepLogs);
+
+        log.info("sweep finished");
     }
 
     private void sweepCoin(CoinProvider provider, List<SweepLog> sweepLogs) {
-        Variable masterAddress = variableRepository.findById(provider.coin() + "_MASTER_WALLET_ADDRESS").orElse(null);
+        String coin = provider.coin();
+        log.info("starting {} sweep...", coin);
+
+        Variable masterAddress = variableRepository.findById(coin + "_MASTER_WALLET_ADDRESS").orElse(null);
         if (masterAddress == null) {
+            log.info("{} sweep skipped: no master wallet specified", coin);
             return;
         }
         String masterAddressValue = masterAddress.getValue();
@@ -129,21 +137,29 @@ public class SweepService {
         List<CryptoWallet> wallets = cryptoWalletRepository.findByCoin(provider.coin());
 
         for (CryptoWallet wallet : wallets) {
+            String address = wallet.getAddress();
+            log.info("sweeping {} from {} ...", coin, address);
+
+            log.info("fetching {} {} balance...", coin, address);
             BigDecimal amount;
             try {
-                amount = provider.getBalanceUsd(wallet.getAddress());
+                amount = provider.getBalanceUsd(address);
+                log.info("{} {} balance = {}", coin, wallet, amount);
             }
             catch (CryptoException e) {
                 amount = null;
+                log.warn("failed to fetch {} {} balance: {}", coin, wallet, e.getMessage());
             }
 
             if (amount != null && amount.compareTo(provider.getMinSweepAmount()) >= 0) {
                 String hash = null;
+                log.info("sending all {} from {} ...", coin, address);
                 try {
-                    hash = provider.sendAll(wallet.getPrivateKey(), wallet.getAddress(), masterAddressValue);
+                    hash = provider.sendAll(wallet.getPrivateKey(), address, masterAddressValue);
+                    log.info("sent all {} from {} hash = {}", coin, address, hash);
                 }
                 catch (CryptoException e) {
-                    log.warn("sweep failed for {}: {}", wallet.getAddress(), e.getMessage());
+                    log.warn("failed to send all {} from {}: {}", coin, address, e.getMessage());
                 }
 
                 SweepLog sweepLog = new SweepLog();
@@ -156,7 +172,15 @@ public class SweepService {
                 sweepLog.setHash(hash);
                 sweepLogs.add(sweepLog);
             }
+            else {
+                log.info("send all {} from {} skipped", coin, address);
+            }
+
+            try { Thread.sleep(SweepConstants.INTERNAL_SWEEP_DELAY_MS); }
+            catch (InterruptedException e) { continue; }
         }
+
+        log.info("{} sweep finished", coin);
     }
 
     private User getOwner(Long userId) {
