@@ -15,11 +15,14 @@ import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
+@Slf4j
 public class CryptoService {
 
     private final UserRepository userRepository;
@@ -51,30 +54,44 @@ public class CryptoService {
     }
 
     public List<DepositRepresentation> checkDeposits(Long userId, String coin) {
+        log.info("checking {} deposits for user {} ...", coin, userId);
+
         User user = getUser(userId);
         rateLimit(user);
 
         List<Deposit> deposits = depositService.fetchDeposits(user, coinToUpperCase(coin));
         depositService.applyDeposits(user, deposits);
+
+        log.info("applied {} {} deposits for user {}", deposits.size(), coin, userId);
         return deposits.stream().map(DepositRepresentation::new).toList();
     }
 
     public WithdrawalRepresentation withdraw(Long userId, String coin, WithdrawRequest request) {
+        String address = request.getAddress();
+        BigDecimal amount = request.getAmount();
+
+        log.info("withdrawing {} to {} {} for {} ...", amount, coin, address, userId);
+
         User user = getUser(userId);
         rateLimit(user);
 
-        Withdrawal withdrawal = withdrawalService.reserveFinances(user, coinToUpperCase(coin), request.getAddress(), request.getAmount());
+        Withdrawal withdrawal = withdrawalService.reserveFinances(user, coinToUpperCase(coin), address, amount);
         withdrawal = withdrawalService.send(withdrawal);
+
+        log.info("withdrawal request created {}, {}, {}, {}", amount, coin, address, user.getId());
         return new WithdrawalRepresentation(withdrawal, profileService.getCardForUser(user.getId(), user));
     }
 
     public List<WithdrawalRepresentation> checkPendingWithdrawals(Long userId) {
+        log.info("checking pending withdrawals for {} ...", userId);
+
         User user = getUser(userId);
         rateLimit(user);
 
         List<Withdrawal> checked = withdrawalService.checkPendingStatuses(userId);
         withdrawalService.applyCheckedStatuses(userId, checked);
 
+        log.info("found {} pending withdrawals for {}", checked.size(), user.getId());
         ProfileCardRepresentation profileCard = profileService.getCardForUser(user.getId(), user);
         return checked.stream().map(withdrawal -> new WithdrawalRepresentation(withdrawal, profileCard)).toList();
     }
