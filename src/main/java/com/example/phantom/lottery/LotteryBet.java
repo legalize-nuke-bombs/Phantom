@@ -37,7 +37,7 @@ public class LotteryBet {
     private Lottery lottery;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     @OnDelete(action = OnDeleteAction.SET_NULL)
     private User user;
 
