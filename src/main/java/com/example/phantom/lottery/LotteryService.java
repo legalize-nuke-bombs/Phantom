@@ -17,6 +17,7 @@ import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.annotations.Filter;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -38,20 +39,20 @@ public class LotteryService {
     private final RefService refService;
     private final LotteryRepository lotteryRepository;
     private final LotteryBetRepository lotteryBetRepository;
-    private final LotterySettings lotterySettings;
+    private final LotteryCreatorService lotteryCreatorService;
     private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
     private final ProvablyFairService provablyFairService;
     private final PrivacySettingService privacySettingService;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotterySettings lotterySettings, UsageLimitService usageLimitService, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingService privacySettingService) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotteryCreatorService lotteryCreatorService, UsageLimitService usageLimitService, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingService privacySettingService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
         this.refService = refService;
         this.lotteryRepository = lotteryRepository;
         this.lotteryBetRepository = lotteryBetRepository;
-        this.lotterySettings = lotterySettings;
+        this.lotteryCreatorService = lotteryCreatorService;
         this.usageLimitService = usageLimitService;
         this.profileService = profileService;
         this.provablyFairService = provablyFairService;
@@ -61,8 +62,6 @@ public class LotteryService {
     public CurrentLotteryRepresentation getCurrent(Long userId) {
         Lottery lottery = getCurrentLottery();
 
-        BigDecimal ticketCost = lotterySettings.getTicketCost();
-
         Long ticketsAmountPersonal = lotteryBetRepository.sumByLotteryIdAndUserId(lottery.getId(), userId);
         Long ticketsAmountTotal = lotteryBetRepository.sumByLotteryId(lottery.getId());
 
@@ -70,19 +69,19 @@ public class LotteryService {
                 lottery.getId(),
 
                 lottery.getTimestamp(),
-                lottery.getTimestamp() + lotterySettings.getBlock(),
-                lottery.getTimestamp() + lotterySettings.getEnd(),
+                lottery.getTimestampBlock(),
+                lottery.getTimestampEnd(),
 
                 provablyFairService.generateHash(lottery.getSeed1()),
                 provablyFairService.generateHash(lottery.getSeed2()),
 
-                ticketCost,
+                lottery.getTicketCost(),
 
                 ticketsAmountPersonal,
                 ticketsAmountTotal,
 
-                ticketCost.multiply(new BigDecimal(ticketsAmountPersonal)),
-                ticketCost.multiply(new BigDecimal(ticketsAmountTotal))
+                lottery.getTicketCost().multiply(new BigDecimal(ticketsAmountPersonal)),
+                lottery.getTicketCost().multiply(new BigDecimal(ticketsAmountTotal))
         );
     }
 
@@ -110,6 +109,7 @@ public class LotteryService {
                     lottery.getSeed1(),
                     lottery.getSeed2(),
                     lottery.getWinner() != null ? winnerCards.get(lottery.getWinner().getId()) : null,
+                    lottery.getHappyTicket(),
                     lottery.getPrize(),
                     lottery.getTicketsAmountTotal()
             ));
@@ -139,7 +139,7 @@ public class LotteryService {
 
         List<LotteryBetRepresentation> betRepresentations = new ArrayList<>();
         for (LotteryBet bet : bets) {
-            betRepresentations.add(new LotteryBetRepresentation(bet, profileCards.get(bet.getUser().getId())));
+            betRepresentations.add(new LotteryBetRepresentation(bet, bet.getUser() != null ? profileCards.get(bet.getUser().getId()) : null));
         }
         return betRepresentations;
     }
@@ -150,18 +150,17 @@ public class LotteryService {
 
         usageLimitService.startAction(user, UsageAction.LOTTERY, 1L);
 
+        Lottery lottery = getCurrentLottery();
         Wallet wallet = walletService.lock(userId);
 
         Long ticketsAmount = request.getAmount();
-        BigDecimal ticketsCost = lotterySettings.getTicketCost().multiply(new BigDecimal(ticketsAmount));
+        BigDecimal ticketsCost = lottery.getTicketCost().multiply(new BigDecimal(ticketsAmount));
 
         if (wallet.getBalanceCached().compareTo(ticketsCost) < 0) {
             throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
         }
 
-        Lottery lottery = getCurrentLottery();
-
-        if (Instant.now().getEpochSecond() >= lottery.getTimestamp() + lotterySettings.getBlock()) {
+        if (Instant.now().getEpochSecond() >= lottery.getTimestampBlock()) {
             throw new ApiException(ErrorCode.LOTTERY_SALES_CLOSED);
         }
 
@@ -188,13 +187,12 @@ public class LotteryService {
         usageLimitService.startAction(user, UsageAction.LOTTERY, 1L);
 
         Wallet wallet = walletService.lock(userId);
-
-        Long ticketsAmount = request.getAmount();
-        BigDecimal ticketsCost = lotterySettings.getTicketCost().multiply(new BigDecimal(ticketsAmount));
-
         Lottery lottery = getCurrentLottery();
 
-        if (Instant.now().getEpochSecond() >= lottery.getTimestamp() + lotterySettings.getBlock()) {
+        Long ticketsAmount = request.getAmount();
+        BigDecimal ticketsCost = lottery.getTicketCost().multiply(new BigDecimal(ticketsAmount));
+
+        if (Instant.now().getEpochSecond() >= lottery.getTimestampBlock()) {
             throw new ApiException(ErrorCode.LOTTERY_REFUND_CLOSED);
         }
 
@@ -213,18 +211,21 @@ public class LotteryService {
         return Map.of("message", "refunded");
     }
 
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(fixedDelay = 10 * 1000)
     @Transactional
     public void checkCurrentLottery() {
-        Lottery lottery = getCurrentLottery();
+        Lottery lottery = lotteryRepository.findCurrent().orElse(null);
+        if (lottery == null) {
+            lottery = lotteryCreatorService.createNewLottery();
+        }
 
-        if (lottery.getTimestamp() + lotterySettings.getEnd() > Instant.now().getEpochSecond()) {
+        if (lottery.getTimestampEnd() > Instant.now().getEpochSecond()) {
             return;
         }
 
         log.info("starting lottery...");
 
-        BigDecimal ticketCost = lotterySettings.getTicketCost();
+        BigDecimal ticketCost = lottery.getTicketCost();
 
         List<LotteryBet> bets = lotteryBetRepository.findAllByLotteryIdWithUsers(lottery.getId());
 
@@ -233,12 +234,16 @@ public class LotteryService {
         if (ticketsAmountTotal == 0) {
             log.info("no tickets bought");
             lotteryRepository.delete(lottery);
-            createNewLottery();
+            lotteryCreatorService.createNewLottery();
             return;
         }
 
         List<ExperienceChange> experienceChanges = new ArrayList<>();
         for (LotteryBet bet : bets) {
+            if (bet.getUser() == null) {
+                continue;
+            }
+
             ExperienceChange experienceChange = new ExperienceChange();
             experienceChange.setUser(bet.getUser());
             experienceChange.setAmount(ticketCost.multiply(BigDecimal.valueOf(bet.getTickets()))
@@ -249,17 +254,16 @@ public class LotteryService {
             experienceChange.setType(ExperienceChangeType.LOTTERY_TICKET);
             experienceChange.setDetails(String.valueOf(bet.getTickets()));
             experienceChanges.add(experienceChange);
-        }
-        experienceService.addChanges(experienceChanges);
 
-        for (LotteryBet bet : bets) {
             refService.registerBet(bet.getUser(), ticketCost.multiply(BigDecimal.valueOf(bet.getTickets())));
         }
+        experienceService.addChanges(experienceChanges);
 
         Random random = provablyFairService.fairRandom(lottery.getSeed1(), lottery.getSeed2());
 
         Long happyTicket = random.nextLong(ticketsAmountTotal);
         log.info("happy ticket: {}", happyTicket);
+        lottery.setHappyTicket(happyTicket);
 
         User winner = null;
         for (LotteryBet bet : bets) {
@@ -270,10 +274,6 @@ public class LotteryService {
             happyTicket -= bet.getTickets();
         }
 
-        if (winner == null) {
-            throw new RuntimeException("unexpected error happened");
-        }
-
         BigDecimal prize = ticketCost.multiply(new BigDecimal(ticketsAmountTotal)).multiply(new BigDecimal("0.95"));
 
         lottery.setWinner(winner);
@@ -281,25 +281,12 @@ public class LotteryService {
         lottery.setTicketsAmountTotal(ticketsAmountTotal);
         lotteryRepository.save(lottery);
 
-        Wallet winnerWallet = walletService.lock(winner.getId());
-        walletService.addChange(winnerWallet, prize);
-
-        createNewLottery();
-    }
-
-    @Transactional
-    public void ensureLotteryExists() {
-        if (lotteryRepository.findCurrent().isEmpty()) {
-            createNewLottery();
+        if (winner != null) {
+            Wallet winnerWallet = walletService.lock(winner.getId());
+            walletService.addChange(winnerWallet, prize);
         }
-    }
 
-    private void createNewLottery() {
-        Lottery lottery = new Lottery();
-        lottery.setTimestamp(Instant.now().getEpochSecond());
-        lottery.setSeed1(provablyFairService.generateSeed());
-        lottery.setSeed2(provablyFairService.generateSeed());
-        lotteryRepository.save(lottery);
+        lotteryCreatorService.createNewLottery();;
     }
 
     private User getUser(Long userId) {

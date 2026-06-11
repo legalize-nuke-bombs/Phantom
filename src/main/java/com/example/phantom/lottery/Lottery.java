@@ -25,6 +25,15 @@ public class Lottery {
     @Column(nullable = false)
     private Long timestamp;
 
+    @Column(nullable = false)
+    private Long timestampBlock;
+
+    @Column(nullable = false)
+    private Long timestampEnd;
+
+    @Column(nullable = false, precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
+    private BigDecimal ticketCost;
+
     @Column(nullable = false, length = ProvablyFairService.SEED_LENGTH)
     private String seed1;
 
@@ -35,6 +44,9 @@ public class Lottery {
     @JoinColumn(name = "winner_id")
     @OnDelete(action = OnDeleteAction.SET_NULL)
     private User winner;
+
+    @Column
+    private Long happyTicket;
 
     @Column(precision = FinanceConstants.PRECISION, scale = FinanceConstants.SCALE)
     private BigDecimal prize;

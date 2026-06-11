@@ -14,6 +14,7 @@ public class FinishedLotteryRepresentation {
     private final String seed1;
     private final String seed2;
     private final ProfileCardRepresentation profileCard;
+    private final Long happyTicket;
     private final BigDecimal prize;
     private final Long ticketsSold;
 }
