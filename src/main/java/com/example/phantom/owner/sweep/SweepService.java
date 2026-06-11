@@ -144,11 +144,11 @@ public class SweepService {
             BigDecimal amount;
             try {
                 amount = provider.getBalanceUsd(address);
-                log.info("{} {} balance = {}", coin, wallet, amount);
+                log.info("{} {} balance = {}", coin, address, amount);
             }
             catch (CryptoException e) {
                 amount = null;
-                log.warn("failed to fetch {} {} balance: {}", coin, wallet, e.getMessage());
+                log.warn("failed to fetch {} {} balance: {}", coin, address, e.getMessage());
             }
 
             if (amount != null && amount.compareTo(provider.getMinSweepAmount()) >= 0) {
