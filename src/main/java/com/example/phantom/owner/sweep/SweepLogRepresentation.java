@@ -1,5 +1,6 @@
 package com.example.phantom.owner.sweep;
 
+import com.example.phantom.crypto.CoinType;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -8,7 +9,7 @@ import java.math.BigDecimal;
 public class SweepLogRepresentation {
     private final Long id;
     private final Long timestamp;
-    private final String coin;
+    private final CoinType coin;
     private final String sender;
     private final BigDecimal amount;
     private final String receiver;

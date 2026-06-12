@@ -1,5 +1,6 @@
 package com.example.phantom.crypto.deposit;
 
+import com.example.phantom.crypto.CoinType;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -7,7 +8,7 @@ import java.math.BigDecimal;
 @Getter
 public class DepositRepresentation {
     private final Long id;
-    private final String coin;
+    private final CoinType coin;
     private final Long timestamp;
     private final String txHash;
     private final BigDecimal amount;

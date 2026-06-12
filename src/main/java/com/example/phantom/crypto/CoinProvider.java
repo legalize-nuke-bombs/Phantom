@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface CoinProvider {
-    String coin();
+    CoinType coin();
 
     void validateAddress(String address);
 

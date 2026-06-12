@@ -1,9 +1,6 @@
 package com.example.phantom.crypto.ton;
 
-import com.example.phantom.crypto.CoinProvider;
-import com.example.phantom.crypto.CryptoException;
-import com.example.phantom.crypto.CryptoExchangeRateService;
-import com.example.phantom.crypto.TransferStatus;
+import com.example.phantom.crypto.*;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.finance.FinanceConstants;
@@ -82,8 +79,8 @@ public class TonCoinProvider implements CoinProvider {
     }
 
     @Override
-    public String coin() {
-        return "TON";
+    public CoinType coin() {
+        return CoinType.TON;
     }
 
     @Override

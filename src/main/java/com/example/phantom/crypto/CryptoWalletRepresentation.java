@@ -4,7 +4,7 @@ import lombok.Getter;
 
 @Getter
 public class CryptoWalletRepresentation {
-    private final String coin;
+    private final CoinType coin;
     private final String address;
 
     public CryptoWalletRepresentation(CryptoWallet wallet) {

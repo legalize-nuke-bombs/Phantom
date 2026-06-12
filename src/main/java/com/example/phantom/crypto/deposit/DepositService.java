@@ -1,10 +1,6 @@
 package com.example.phantom.crypto.deposit;
 
-import com.example.phantom.crypto.CoinProvider;
-import com.example.phantom.crypto.CoinProviderRegistry;
-import com.example.phantom.crypto.CryptoException;
-import com.example.phantom.crypto.CryptoWallet;
-import com.example.phantom.crypto.CryptoWalletRepository;
+import com.example.phantom.crypto.*;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.User;
@@ -38,7 +34,7 @@ public class DepositService {
         this.coinProviderRegistry = coinProviderRegistry;
     }
 
-    public List<Deposit> fetchDeposits(User user, String coin) {
+    public List<Deposit> fetchDeposits(User user, CoinType coin) {
         CoinProvider provider = coinProviderRegistry.get(coin);
         CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(user.getId(), coin)
                 .orElseThrow(() -> new ApiException(ErrorCode.CRYPTO_WALLET_NOT_FOUND));

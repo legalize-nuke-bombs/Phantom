@@ -1,5 +1,8 @@
 package com.example.phantom.owner.masterwallet;
 
+import com.example.phantom.crypto.CoinType;
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,7 +24,7 @@ public class MasterWalletController {
     public ResponseEntity<MasterWalletRepresentation> get(
             @AuthenticationPrincipal Long userId,
             @PathVariable String coin) {
-        return ResponseEntity.ok(service.get(userId, coin.toUpperCase()));
+        return ResponseEntity.ok(service.get(userId, getCoin(coin)));
     }
 
     @PostMapping("/{coin}")
@@ -29,6 +32,17 @@ public class MasterWalletController {
             @AuthenticationPrincipal Long userId,
             @PathVariable String coin,
             @Valid @RequestBody SetMasterWalletRequest request) {
-        return ResponseEntity.ok(service.set(userId, coin.toUpperCase(), request));
+        return ResponseEntity.ok(service.set(userId, getCoin(coin), request));
+    }
+
+    private CoinType getCoin(String coin) {
+        CoinType coinType;
+        try {
+            coinType = CoinType.valueOf(coin.toUpperCase());
+        }
+        catch (IllegalArgumentException e) {
+            throw new ApiException(ErrorCode.UNSUPPORTED_COIN);
+        }
+        return coinType;
     }
 }

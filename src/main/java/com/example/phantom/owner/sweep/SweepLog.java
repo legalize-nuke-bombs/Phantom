@@ -1,5 +1,6 @@
 package com.example.phantom.owner.sweep;
 
+import com.example.phantom.crypto.CoinType;
 import com.example.phantom.finance.FinanceConstants;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -19,8 +20,9 @@ public class SweepLog {
     @Column(nullable = false)
     private Long timestamp;
 
-    @Column(nullable = false, length = SweepConstants.COIN_MAX_LENGTH)
-    private String coin;
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private CoinType coin;
 
     @Column(nullable = false, length = SweepConstants.SENDER_MAX_LENGTH)
     private String sender;

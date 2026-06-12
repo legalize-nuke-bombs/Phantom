@@ -1,14 +1,11 @@
 package com.example.phantom.crypto.withdrawal;
 
-import com.example.phantom.crypto.CoinProvider;
-import com.example.phantom.crypto.CoinProviderRegistry;
-import com.example.phantom.crypto.CryptoException;
-import com.example.phantom.crypto.TransferStatus;
+import com.example.phantom.crypto.*;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.owner.masterwallet.MasterWalletSetting;
+import com.example.phantom.owner.masterwallet.MasterWalletSettingRepository;
 import com.example.phantom.user.User;
-import com.example.phantom.variable.Variable;
-import com.example.phantom.variable.VariableRepository;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import lombok.extern.slf4j.Slf4j;
@@ -25,26 +22,26 @@ public class WithdrawalService {
 
     private final WalletService walletService;
     private final WithdrawalRepository withdrawalRepository;
+    private final MasterWalletSettingRepository masterWalletSettingRepository;
     private final RefundRepository refundRepository;
-    private final VariableRepository variableRepository;
     private final CoinProviderRegistry coinProviderRegistry;
 
     public WithdrawalService(
             WalletService walletService,
             WithdrawalRepository withdrawalRepository,
             RefundRepository refundRepository,
-            VariableRepository variableRepository,
+            MasterWalletSettingRepository masterWalletSettingRepository,
             CoinProviderRegistry coinProviderRegistry
     ) {
         this.walletService = walletService;
         this.withdrawalRepository = withdrawalRepository;
         this.refundRepository = refundRepository;
-        this.variableRepository = variableRepository;
+        this.masterWalletSettingRepository = masterWalletSettingRepository;
         this.coinProviderRegistry = coinProviderRegistry;
     }
 
     @Transactional
-    public Withdrawal reserveFinances(User user, String coin, String receiver, BigDecimal amount) {
+    public Withdrawal reserveFinances(User user, CoinType coin, String receiver, BigDecimal amount) {
         CoinProvider provider = coinProviderRegistry.get(coin);
         provider.validateAddress(receiver);
 
@@ -73,21 +70,24 @@ public class WithdrawalService {
 
     public Withdrawal send(Withdrawal withdrawal) {
         CoinProvider provider = coinProviderRegistry.get(withdrawal.getCoin());
-        Variable masterAddress = variableRepository.findById(withdrawal.getCoin() + "_MASTER_WALLET_ADDRESS")
-                .orElseThrow(() -> new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE));
-        Variable masterPrivateKey = variableRepository.findById(withdrawal.getCoin() + "_MASTER_WALLET_PRIVATE_KEY")
-                .orElseThrow(() -> new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE));
+
+        MasterWalletSetting masterWalletSetting = masterWalletSettingRepository.findByCoinType(withdrawal.getCoin()).orElseThrow(() -> new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE));
+        String masterAddress = masterWalletSetting.getAddress();
+        String masterPrivateKey = masterWalletSetting.getPrivateKey();
+        if (masterAddress == null || masterPrivateKey == null) {
+            throw new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE);
+        }
 
         BigDecimal toSend = withdrawal.getAmount().subtract(provider.getWithdrawalCommission());
 
         try {
-            if (provider.getBalanceUsd(masterAddress.getValue()).compareTo(toSend) < 0) {
+            if (provider.getBalanceUsd(masterAddress).compareTo(toSend) < 0) {
                 throw new ApiException(ErrorCode.MASTER_WALLET_DRAINED);
             }
 
             String hash = provider.send(
-                    masterPrivateKey.getValue(),
-                    masterAddress.getValue(),
+                    masterPrivateKey,
+                    masterAddress,
                     withdrawal.getReceiver(),
                     toSend);
             withdrawal.setHash(hash);

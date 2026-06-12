@@ -1,21 +1,16 @@
 package com.example.phantom.owner.sweep;
 
-import com.example.phantom.crypto.CoinProvider;
-import com.example.phantom.crypto.CoinProviderRegistry;
-import com.example.phantom.crypto.CryptoException;
-import com.example.phantom.crypto.CryptoWallet;
-import com.example.phantom.crypto.CryptoWalletRepository;
+import com.example.phantom.crypto.*;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.owner.masterwallet.MasterWalletSetting;
+import com.example.phantom.owner.masterwallet.MasterWalletSettingRepository;
 import com.example.phantom.usagelimit.UsageAction;
 import com.example.phantom.usagelimit.UsageLimitService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.variable.Variable;
-import com.example.phantom.variable.VariableRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -33,7 +28,8 @@ public class SweepService {
 
     private final UserRepository userRepository;
     private final CryptoWalletRepository cryptoWalletRepository;
-    private final VariableRepository variableRepository;
+    private final SweepSettingRepository sweepSettingRepository;
+    private final MasterWalletSettingRepository masterWalletSettingRepository;
     private final SweepLogRepository sweepLogRepository;
     private final CoinProviderRegistry coinProviderRegistry;
     private final UsageLimitService usageLimitService;
@@ -42,14 +38,16 @@ public class SweepService {
     public SweepService(
             UserRepository userRepository,
             CryptoWalletRepository cryptoWalletRepository,
-            VariableRepository variableRepository,
+            SweepSettingRepository sweepSettingRepository,
+            MasterWalletSettingRepository masterWalletSettingRepository,
             SweepLogRepository sweepLogRepository,
             CoinProviderRegistry coinProviderRegistry,
             UsageLimitService usageLimitService
     ) {
         this.userRepository = userRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
-        this.variableRepository = variableRepository;
+        this.sweepSettingRepository = sweepSettingRepository;
+        this.masterWalletSettingRepository = masterWalletSettingRepository;
         this.sweepLogRepository = sweepLogRepository;
         this.coinProviderRegistry = coinProviderRegistry;
         this.usageLimitService = usageLimitService;
@@ -71,18 +69,21 @@ public class SweepService {
     public Map<String, String> getSchedule(Long userId) {
         getOwner(userId);
 
-        Variable v = variableRepository.findById("SWEEP_SCHEDULE").orElseThrow(() -> new ApiException(ErrorCode.SWEEP_SCHEDULE_NOT_FOUND));
+        SweepSetting setting = sweepSettingRepository.find().orElseThrow(() -> new ApiException(ErrorCode.SWEEP_SCHEDULE_NOT_FOUND));
+        Long delay = setting.getDelay();
+        if (delay == null) {
+            throw new ApiException(ErrorCode.SWEEP_SCHEDULE_NOT_FOUND);
+        }
 
-        return Map.of("seconds", v.getValue());
+        return Map.of("seconds", String.valueOf(setting.getDelay()));
     }
 
     public Map<String, String> setSchedule(Long userId, SetScheduleRequest request) {
         getOwner(userId);
 
-        Variable v = new Variable();
-        v.setId("SWEEP_SCHEDULE");
-        v.setValue(String.valueOf(request.getSeconds()));
-        variableRepository.save(v);
+        SweepSetting setting = sweepSettingRepository.find().orElseGet(SweepSetting::new);
+        setting.setDelay(request.getSeconds());
+        sweepSettingRepository.save(setting);
 
         return Map.of("message", "set");
     }
@@ -90,23 +91,24 @@ public class SweepService {
     public void deleteSchedule(Long userId) {
         getOwner(userId);
 
-        try {
-            variableRepository.deleteById("SWEEP_SCHEDULE");
-        }
-        catch (DataIntegrityViolationException e) {
-            throw new ApiException(ErrorCode.SWEEP_SCHEDULE_NOT_FOUND);
-        }
+        SweepSetting setting = sweepSettingRepository.find().orElseThrow(() -> new ApiException(ErrorCode.SWEEP_SCHEDULE_NOT_FOUND));
+        setting.setDelay(null);
+        sweepSettingRepository.save(setting);
     }
 
     @Scheduled(fixedDelay = 10 * 1000)
     public void sweep() {
-        Variable v = variableRepository.findById("SWEEP_SCHEDULE").orElse(null);
-        if (v == null) {
+        SweepSetting setting = sweepSettingRepository.find().orElse(null);
+        if (setting == null) {
+            return;
+        }
+        Long delay = setting.getDelay();
+        if (delay == null) {
             return;
         }
 
         Instant now = Instant.now();
-        if (now.getEpochSecond() - lastSweep.getEpochSecond() < Long.parseLong(v.getValue())) {
+        if (now.getEpochSecond() - lastSweep.getEpochSecond() < delay) {
             return;
         }
 
@@ -124,15 +126,19 @@ public class SweepService {
     }
 
     private void sweepCoin(CoinProvider provider, List<SweepLog> sweepLogs) {
-        String coin = provider.coin();
+        CoinType coin = provider.coin();
         log.info("starting {} sweep...", coin);
 
-        Variable masterAddress = variableRepository.findById(coin + "_MASTER_WALLET_ADDRESS").orElse(null);
-        if (masterAddress == null) {
+        MasterWalletSetting masterWalletSetting = masterWalletSettingRepository.findByCoinType(provider.coin()).orElse(null);
+        if (masterWalletSetting == null) {
             log.info("{} sweep skipped: no master wallet specified", coin);
             return;
         }
-        String masterAddressValue = masterAddress.getValue();
+        String masterAddressValue = masterWalletSetting.getAddress();
+        if (masterAddressValue == null) {
+            log.info("{} sweep skipped: no master wallet specified", coin);
+            return;
+        }
 
         List<CryptoWallet> wallets = cryptoWalletRepository.findByCoin(provider.coin());
 

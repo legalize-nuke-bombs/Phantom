@@ -25,8 +25,9 @@ public class CryptoWallet {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
-    @Column(nullable = false, length = 20)
-    private String coin;
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private CoinType coin;
 
     @Column(nullable = false, length = 500)
     private String mnemonic;

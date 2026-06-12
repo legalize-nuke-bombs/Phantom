@@ -1,5 +1,6 @@
 package com.example.phantom.crypto.withdrawal;
 
+import com.example.phantom.crypto.CoinType;
 import com.example.phantom.crypto.TransferStatus;
 import com.example.phantom.finance.FinanceConstants;
 import com.example.phantom.user.User;
@@ -30,8 +31,9 @@ public class Withdrawal {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
-    @Column(nullable = false, length = 20)
-    private String coin;
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private CoinType coin;
 
     @Column(nullable = false)
     private Long timestamp;

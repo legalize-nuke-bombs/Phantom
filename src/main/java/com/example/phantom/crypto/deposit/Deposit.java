@@ -1,5 +1,6 @@
 package com.example.phantom.crypto.deposit;
 
+import com.example.phantom.crypto.CoinType;
 import com.example.phantom.finance.FinanceConstants;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
@@ -28,8 +29,9 @@ public class Deposit {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
-    @Column(nullable = false, length = 20)
-    private String coin;
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private CoinType coin;
 
     @Column(nullable = false)
     private Long timestamp;

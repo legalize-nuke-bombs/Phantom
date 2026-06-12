@@ -48,25 +48,25 @@ public class CryptoService {
         this.profileService = profileService;
     }
 
-    public CryptoWalletRepresentation getWallet(Long userId, String coin) {
-        CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(userId, coinToUpperCase(coin)).orElseThrow(() -> new ApiException(ErrorCode.CRYPTO_WALLET_NOT_FOUND));
+    public CryptoWalletRepresentation getWallet(Long userId, CoinType coin) {
+        CryptoWallet wallet = cryptoWalletRepository.findByUserIdAndCoin(userId, coin).orElseThrow(() -> new ApiException(ErrorCode.CRYPTO_WALLET_NOT_FOUND));
         return new CryptoWalletRepresentation(wallet);
     }
 
-    public List<DepositRepresentation> checkDeposits(Long userId, String coin) {
+    public List<DepositRepresentation> checkDeposits(Long userId, CoinType coin) {
         log.info("checking {} deposits for user {} ...", coin, userId);
 
         User user = getUser(userId);
         rateLimit(user);
 
-        List<Deposit> deposits = depositService.fetchDeposits(user, coinToUpperCase(coin));
+        List<Deposit> deposits = depositService.fetchDeposits(user, coin);
         depositService.applyDeposits(user, deposits);
 
         log.info("applied {} {} deposits for user {}", deposits.size(), coin, userId);
         return deposits.stream().map(DepositRepresentation::new).toList();
     }
 
-    public WithdrawalRepresentation withdraw(Long userId, String coin, WithdrawRequest request) {
+    public WithdrawalRepresentation withdraw(Long userId, CoinType coin, WithdrawRequest request) {
         String address = request.getAddress();
         BigDecimal amount = request.getAmount();
 
@@ -75,7 +75,7 @@ public class CryptoService {
         User user = getUser(userId);
         rateLimit(user);
 
-        Withdrawal withdrawal = withdrawalService.reserveFinances(user, coinToUpperCase(coin), address, amount);
+        Withdrawal withdrawal = withdrawalService.reserveFinances(user, coin, address, amount);
         withdrawal = withdrawalService.send(withdrawal);
 
         log.info("withdrawal request created {}, {}, {}, {}", amount, coin, address, user.getId());
@@ -94,15 +94,6 @@ public class CryptoService {
         log.info("found {} pending withdrawals for {}", checked.size(), user.getId());
         ProfileCardRepresentation profileCard = profileService.getCardForUser(user.getId(), user);
         return checked.stream().map(withdrawal -> new WithdrawalRepresentation(withdrawal, profileCard)).toList();
-    }
-
-    private String coinToUpperCase(String coin) {
-        try {
-            return coin.toUpperCase();
-        }
-        catch (Exception e) {
-            throw new ApiException(ErrorCode.UNSUPPORTED_COIN);
-        }
     }
 
     private User getUser(Long userId) {

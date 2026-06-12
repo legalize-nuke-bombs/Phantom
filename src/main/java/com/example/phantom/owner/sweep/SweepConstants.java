@@ -6,7 +6,6 @@ public class SweepConstants {
 
     public static final long INTERNAL_SWEEP_DELAY_MS = 1 * 1000;
 
-    public static final int COIN_MAX_LENGTH = 20;
     public static final int SENDER_MAX_LENGTH = 100;
     public static final int RECEIVER_MAX_LENGTH = 100;
     public static final int STATUS_MAX_LENGTH = 20;
