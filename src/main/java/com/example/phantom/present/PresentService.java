@@ -56,7 +56,9 @@ public class PresentService {
 
     @Transactional
     public Void send(Long userId, SendPresentRequest request) {
-        BigDecimal amount = request.getAmount();
+        BigDecimal amountToSend = request.getAmount();
+        BigDecimal amountToPay = amountToSend.add(PresentConstants.PRESENT_CREATION_COST);
+
         String description = request.getDescription();
         Long receiverId = request.getReceiverId();
         Boolean anonymous = request.getAnonymous();
@@ -70,15 +72,15 @@ public class PresentService {
 
         Wallet wallet = walletService.lock(userId);
 
-        if (wallet.getBalanceCached().compareTo(amount) < 0) {
+        if (wallet.getBalanceCached().compareTo(amountToPay) < 0) {
             throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
         }
-        walletService.addChange(wallet, amount.negate());
+        walletService.addChange(wallet, amountToPay.negate());
 
         Present present = new Present();
         present.setClaimed(false);
         present.setTimestamp(Instant.now().getEpochSecond());
-        present.setAmount(amount.subtract(PresentConstants.SEND_COMMISSION));
+        present.setAmount(amountToSend);
         present.setDescription(description != null ? description : "");
         if (!anonymous) present.setSender(user);
         present.setReceiver(receiver);
