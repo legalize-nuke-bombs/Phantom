@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -116,18 +117,14 @@ public class SweepService {
 
         lastSweep = now;
 
-        List<SweepLog> sweepLogs = new ArrayList<>();
-        List<CryptoWallet> cryptoWalletsToDelete = new ArrayList<>();
         for (CoinProvider provider : coinProviderRegistry.getAll()) {
-            sweepCoin(provider, sweepLogs, cryptoWalletsToDelete);
+            sweepCoin(provider);
         }
-        sweepLogRepository.saveAll(sweepLogs);
-        cryptoWalletRepository.deleteAll(cryptoWalletsToDelete);
 
         log.info("sweep finished");
     }
 
-    private void sweepCoin(CoinProvider provider, List<SweepLog> sweepLogs, List<CryptoWallet> cryptoWalletsToDelete) {
+    private void sweepCoin(CoinProvider provider) {
         CoinType coin = provider.coin();
         log.info("starting {} sweep...", coin);
 
@@ -185,15 +182,15 @@ public class SweepService {
                 sweepLog.setReceiver(masterAddressValue);
                 sweepLog.setStatus(hash != null ? "ok" : "failed");
                 sweepLog.setHash(hash);
-                sweepLogs.add(sweepLog);
+                sweepLogRepository.save(sweepLog);
             }
             else {
                 log.info("send all {} from {} skipped", coin, address);
 
                 User user = wallet.getUser();
                 if (user == null) {
-                    cryptoWalletsToDelete.add(wallet);
-                    log.info("{} {} wallet is empty and was abandoned, marked as to delete", coin, address);
+                    log.info("{} {} wallet is empty and was abandoned, deleting...", coin, address);
+                    cryptoWalletRepository.delete(wallet);
                 }
             }
         }
