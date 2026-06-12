@@ -117,15 +117,17 @@ public class SweepService {
         lastSweep = now;
 
         List<SweepLog> sweepLogs = new ArrayList<>();
+        List<CryptoWallet> cryptoWalletsToDelete = new ArrayList<>();
         for (CoinProvider provider : coinProviderRegistry.getAll()) {
-            sweepCoin(provider, sweepLogs);
+            sweepCoin(provider, sweepLogs, cryptoWalletsToDelete);
         }
         sweepLogRepository.saveAll(sweepLogs);
+        cryptoWalletRepository.deleteAll(cryptoWalletsToDelete);
 
         log.info("sweep finished");
     }
 
-    private void sweepCoin(CoinProvider provider, List<SweepLog> sweepLogs) {
+    private void sweepCoin(CoinProvider provider, List<SweepLog> sweepLogs, List<CryptoWallet> cryptoWalletsToDelete) {
         CoinType coin = provider.coin();
         log.info("starting {} sweep...", coin);
 
@@ -143,6 +145,9 @@ public class SweepService {
         List<CryptoWallet> wallets = cryptoWalletRepository.findByCoin(provider.coin());
 
         for (CryptoWallet wallet : wallets) {
+            try { Thread.sleep(SweepConstants.INTERNAL_SWEEP_DELAY_MS); }
+            catch (InterruptedException e) { continue; }
+
             String address = wallet.getAddress();
             log.info("sweeping {} from {} ...", coin, address);
 
@@ -157,7 +162,11 @@ public class SweepService {
                 log.warn("failed to fetch {} {} balance: {}", coin, address, e.getMessage());
             }
 
-            if (amount != null && amount.compareTo(provider.getMinSweepAmount()) >= 0) {
+            if (amount == null) {
+                continue;
+            }
+
+            if (amount.compareTo(provider.getMinSweepAmount()) >= 0) {
                 String hash = null;
                 log.info("sending all {} from {} ...", coin, address);
                 try {
@@ -180,10 +189,13 @@ public class SweepService {
             }
             else {
                 log.info("send all {} from {} skipped", coin, address);
-            }
 
-            try { Thread.sleep(SweepConstants.INTERNAL_SWEEP_DELAY_MS); }
-            catch (InterruptedException e) { continue; }
+                User user = wallet.getUser();
+                if (user == null) {
+                    cryptoWalletsToDelete.add(wallet);
+                    log.info("{} {} wallet is empty and was abandoned, marked as to delete", coin, address);
+                }
+            }
         }
 
         log.info("{} sweep finished", coin);
