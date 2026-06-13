@@ -2,6 +2,8 @@ package com.example.phantom.present;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.experience.Experience;
+import com.example.phantom.experience.ExperienceRepository;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
@@ -24,13 +26,15 @@ import java.util.Objects;
 public class PresentService {
 
     private final UserRepository userRepository;
+    private final ExperienceRepository experienceRepository;
     private final WalletService walletService;
     private final PresentRepository presentRepository;
     private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
 
-    public PresentService(UserRepository userRepository, WalletService walletService, PresentRepository presentRepository, UsageLimitService usageLimitService, ProfileService profileService) {
+    public PresentService(UserRepository userRepository, ExperienceRepository experienceRepository, WalletService walletService, PresentRepository presentRepository, UsageLimitService usageLimitService, ProfileService profileService) {
         this.userRepository = userRepository;
+        this.experienceRepository = experienceRepository;
         this.walletService = walletService;
         this.presentRepository = presentRepository;
         this.usageLimitService = usageLimitService;
@@ -56,9 +60,7 @@ public class PresentService {
 
     @Transactional
     public Void send(Long userId, SendPresentRequest request) {
-        BigDecimal amountToSend = request.getAmount();
-        BigDecimal amountToPay = amountToSend.add(PresentConstants.PRESENT_CREATION_COST);
-
+        BigDecimal amount = request.getAmount();
         String description = request.getDescription();
         Long receiverId = request.getReceiverId();
         Boolean anonymous = request.getAnonymous();
@@ -70,17 +72,24 @@ public class PresentService {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
         User receiver = userRepository.findById(receiverId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
+        Experience experience = experienceRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND));
+        if (experience.getAmountCached() < PresentConstants.MIN_EXPERIENCE) {
+            throw new ApiException(ErrorCode.INSUFFICIENT_EXPERIENCE);
+        }
+
+        usageLimitService.startAction(user, UsageAction.SEND_PRESENT, 1);
+
         Wallet wallet = walletService.lock(userId);
 
-        if (wallet.getBalanceCached().compareTo(amountToPay) < 0) {
+        if (wallet.getBalanceCached().compareTo(amount) < 0) {
             throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
         }
-        walletService.addChange(wallet, amountToPay.negate());
+        walletService.addChange(wallet, amount.negate());
 
         Present present = new Present();
         present.setClaimed(false);
         present.setTimestamp(Instant.now().getEpochSecond());
-        present.setAmount(amountToSend);
+        present.setAmount(amount);
         present.setDescription(description != null ? description : "");
         if (!anonymous) present.setSender(user);
         present.setReceiver(receiver);
