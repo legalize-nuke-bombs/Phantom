@@ -8,6 +8,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -23,7 +24,7 @@ public class ExperienceController {
 
     @GetMapping("/levels")
     public ResponseEntity<List<LevelRepresentation>> getLevels() {
-        return ResponseEntity.ok(service.getLevels());
+        return ResponseEntity.ok(Arrays.stream(Level.values()).map(LevelRepresentation::new).toList());
     };
 
     @GetMapping("/{targetId}")

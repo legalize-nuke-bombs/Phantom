@@ -9,8 +9,8 @@ import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.ref.RefService;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -40,12 +40,12 @@ public class LotteryService {
     private final LotteryRepository lotteryRepository;
     private final LotteryBetRepository lotteryBetRepository;
     private final LotteryCreatorService lotteryCreatorService;
-    private final UsageLimitService usageLimitService;
+    private final RateLimitService rateLimitService;
     private final ProfileService profileService;
     private final ProvablyFairService provablyFairService;
     private final PrivacySettingService privacySettingService;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotteryCreatorService lotteryCreatorService, UsageLimitService usageLimitService, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingService privacySettingService) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotteryCreatorService lotteryCreatorService, RateLimitService rateLimitService, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingService privacySettingService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
@@ -53,7 +53,7 @@ public class LotteryService {
         this.lotteryRepository = lotteryRepository;
         this.lotteryBetRepository = lotteryBetRepository;
         this.lotteryCreatorService = lotteryCreatorService;
-        this.usageLimitService = usageLimitService;
+        this.rateLimitService = rateLimitService;
         this.profileService = profileService;
         this.provablyFairService = provablyFairService;
         this.privacySettingService = privacySettingService;
@@ -88,7 +88,7 @@ public class LotteryService {
     public List<FinishedLotteryRepresentation> getHistory(Long userId, Integer limit, Long before) {
         User user = getUser(userId);
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
@@ -124,7 +124,7 @@ public class LotteryService {
 
         User user = getUser(userId);
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
@@ -149,7 +149,7 @@ public class LotteryService {
     public Map<String, String> buyTickets(Long userId, LotteryTicketAmountRequest request) {
         User user = getUser(userId);
 
-        usageLimitService.startAction(user, UsageAction.LOTTERY, 1L);
+        rateLimitService.startAction(user.getId(), RateLimitAction.LOTTERY, 1L);
 
         Lottery lottery = getCurrentLottery();
         Wallet wallet = walletService.lock(userId);
@@ -185,7 +185,7 @@ public class LotteryService {
     public Map<String, String> refundTickets(Long userId, LotteryTicketAmountRequest request) {
         User user = getUser(userId);
 
-        usageLimitService.startAction(user, UsageAction.LOTTERY, 1L);
+        rateLimitService.startAction(user.getId(), RateLimitAction.LOTTERY, 1L);
 
         Wallet wallet = walletService.lock(userId);
         Lottery lottery = getCurrentLottery();
@@ -240,26 +240,13 @@ public class LotteryService {
         }
 
         log.info("granting rewards for bets...");
-        List<ExperienceChange> experienceChanges = new ArrayList<>();
         for (LotteryBet bet : bets) {
             if (bet.getUser() == null) {
                 continue;
             }
-
-            ExperienceChange experienceChange = new ExperienceChange();
-            experienceChange.setUser(bet.getUser());
-            experienceChange.setAmount(ticketCost.multiply(BigDecimal.valueOf(bet.getTickets()))
-                    .multiply(BigDecimal.valueOf(100))
-                    .setScale(0, RoundingMode.DOWN).longValue()
-            );
-            experienceChange.setTimestamp(Instant.now().getEpochSecond());
-            experienceChange.setType(ExperienceChangeType.LOTTERY_TICKET);
-            experienceChange.setDetails(String.valueOf(bet.getTickets()));
-            experienceChanges.add(experienceChange);
-
+            experienceService.addChange(bet.getUser(), ticketCost.multiply(BigDecimal.valueOf(bet.getTickets())).multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.DOWN).longValue(), ExperienceChangeType.LOTTERY_TICKET, "Tickets: " + bet.getTickets());
             refService.registerBet(bet.getUser(), ticketCost.multiply(BigDecimal.valueOf(bet.getTickets())));
         }
-        experienceService.addChanges(experienceChanges);
         log.info("rewards for bets granted");
 
         Random random = provablyFairService.fairRandom(lottery.getSeed1(), lottery.getSeed2());

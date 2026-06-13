@@ -57,18 +57,4 @@ public class User {
 
     @Column(nullable = false, length = UserConstants.BCRYPT_HASH_LENGTH)
     private String privateRecoveryKeyHash;
-
-    public Plan getPlan() {
-        switch (role) {
-            case CHAT_MODERATOR -> {
-                return Plan.PRO;
-            }
-            case OWNER -> {
-                return Plan.MAX;
-            }
-            default -> {
-                return Plan.DEFAULT;
-            }
-        }
-    }
 }

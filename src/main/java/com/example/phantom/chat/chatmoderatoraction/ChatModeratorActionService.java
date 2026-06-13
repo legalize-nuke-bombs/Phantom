@@ -4,8 +4,8 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
@@ -23,20 +23,20 @@ public class ChatModeratorActionService {
     private final UserRepository userRepository;
     private final ProfileService profileService;
 
-    private final UsageLimitService usageLimitService;
+    private final RateLimitService rateLimitService;
 
-    public ChatModeratorActionService(ChatModeratorActionRepository chatModeratorActionRepository, UserRepository userRepository, ProfileService profileService, UsageLimitService usageLimitService) {
+    public ChatModeratorActionService(ChatModeratorActionRepository chatModeratorActionRepository, UserRepository userRepository, ProfileService profileService, RateLimitService rateLimitService) {
         this.chatModeratorActionRepository = chatModeratorActionRepository;
         this.userRepository = userRepository;
         this.profileService = profileService;
 
-        this.usageLimitService = usageLimitService;
+        this.rateLimitService = rateLimitService;
     }
 
     public List<ChatModeratorActionRepresentation> get(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 

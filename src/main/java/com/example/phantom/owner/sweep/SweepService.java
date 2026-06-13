@@ -5,8 +5,8 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.owner.masterwallet.MasterWalletSetting;
 import com.example.phantom.owner.masterwallet.MasterWalletSettingRepository;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -33,7 +33,7 @@ public class SweepService {
     private final MasterWalletSettingRepository masterWalletSettingRepository;
     private final SweepLogRepository sweepLogRepository;
     private final CoinProviderRegistry coinProviderRegistry;
-    private final UsageLimitService usageLimitService;
+    private final RateLimitService rateLimitService;
     private volatile Instant lastSweep;
 
     public SweepService(
@@ -43,7 +43,7 @@ public class SweepService {
             MasterWalletSettingRepository masterWalletSettingRepository,
             SweepLogRepository sweepLogRepository,
             CoinProviderRegistry coinProviderRegistry,
-            UsageLimitService usageLimitService
+            RateLimitService rateLimitService
     ) {
         this.userRepository = userRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
@@ -51,14 +51,14 @@ public class SweepService {
         this.masterWalletSettingRepository = masterWalletSettingRepository;
         this.sweepLogRepository = sweepLogRepository;
         this.coinProviderRegistry = coinProviderRegistry;
-        this.usageLimitService = usageLimitService;
+        this.rateLimitService = rateLimitService;
         this.lastSweep = Instant.now();
     }
 
     public List<SweepLogRepresentation> getHistory(Long userId, Integer limit, Long before) {
         User user = getOwner(userId);
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
@@ -201,7 +201,7 @@ public class SweepService {
     private User getOwner(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
-        if (user.getRole() != Role.OWNER) {
+        if (!user.getRole().getOwnerAccess()) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
 

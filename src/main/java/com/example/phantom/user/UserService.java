@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -24,6 +26,10 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
         this.passwordValidationService = passwordValidationService;
         this.recoveryKeyService = recoveryKeyService;
+    }
+
+    public List<RoleRepresentation> getRoles() {
+        return Arrays.stream(Role.values()).map(RoleRepresentation::new).toList();
     }
 
     public UserStatRepresentation getStats() {

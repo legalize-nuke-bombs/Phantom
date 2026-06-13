@@ -47,7 +47,7 @@ public class BanlistService {
             throw new ApiException(ErrorCode.CANT_BAN_SELF);
         }
 
-        if (target.getRole().chatModeratorAccess()) {
+        if (target.getRole().getChatModeratorAccess()) {
             throw new ApiException(ErrorCode.CANT_BAN_MODERATOR);
         }
 
@@ -112,7 +112,7 @@ public class BanlistService {
 
     private User getChatModerator(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
-        if (!user.getRole().chatModeratorAccess()) {
+        if (!user.getRole().getChatModeratorAccess()) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
         return user;

@@ -11,12 +11,12 @@ public class DiskSettings {
 
     public DiskSettings() {
         this.baseRule = new DiskQuota(
-                100L * 1024 * 1024,
-                1000
+                25L * 1024 * 1024,
+                250
         );
         this.extendedRule = new DiskQuota(
-                1L * 1024 * 1024 * 1024,
-                10000
+                100L * 1024 * 1024,
+                1000
         );
     }
 }

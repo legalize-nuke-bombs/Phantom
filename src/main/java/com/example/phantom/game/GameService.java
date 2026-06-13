@@ -56,7 +56,6 @@ public abstract class GameService {
     public GameRepresentation run(Long userId, GameRunRequest request) {
         User user = getUser(userId);
         Wallet wallet = deps.walletService.lock(userId);
-        Experience experience = deps.experienceService.lock(userId);
         Game game = deps.gameRepository.findActiveGame(userId, gameType()).orElseThrow(() -> new ApiException(ErrorCode.GAME_NOT_FOUND));
 
         if (wallet.getBalanceCached().compareTo(game.getBet()) < 0) {
@@ -73,7 +72,6 @@ public abstract class GameService {
         }
 
         deps.experienceService.addChange(user,
-                experience,
                 game.getBet().multiply(new BigDecimal(100)).setScale(0, RoundingMode.DOWN).longValue(),
                 ExperienceChangeType.BET,
                 gameType().name()

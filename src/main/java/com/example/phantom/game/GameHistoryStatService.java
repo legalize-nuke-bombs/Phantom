@@ -4,8 +4,8 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -25,14 +25,14 @@ public class GameHistoryStatService {
     private final UserRepository userRepository;
     private final GameRepository gameRepository;
     private final ProfileService profileService;
-    private final UsageLimitService usageLimitService;
+    private final RateLimitService rateLimitService;
     private final PrivacySettingService privacySettingService;
 
-    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, ProfileService profileService, UsageLimitService usageLimitService, PrivacySettingService privacySettingService) {
+    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, ProfileService profileService, RateLimitService rateLimitService, PrivacySettingService privacySettingService) {
         this.userRepository = userRepository;
         this.gameRepository = gameRepository;
         this.profileService = profileService;
-        this.usageLimitService = usageLimitService;
+        this.rateLimitService = rateLimitService;
         this.privacySettingService = privacySettingService;
     }
 
@@ -42,7 +42,7 @@ public class GameHistoryStatService {
 
         privacySettingService.validate(user.getId(), target.getId(), target.getGameHistoryPrivacySetting());
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
@@ -56,7 +56,7 @@ public class GameHistoryStatService {
     public List<GameRepresentation> getPlatformHistory(Long userId, Integer limit, Long before) {
         User user = requireAuthenticated(userId);
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 

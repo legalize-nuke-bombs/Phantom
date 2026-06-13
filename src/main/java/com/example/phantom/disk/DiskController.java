@@ -1,5 +1,7 @@
 package com.example.phantom.disk;
 
+import com.example.phantom.disk.favourite.FavouriteFileRepresentation;
+import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,7 +24,6 @@ import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
-
 
 @RestController
 @Validated
@@ -76,5 +78,36 @@ public class DiskController {
     public ResponseEntity<Void> delete(@AuthenticationPrincipal Long userId, @PathVariable UUID id) {
         diskService.delete(userId, id);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @GetMapping("/favourites")
+    public List<FavouriteFileRepresentation> getFavourites(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) Long before,
+            @RequestParam(defaultValue = "20") Integer limit
+    ) {
+        return diskService.getFavourites(userId, before, limit);
+    }
+
+    @PostMapping("/favourites")
+    public ResponseEntity<Void> addFavourite(@AuthenticationPrincipal Long userId, @RequestBody @Valid FileIdRequest request) {
+        diskService.addFavourite(userId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/favourites")
+    public ResponseEntity<Void> removeFavourite(@AuthenticationPrincipal Long userId, @RequestBody @Valid FileIdRequest request) {
+        diskService.removeFavourite(userId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/usage/personal")
+    public DiskQuota getPersonalUsage(@AuthenticationPrincipal Long userId) {
+        return diskService.getPersonalUsage(userId);
+    }
+
+    @GetMapping("/usage/platform")
+    public DiskQuota getPlatformUsage() {
+        return diskService.getPlatformUsage();
     }
 }

@@ -7,8 +7,8 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
@@ -27,15 +27,15 @@ public class OwnerService {
     private final WithdrawalRepository withdrawalRepository;
 
     private final OwnerAccessService ownerAccessService;
-    private final UsageLimitService usageLimitService;
+    private final RateLimitService rateLimitService;
     private final ProfileService profileService;
 
-    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, UsageLimitService usageLimitService, ProfileService profileService) {
+    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, RateLimitService rateLimitService, ProfileService profileService) {
         this.userRepository = userRepository;
         this.withdrawalRepository = withdrawalRepository;
 
         this.ownerAccessService = ownerAccessService;
-        this.usageLimitService = usageLimitService;
+        this.rateLimitService = rateLimitService;
         this.profileService = profileService;
     }
 
@@ -58,7 +58,7 @@ public class OwnerService {
 
         boolean isOwner = ownerAccessService.isOwner(ownerKey);
 
-        if ((target.getRole() == Role.OWNER || role == Role.OWNER) && !isOwner) {
+        if ((target.getRole().getOwnerAccess() || role.getOwnerAccess()) && !isOwner) {
             throw new ApiException(ErrorCode.OWNER_KEY_REQUIRED);
         }
 
@@ -71,7 +71,7 @@ public class OwnerService {
     public List<WithdrawalRepresentation> getWithdrawalHistory(Long userId, Integer limit, Long before) {
         User user = getOwner(userId);
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
@@ -85,7 +85,7 @@ public class OwnerService {
 
     private User getOwner(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
-        if (user.getRole() != Role.OWNER) {
+        if (!user.getRole().getOwnerAccess()) {
             throw new ApiException(ErrorCode.NOT_OWNER);
         }
         return user;

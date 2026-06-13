@@ -11,7 +11,6 @@ REST API for a gambling platform.
 * Stats & history
 * User privacy settings
 * Rate limit
-* Usage limit
 * Wallets
 * Presents system
 * Deposits & withdrawals via crypto: TON

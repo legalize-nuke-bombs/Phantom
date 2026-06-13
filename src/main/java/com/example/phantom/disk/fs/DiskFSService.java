@@ -1,11 +1,9 @@
 package com.example.phantom.disk.fs;
 
-import com.example.phantom.disk.FileRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,19 +12,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @Slf4j
 public class DiskFSService {
-    private final FileRepository fileRepository;
 
     @Value("${disk.root}")
     private String root;
-
-    public DiskFSService(FileRepository fileRepository) {
-        this.fileRepository = fileRepository;
-    }
 
     public void store(UUID id, MultipartFile file) throws IOException {
         Path target = pathFor(id);
@@ -40,51 +32,17 @@ public class DiskFSService {
         return new FileSystemResource(pathFor(id));
     }
 
-    public void delete(UUID id) throws IOException {
-        Files.deleteIfExists(pathFor(id));
+    public void deleteQuietly(UUID id) {
+        try {
+            Files.deleteIfExists(pathFor(id));
+        }
+        catch (IOException e) {
+            log.warn("could not delete file {}", id, e);
+        }
     }
 
     private Path pathFor(UUID id) {
         String s = id.toString();
         return Path.of(root, s.substring(0, 2), s.substring(2, 4), s);
-    }
-
-    @Scheduled(fixedDelay = 1L * 24 * 60 * 60 * 1000)
-    public void clean() {
-        log.info("starting cleaning...");
-        Path rootPath = Path.of(root);
-        if (!Files.isDirectory(rootPath)) {
-            log.info("cleaning stopped: disk root does not exist");
-            return;
-        }
-
-        AtomicInteger removed = new AtomicInteger();
-        try (var stream = Files.walk(rootPath)) {
-            stream.filter(Files::isRegularFile).forEach(path -> {
-                UUID id;
-                try {
-                    id = UUID.fromString(path.getFileName().toString());
-                }
-                catch (IllegalArgumentException e) {
-                    log.warn("cleaning found invalid path: {}", path);
-                    return;
-                }
-                if (!fileRepository.existsById(id)) {
-                    try {
-                        Files.deleteIfExists(path);
-                        removed.incrementAndGet();
-                    }
-                    catch (IOException e) {
-                        log.warn("cleaning could not delete {}", path);
-                    }
-                }
-            });
-        }
-        catch (IOException e) {
-            log.error("cleaning failed", e);
-            return;
-        }
-
-        log.info("cleaning finished, removed {} files", removed.get());
     }
 }

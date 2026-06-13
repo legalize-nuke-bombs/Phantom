@@ -87,7 +87,7 @@ public class MasterWalletService {
     private void getOwner(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
-        if (user.getRole() != Role.OWNER) {
+        if (!user.getRole().getOwnerAccess()) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
     }

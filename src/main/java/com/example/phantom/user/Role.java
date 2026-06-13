@@ -1,11 +1,18 @@
 package com.example.phantom.user;
 
-public enum Role {
-    USER,
-    CHAT_MODERATOR,
-    OWNER;
+import lombok.Getter;
 
-    public boolean chatModeratorAccess() {
-        return this.equals(CHAT_MODERATOR) || this.equals(OWNER);
+@Getter
+public enum Role {
+    USER(false, false),
+    CHAT_MODERATOR(true, false),
+    OWNER(true, true);
+
+    final Boolean chatModeratorAccess;
+    final Boolean ownerAccess;
+
+    Role(boolean chatModeratorAccess, boolean ownerAccess) {
+        this.chatModeratorAccess = chatModeratorAccess;
+        this.ownerAccess = ownerAccess;
     }
 }

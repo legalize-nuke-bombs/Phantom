@@ -6,8 +6,8 @@ import com.example.phantom.experience.LevelFeature;
 import com.example.phantom.experience.LevelFeatureService;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.wallet.Wallet;
@@ -29,22 +29,22 @@ public class PresentService {
     private final LevelFeatureService levelFeatureService;
     private final WalletService walletService;
     private final PresentRepository presentRepository;
-    private final UsageLimitService usageLimitService;
+    private final RateLimitService rateLimitService;
     private final ProfileService profileService;
 
-    public PresentService(UserRepository userRepository, LevelFeatureService levelFeatureService, WalletService walletService, PresentRepository presentRepository, UsageLimitService usageLimitService, ProfileService profileService) {
+    public PresentService(UserRepository userRepository, LevelFeatureService levelFeatureService, WalletService walletService, PresentRepository presentRepository, RateLimitService rateLimitService, ProfileService profileService) {
         this.userRepository = userRepository;
         this.levelFeatureService = levelFeatureService;
         this.walletService = walletService;
         this.presentRepository = presentRepository;
-        this.usageLimitService = usageLimitService;
+        this.rateLimitService = rateLimitService;
         this.profileService = profileService;
     }
 
     public List<PresentRepresentation> get(Long userId, Boolean claimed, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         List<Present> presents = presentRepository.findByReceiverIdClaimedWithSenders(user.getId(), claimed, before, PageRequest.of(0, limit));
         List<User> senders = presents.stream().map(Present::getSender).toList();
@@ -74,7 +74,7 @@ public class PresentService {
 
         levelFeatureService.validateAccess(userId, LevelFeature.SEND_PRESENT);
 
-        usageLimitService.startAction(user, UsageAction.SEND_PRESENT, 1);
+        rateLimitService.startAction(user.getId(), RateLimitAction.SEND_PRESENT, 1);
 
         Wallet wallet = walletService.lock(userId);
 

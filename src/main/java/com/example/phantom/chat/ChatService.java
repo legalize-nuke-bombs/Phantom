@@ -11,8 +11,8 @@ import com.example.phantom.experience.LevelFeature;
 import com.example.phantom.experience.LevelFeatureService;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
@@ -36,9 +36,9 @@ public class ChatService {
     private final ChatModeratorActionRepository chatModeratorActionRepository;
     private final ProfileService profileService;
 
-    private final UsageLimitService usageLimitService;
+    private final RateLimitService rateLimitService;
 
-    public ChatService(UserRepository userRepository, LevelFeatureService levelFeatureService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, UsageLimitService usageLimitService) {
+    public ChatService(UserRepository userRepository, LevelFeatureService levelFeatureService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, RateLimitService rateLimitService) {
         this.userRepository = userRepository;
         this.levelFeatureService = levelFeatureService;
         this.messageRepository = messageRepository;
@@ -46,13 +46,13 @@ public class ChatService {
         this.chatModeratorActionRepository = chatModeratorActionRepository;
         this.profileService = profileService;
 
-        this.usageLimitService = usageLimitService;
+        this.rateLimitService = rateLimitService;
     }
 
     public List<MessageRepresentation> get(Long userId, Integer limit, Long before) {
         User user = getUser(userId);
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
@@ -80,11 +80,11 @@ public class ChatService {
             throw new ApiException(ErrorCode.BANNED);
         }
 
-        if (!user.getRole().chatModeratorAccess()) {
+        if (!user.getRole().getChatModeratorAccess()) {
             levelFeatureService.validateAccess(userId, LevelFeature.SEND_MESSAGE);
         }
 
-        usageLimitService.startAction(user, UsageAction.SEND_MESSAGE, 1L);
+        rateLimitService.startAction(user.getId(), RateLimitAction.SEND_MESSAGE, 1L);
 
         String content = request.getContent();
 
@@ -103,8 +103,8 @@ public class ChatService {
         Message message = getMessage(messageId);
 
         if (!Objects.equals(user.getId(), message.getUser().getId())) {
-            if (user.getRole().chatModeratorAccess()) {
-                if (message.getUser().getRole().chatModeratorAccess()) {
+            if (user.getRole().getChatModeratorAccess()) {
+                if (message.getUser().getRole().getChatModeratorAccess()) {
                     throw new ApiException(ErrorCode.NO_PERMISSION);
                 }
                 ChatModeratorAction chatModeratorAction = new ChatModeratorAction();

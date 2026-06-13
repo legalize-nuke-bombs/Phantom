@@ -1,0 +1,66 @@
+package com.example.phantom.disk.cleaner;
+
+import com.example.phantom.disk.FileRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+
+@Service
+@Slf4j
+public class DiskCleanerService {
+
+    private final FileRepository fileRepository;
+
+    @Value("${disk.root}")
+    private String root;
+
+    public DiskCleanerService(FileRepository fileRepository) {
+        this.fileRepository = fileRepository;
+    }
+
+    @Scheduled(fixedDelay = 1L * 24 * 60 * 60 * 1000)
+    public void clean() {
+        log.info("starting cleaning...");
+        Path rootPath = Path.of(root);
+        if (!Files.isDirectory(rootPath)) {
+            log.info("cleaning stopped: disk root does not exist");
+            return;
+        }
+
+        AtomicInteger removed = new AtomicInteger();
+        try (var stream = Files.walk(rootPath)) {
+            stream.filter(Files::isRegularFile).forEach(path -> {
+                UUID id;
+                try {
+                    id = UUID.fromString(path.getFileName().toString());
+                }
+                catch (IllegalArgumentException e) {
+                    log.warn("cleaning found invalid path: {}", path);
+                    return;
+                }
+                if (!fileRepository.existsById(id)) {
+                    try {
+                        Files.deleteIfExists(path);
+                        removed.incrementAndGet();
+                    }
+                    catch (IOException e) {
+                        log.warn("cleaning could not delete {}", path);
+                    }
+                }
+            });
+        }
+        catch (IOException e) {
+            log.error("cleaning failed", e);
+            return;
+        }
+
+        log.info("cleaning finished, removed {} files", removed.get());
+    }
+}

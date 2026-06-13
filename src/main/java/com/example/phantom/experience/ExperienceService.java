@@ -8,20 +8,19 @@ import com.example.phantom.experience.experiencechange.ExperienceChangeRepresent
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.PrivacySettingService;
+import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,15 +31,15 @@ public class ExperienceService {
     private final ExperienceRepository experienceRepository;
     private final ExperienceChangeRepository experienceChangeRepository;
     private final PrivacySettingService privacySettingService;
-    private final UsageLimitService usageLimitService;
+    private final RateLimitService rateLimitService;
     private final ProfileService profileService;
 
-    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingService privacySettingService, UsageLimitService usageLimitService, ProfileService profileService) {
+    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingService privacySettingService, RateLimitService rateLimitService, ProfileService profileService   ) {
         this.userRepository = userRepository;
         this.experienceRepository = experienceRepository;
         this.experienceChangeRepository = experienceChangeRepository;
         this.privacySettingService = privacySettingService;
-        this.usageLimitService = usageLimitService;
+        this.rateLimitService = rateLimitService;
         this.profileService = profileService;
     }
 
@@ -52,10 +51,11 @@ public class ExperienceService {
         return experienceRepository.findById(experienceId).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND));
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
-    public ExperienceChange addChange(User user, Experience experience, Long amount, ExperienceChangeType type, String details) {
+    @Transactional
+    public void addChange(User user, Long amount, ExperienceChangeType type, String details) {
         if (details == null) details = "";
 
+        Experience experience = lock(user.getId());
         experience.setAmountCached(experience.getAmountCached() + amount);
         experienceRepository.save(experience);
 
@@ -65,26 +65,7 @@ public class ExperienceService {
         experienceChange.setType(type);
         experienceChange.setTimestamp(Instant.now().getEpochSecond());
         experienceChange.setDetails(details);
-        return experienceChangeRepository.save(experienceChange);
-    }
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void addChanges(List<ExperienceChange> changes) {
-        Map<Long, Experience> experienceMap = new HashMap<>();
-        for (ExperienceChange change : changes) {
-            Long userId = change.getUser().getId();
-            if (!experienceMap.containsKey(userId)) {
-                experienceMap.put(userId, lock(userId));
-            }
-            experienceMap.get(userId).setAmountCached(experienceMap.get(userId).getAmountCached() + change.getAmount());
-        }
-        experienceRepository.saveAll(experienceMap.values());
-
-        experienceChangeRepository.saveAll(changes);
-    }
-
-    public List<LevelRepresentation> getLevels() {
-        return Arrays.stream(Level.values()).map(LevelRepresentation::new).toList();
+        experienceChangeRepository.save(experienceChange);
     }
 
     public ExperienceRepresentation get(Long userId, Long targetId) {
@@ -103,7 +84,7 @@ public class ExperienceService {
 
         privacySettingService.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 
@@ -119,7 +100,7 @@ public class ExperienceService {
             throw new ApiException(ErrorCode.INVALID_CURSOR);
         }
 
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
+        rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
 

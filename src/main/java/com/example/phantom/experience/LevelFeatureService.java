@@ -40,13 +40,14 @@ public class LevelFeatureService {
     }
 
     public boolean haveAccess(Long userId, LevelFeature feature) {
+        return getFeatures(userId).contains(feature);
+    }
+
+    public Set<LevelFeature> getFeatures(Long userId) {
         Experience experience = experienceRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND));
 
-        ExperienceRepresentation representation = new ExperienceRepresentation(experience);
-        Level level = representation.getLevel();
+        Level level = new ExperienceRepresentation(experience).getLevel();
 
-        Set<LevelFeature> features = levelFeatureMap.get(level);
-
-        return features.contains(feature);
+        return levelFeatureMap.get(level);
     }
 }

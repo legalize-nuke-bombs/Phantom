@@ -11,8 +11,8 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +29,7 @@ public class CryptoService {
     private final CryptoWalletRepository cryptoWalletRepository;
     private final DepositService depositService;
     private final WithdrawalService withdrawalService;
-    private final UsageLimitService usageLimitService;
+    private final RateLimitService rateLimitService;
     private final ProfileService profileService;
 
     public CryptoService(
@@ -37,14 +37,14 @@ public class CryptoService {
             CryptoWalletRepository cryptoWalletRepository,
             DepositService depositService,
             WithdrawalService withdrawalService,
-            UsageLimitService usageLimitService,
+            RateLimitService rateLimitService,
             ProfileService profileService
     ) {
         this.userRepository = userRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.depositService = depositService;
         this.withdrawalService = withdrawalService;
-        this.usageLimitService = usageLimitService;
+        this.rateLimitService = rateLimitService;
         this.profileService = profileService;
     }
 
@@ -101,6 +101,6 @@ public class CryptoService {
     }
 
     private void rateLimit(User user) {
-        usageLimitService.startAction(user, UsageAction.CRYPTO, 1L);
+        rateLimitService.startAction(user.getId(), RateLimitAction.CRYPTO, 1L);
     }
 }

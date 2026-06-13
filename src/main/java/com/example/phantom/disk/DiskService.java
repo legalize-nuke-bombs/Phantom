@@ -1,52 +1,43 @@
 package com.example.phantom.disk;
 
-import com.example.phantom.disk.favourite.FavouriteFileRepository;
+import com.example.phantom.disk.favourite.DiskFavouritesService;
+import com.example.phantom.disk.favourite.FavouriteFileRepresentation;
 import com.example.phantom.disk.fs.DiskFSService;
+import com.example.phantom.disk.registry.DiskRegistryService;
 import com.example.phantom.disk.usage.DiskUsageService;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.LevelFeature;
 import com.example.phantom.experience.LevelFeatureService;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
-import com.example.phantom.usagelimit.UsageAction;
-import com.example.phantom.usagelimit.UsageLimitService;
-import com.example.phantom.user.User;
-import com.example.phantom.user.UserRepository;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import org.springframework.core.io.Resource;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class DiskService {
 
-    private final UserRepository userRepository;
-    private final LevelFeatureService levelFeatureService;
-    private final FileRepository fileRepository;
-    private final UsageLimitService usageLimitService;
+    private final DiskRegistryService diskRegistryService;
     private final DiskFSService diskFilesystemService;
+    private final DiskFavouritesService diskFavouritesService;
+    private final DiskUsageService diskUsageService;
     private final DiskSettings diskSettings;
-    private final DiskUsageService diskStatService;
-    private final ProfileService profileService;
+    private final LevelFeatureService levelFeatureService;
+    private final RateLimitService rateLimitService;
 
-    public DiskService(UserRepository userRepository, LevelFeatureService levelFeatureService, FileRepository fileRepository, UsageLimitService usageLimitService, DiskFSService diskFilesystemService, DiskSettings diskSettings, DiskUsageService diskStatService, ProfileService profileService) {
-        this.userRepository = userRepository;
-        this.levelFeatureService = levelFeatureService;
-        this.fileRepository = fileRepository;
-        this.usageLimitService = usageLimitService;
+    public DiskService(DiskRegistryService diskRegistryService, DiskFSService diskFilesystemService, DiskFavouritesService diskFavouritesService, DiskUsageService diskUsageService, DiskSettings diskSettings, LevelFeatureService levelFeatureService, RateLimitService rateLimitService) {
+        this.diskRegistryService = diskRegistryService;
         this.diskFilesystemService = diskFilesystemService;
+        this.diskFavouritesService = diskFavouritesService;
+        this.diskUsageService = diskUsageService;
         this.diskSettings = diskSettings;
-        this.diskStatService = diskStatService;
-        this.profileService = profileService;
+        this.levelFeatureService = levelFeatureService;
+        this.rateLimitService = rateLimitService;
     }
 
     public DiskSettings getSettings() {
@@ -54,22 +45,11 @@ public class DiskService {
     }
 
     public List<FileRepresentation> getFiles(Long userId, Long before, Integer limit) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
-
-        usageLimitService.startAction(user, UsageAction.PAGINATION, limit);
-
-        Pageable pageable = PageRequest.of(0, limit);
-        List<File> files = fileRepository.findAllWithUsers(userId, before, pageable);
-
-        List<User> users = files.stream().map(File::getUser).toList();
-        Map<Long, ProfileCardRepresentation> profileCardMap = profileService.getCardsForUsers(userId, users);
-
-        return files.stream().map(f -> new FileRepresentation(f, profileCardMap.get(f.getUser().getId()))).toList();
+        rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
+        return diskRegistryService.getFiles(userId, before, limit);
     }
 
-    @Transactional
     public FileRepresentation upload(Long userId, MultipartFile multipart) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
         levelFeatureService.validateAccess(userId, LevelFeature.DISK_BASE);
 
         String name = multipart.getOriginalFilename();
@@ -85,29 +65,31 @@ public class DiskService {
                 : diskSettings.getBaseRule();
 
         long size = multipart.getSize();
-        diskStatService.reserve(user, rule, new DiskQuota(size, 1));
+        rateLimitService.startAction(userId, RateLimitAction.UPLOAD, size);
 
-        File file = new File();
-        file.setId(UUID.randomUUID());
-        file.setTimestamp(Instant.now().getEpochSecond());
-        file.setUser(user);
-        file.setOriginalName(name);
-        file.setSize(size);
-        fileRepository.save(file);
+        UUID id = UUID.randomUUID();
 
         try {
-            diskFilesystemService.store(file.getId(), multipart);
+            diskFilesystemService.store(id, multipart);
         }
         catch (IOException e) {
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
         }
 
-        return new FileRepresentation(file, profileService.getCardForUser(userId, user));
+        try {
+            return diskRegistryService.register(userId, id, name, size, rule);
+        }
+        catch (RuntimeException e) {
+            diskFilesystemService.deleteQuietly(id);
+            throw e;
+        }
     }
 
     public Download download(Long userId, UUID fileId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
-        File file = fileRepository.findById(fileId).orElseThrow(() -> new ApiException(ErrorCode.FILE_NOT_FOUND));
+        levelFeatureService.validateAccess(userId, LevelFeature.DISK_BASE);
+
+        File file = diskRegistryService.getFile(fileId);
+        rateLimitService.startAction(userId, RateLimitAction.DOWNLOAD, file.getSize());
 
         Resource resource = diskFilesystemService.load(file.getId());
         if (!resource.exists()) {
@@ -117,21 +99,30 @@ public class DiskService {
         return new Download(file.getOriginalName(), file.getSize(), resource);
     }
 
-    @Transactional
     public void delete(Long userId, UUID fileId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
-        File file = fileRepository.findById(fileId).orElseThrow(() -> new ApiException(ErrorCode.FILE_NOT_FOUND));
-        if (!file.getUser().getId().equals(userId)) {
-            throw new ApiException(ErrorCode.NO_PERMISSION);
-        }
-        long size = file.getSize();
-        fileRepository.delete(file);
-        diskStatService.release(user, new DiskQuota(size, 1));
-        try {
-            diskFilesystemService.delete(file.getId());
-        }
-        catch (IOException ignored) {
-        }
+        diskRegistryService.unregister(userId, fileId);
+        diskFilesystemService.deleteQuietly(fileId);
+    }
+
+    public List<FavouriteFileRepresentation> getFavourites(Long userId, Long before, Integer limit) {
+        rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
+        return diskFavouritesService.get(userId, before, limit);
+    }
+
+    public void addFavourite(Long userId, FileIdRequest request) {
+        diskFavouritesService.post(userId, request);
+    }
+
+    public void removeFavourite(Long userId, FileIdRequest request) {
+        diskFavouritesService.delete(userId, request);
+    }
+
+    public DiskQuota getPersonalUsage(Long userId) {
+        return diskUsageService.getPersonalUsage(userId);
+    }
+
+    public DiskQuota getPlatformUsage() {
+        return diskUsageService.getPlatformUsage();
     }
 
     public record Download(String name, long size, Resource resource) {}

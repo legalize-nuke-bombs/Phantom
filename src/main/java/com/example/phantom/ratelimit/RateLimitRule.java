@@ -1,11 +1,11 @@
-package com.example.phantom.usagelimit;
+package com.example.phantom.ratelimit;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class UsageLimitRule {
+public class RateLimitRule {
     private final Long tokens;
     private final Long seconds;
 }

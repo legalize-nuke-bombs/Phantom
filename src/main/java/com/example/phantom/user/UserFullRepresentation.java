@@ -9,7 +9,6 @@ public class UserFullRepresentation {
     private final String displayName;
     private final Long registeredAt;
     private final Role role;
-    private final Plan plan;
     private final PrivacySetting gameHistoryPrivacySetting;
     private final PrivacySetting gameStatsPrivacySetting;
     private final PrivacySetting experiencePrivacySetting;
@@ -21,7 +20,6 @@ public class UserFullRepresentation {
         this.displayName = user.getDisplayName();
         this.registeredAt = user.getRegisteredAt();
         this.role = user.getRole();
-        this.plan = user.getPlan();
         this.gameHistoryPrivacySetting = user.getGameHistoryPrivacySetting();
         this.gameStatsPrivacySetting = user.getGameStatsPrivacySetting();
         this.experiencePrivacySetting = user.getExperiencePrivacySetting();

@@ -1,0 +1,140 @@
+package com.example.phantom.ratelimit;
+
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.experience.LevelFeature;
+import com.example.phantom.experience.LevelFeatureService;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+public class RateLimitService {
+
+    private final LevelFeatureService levelFeatureService;
+
+    private final Map<RateLimitAction, Map<LevelFeature, RateLimitRule>> rules;
+    private final Map<Long, Map<RateLimitAction, RateLimitState>> states;
+
+    private final static long CLEAN_DELAY_SEC = 8L * 3600;
+
+    public RateLimitService(LevelFeatureService levelFeatureService) {
+        this.levelFeatureService = levelFeatureService;
+
+        this.rules = new ConcurrentHashMap<>();
+        this.states = new ConcurrentHashMap<>();
+
+        this.registerRule(RateLimitAction.PAGINATION, null, new RateLimitRule(20L * 100, 60L));
+        this.registerRule(RateLimitAction.CRYPTO, null, new RateLimitRule(10L, 60L));
+        this.registerRule(RateLimitAction.LOTTERY, null, new RateLimitRule(10L, 60L));
+        this.registerRule(RateLimitAction.SEND_MESSAGE, null, new RateLimitRule(100L, 10L * 60));
+        this.registerRule(RateLimitAction.SEND_PRESENT, null, new RateLimitRule(100L, 10L * 60));
+
+        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_BASE, new RateLimitRule(25L * 1024 * 1024, 3600L));
+        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_ADVANCED, new RateLimitRule(100L * 1024 * 1024, 3600L));
+
+        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_BASE, new RateLimitRule(50L * 1024 * 1024, 3600L));
+        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_ADVANCED, new RateLimitRule(200L * 1024 * 1024, 3600L));
+    }
+
+    public void registerRule(RateLimitAction action, LevelFeature requiredFeature, RateLimitRule rule) {
+        if (rule.getSeconds() > CLEAN_DELAY_SEC) {
+            throw new IllegalArgumentException("window is too big, max = " + CLEAN_DELAY_SEC);
+        }
+        this.rules.putIfAbsent(action, new HashMap<>());
+        this.rules.get(action).put(requiredFeature, rule);
+    }
+
+    public void startAction(Long userId, RateLimitAction action, long tokens) {
+        long now = Instant.now().getEpochSecond();
+
+        Map<LevelFeature, RateLimitRule> actionRules = rules.get(action);
+        if (actionRules == null) {
+            throw new IllegalArgumentException("action not supported");
+        }
+
+        RateLimitRule rule = resolveRule(actionRules, levelFeatureService.getFeatures(userId));
+        if (rule == null) {
+            throw new RuntimeException("rule not found");
+        }
+
+        states.compute(userId, (key1, userStates) -> {
+            if (userStates == null) {
+                userStates = new ConcurrentHashMap<>();
+            }
+
+            userStates.compute(action, (key2, state) -> {
+                if (state == null || (now - state.getTimestamp() > rule.getSeconds())) {
+                    state = new RateLimitState(now, 0L);
+                }
+                if (state.getTokens() + tokens > rule.getTokens()) {
+                    long retryIn = state.getTimestamp() + rule.getSeconds() - now;
+                    throw new ApiException(ErrorCode.RATE_LIMITED, "try again in " + retryIn + " seconds");
+                }
+                state.setTokens(state.getTokens() + tokens);
+                return state;
+            });
+
+            return userStates;
+        });
+    }
+
+    public RateLimitRepresentation get(Long userId) {
+        long now = Instant.now().getEpochSecond();
+
+        Set<LevelFeature> features = levelFeatureService.getFeatures(userId);
+        Map<RateLimitAction, RateLimitState> userStates = states.get(userId);
+
+        RateLimitRepresentation representation = new RateLimitRepresentation();
+        representation.setData(new TreeMap<>());
+
+        rules.forEach((action, actionRules) -> {
+            RateLimitRule rule = resolveRule(actionRules, features);
+            if (rule == null) {
+                return;
+            }
+
+            RateLimitState state = userStates != null ? userStates.get(action) : null;
+
+            RateLimitActionRepresentation actionRepresentation = new RateLimitActionRepresentation();
+            actionRepresentation.setSeconds(rule.getSeconds());
+            actionRepresentation.setTokensTotal(rule.getTokens());
+            if (state != null && (now - state.getTimestamp() <= rule.getSeconds())) {
+                actionRepresentation.setTimestamp(state.getTimestamp());
+                actionRepresentation.setTokensSpent(state.getTokens());
+            }
+            representation.getData().put(action.name(), actionRepresentation);
+        });
+
+        return representation;
+    }
+
+    @Scheduled(fixedDelay = CLEAN_DELAY_SEC * 1000)
+    public void cleanExpired() {
+        long now = Instant.now().getEpochSecond();
+        states.values().forEach(userStates -> userStates.values().removeIf(state -> now - state.getTimestamp() > CLEAN_DELAY_SEC));
+        states.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+    }
+
+    private RateLimitRule resolveRule(Map<LevelFeature, RateLimitRule> actionRules, Set<LevelFeature> features) {
+        RateLimitRule best = actionRules.get(null);
+
+        for (Map.Entry<LevelFeature, RateLimitRule> entry : actionRules.entrySet()) {
+            LevelFeature feature = entry.getKey();
+            if (feature == null) {
+                continue;
+            }
+            if (features.contains(feature) && (best == null || entry.getValue().getTokens() > best.getTokens())) {
+                best = entry.getValue();
+            }
+        }
+
+        return best;
+    }
+}
