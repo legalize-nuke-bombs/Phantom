@@ -11,7 +11,11 @@ import org.hibernate.annotations.OnDeleteAction;
 import java.util.UUID;
 
 @Entity
-@Table(name = "files")
+@Table(name = "files", indexes = {
+        @Index(name = "idx_files_user_id_timestamp", columnList = "user_id, timestamp"),
+        @Index(name = "idx_files_user_id_originalName", columnList = "user_id, originalName"),
+        @Index(name = "idx_files_user_id_size", columnList = "user_id, size")
+})
 @Getter
 @Setter
 @NoArgsConstructor
