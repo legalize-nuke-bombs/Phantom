@@ -12,9 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "files", indexes = {
-        @Index(name = "idx_files_user_id_timestamp", columnList = "user_id, timestamp"),
-        @Index(name = "idx_files_user_id_originalName", columnList = "user_id, originalName"),
-        @Index(name = "idx_files_user_id_size", columnList = "user_id, size")
+        @Index(name = "idx_files_user_id_timestamp", columnList = "user_id, timestamp")
 })
 @Getter
 @Setter
