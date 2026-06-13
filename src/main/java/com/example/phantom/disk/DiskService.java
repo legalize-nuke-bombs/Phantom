@@ -108,10 +108,12 @@ public class DiskService {
     public Download download(Long userId, UUID fileId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
         File file = fileRepository.findById(fileId).orElseThrow(() -> new ApiException(ErrorCode.FILE_NOT_FOUND));
+
         Resource resource = diskFilesystemService.load(file.getId());
         if (!resource.exists()) {
             throw new ApiException(ErrorCode.FILE_NOT_FOUND);
         }
+
         return new Download(file.getOriginalName(), file.getSize(), resource);
     }
 

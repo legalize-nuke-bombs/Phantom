@@ -49,7 +49,7 @@ public class DiskFavouritesService {
         List<User> users = favouriteFiles.stream().map(FavouriteFile::getFile).map(File::getUser).toList();
         Map<Long, ProfileCardRepresentation> profileCardMap = profileService.getCardsForUsers(userId, users);
 
-        return favouriteFiles.stream().map(f -> new FavouriteFileRepresentation(f, profileCardMap.get(f.getUser().getId()))).toList();
+        return favouriteFiles.stream().map(f -> new FavouriteFileRepresentation(f, profileCardMap.get(f.getFile().getUser().getId()))).toList();
     }
 
     @Transactional

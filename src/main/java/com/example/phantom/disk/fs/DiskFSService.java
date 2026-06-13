@@ -66,6 +66,7 @@ public class DiskFSService {
                     id = UUID.fromString(path.getFileName().toString());
                 }
                 catch (IllegalArgumentException e) {
+                    log.warn("cleaning found invalid path: {}", path);
                     return;
                 }
                 if (!fileRepository.existsById(id)) {
