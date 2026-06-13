@@ -43,7 +43,7 @@ public class RateLimitService {
         this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_ADVANCED, new RateLimitRule(200L * 1024 * 1024, 3600L));
     }
 
-    private void registerRule(RateLimitAction action, LevelFeature requiredFeature, RateLimitRule rule) {
+    public void registerRule(RateLimitAction action, LevelFeature requiredFeature, RateLimitRule rule) {
         if (rule.getSeconds() > CLEAN_DELAY_SEC) {
             throw new IllegalArgumentException("window is too big, max = " + CLEAN_DELAY_SEC);
         }
@@ -130,7 +130,7 @@ public class RateLimitService {
             if (feature == null) {
                 continue;
             }
-            if (features.contains(feature) && entry.getValue().getTokens() > best.getTokens()) {
+            if (features.contains(feature) && (best == null || entry.getValue().getTokens() > best.getTokens())) {
                 best = entry.getValue();
             }
         }
