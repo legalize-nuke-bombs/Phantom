@@ -6,18 +6,16 @@ import org.springframework.stereotype.Component;
 @Component
 @Getter
 public class DiskSettings {
-    private final DiskRule baseRule;
-    private final DiskRule extendedRule;
+    private final DiskQuota baseRule;
+    private final DiskQuota extendedRule;
 
     public DiskSettings() {
-        this.baseRule = new DiskRule(
+        this.baseRule = new DiskQuota(
                 100L * 1024 * 1024,
-                1000,
                 1000
         );
-        this.extendedRule = new DiskRule(
+        this.extendedRule = new DiskQuota(
                 1L * 1024 * 1024 * 1024,
-                10000,
                 10000
         );
     }

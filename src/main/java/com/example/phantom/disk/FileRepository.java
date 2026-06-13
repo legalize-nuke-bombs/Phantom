@@ -14,6 +14,7 @@ FROM File f
 JOIN FETCH f.user
 WHERE f.user.id = ?1 AND
 (?2 IS NULL OR f.timestamp < ?2)
+ORDER BY f.timestamp DESC
 """)
     List<File> findAllWithUsers(Long userId, Long before, Pageable pageable);
 }

@@ -11,7 +11,9 @@ import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Table(name = "favourite_files", indexes = {
-        @Index(name = "idx_favourite_files_user_id", columnList = "user_id")
+        @Index(name = "idx_favourite_files_user_id_timestamp", columnList = "user_id, timestamp")
+}, uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"user_id", "file_id"})
 })
 @Getter
 @Setter
@@ -20,6 +22,9 @@ public class FavouriteFile {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
+    private Long timestamp;
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)

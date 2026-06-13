@@ -21,9 +21,11 @@ REST API for a gambling platform.
 * Sweep scheduling
 * Sweep history
 * Owner panel
-* Chat for users who have deposited
+* Chat
 * Chat moderators
 * Chat moderator action history, can be read by everyone to prevent the role abuse
+* Disk
+* Chat attachments
 * OpenAPI
 
 ## Tech Stack
@@ -48,6 +50,11 @@ OWNER_KEY=<base64_encoded_key_min_32_bytes>
 TON_API_KEY=<your_ton_api_key>
 ```
 
+Optional environment variables:
+```
+DISK_ROOT=<your_disk_root>
+```
+
 Cloudflare is blocked in some regions. In this case, set up a proxy:
 ```
 JAVA_TOOL_OPTIONS=-Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=10801 -Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=10801
@@ -66,7 +73,7 @@ $rijndael.Dispose()
 
 You can get your `TON_API_KEY` here:
 ```
-Telegram, @toncenter
+Telegram @toncenter
 ```
 
 3. Run:

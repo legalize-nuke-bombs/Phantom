@@ -153,7 +153,6 @@ public class AuthService {
         diskUsage.setUser(user);
         diskUsage.setSize(0L);
         diskUsage.setFiles(0L);
-        diskUsage.setFavourites(0L);
         diskUsageRepository.save(diskUsage);
 
         return Map.of("recoveryKey", recoveryKey);

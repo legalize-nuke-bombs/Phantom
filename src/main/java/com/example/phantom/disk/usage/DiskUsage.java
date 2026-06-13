@@ -31,7 +31,4 @@ public class DiskUsage {
 
     @Column(nullable = false)
     private Long files;
-
-    @Column(nullable = false)
-    private Long favourites;
 }
