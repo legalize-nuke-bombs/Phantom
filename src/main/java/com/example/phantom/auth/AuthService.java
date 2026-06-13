@@ -1,5 +1,7 @@
 package com.example.phantom.auth;
 
+import com.example.phantom.disk.usage.DiskUsage;
+import com.example.phantom.disk.usage.DiskUsageRepository;
 import com.example.phantom.jwt.JwtTokenProvider;
 import com.example.phantom.crypto.CoinProvider;
 import com.example.phantom.crypto.CoinProviderRegistry;
@@ -36,6 +38,7 @@ public class AuthService {
     private final CryptoWalletRepository cryptoWalletRepository;
     private final RefStorageRepository refStorageRepository;
     private final RefMemberRepository refMemberRepository;
+    private final DiskUsageRepository diskUsageRepository;
 
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
@@ -44,13 +47,14 @@ public class AuthService {
     private final RecoveryKeyService recoveryKeyService;
     private final CoinProviderRegistry coinProviderRegistry;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessService ownerAccessService, RecoveryKeyService recoveryKeyService, CoinProviderRegistry coinProviderRegistry) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, DiskUsageRepository diskUsageRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessService ownerAccessService, RecoveryKeyService recoveryKeyService, CoinProviderRegistry coinProviderRegistry) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.experienceRepository = experienceRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.refStorageRepository = refStorageRepository;
         this.refMemberRepository = refMemberRepository;
+        this.diskUsageRepository = diskUsageRepository;
 
         this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
@@ -144,6 +148,13 @@ public class AuthService {
                 throw new RuntimeException("failed to create " + provider.coin() + " wallet");
             }
         }
+
+        DiskUsage diskUsage = new DiskUsage();
+        diskUsage.setUser(user);
+        diskUsage.setSize(0L);
+        diskUsage.setFiles(0L);
+        diskUsage.setFavourites(0L);
+        diskUsageRepository.save(diskUsage);
 
         return Map.of("recoveryKey", recoveryKey);
     }

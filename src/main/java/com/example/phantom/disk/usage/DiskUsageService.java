@@ -1,16 +1,16 @@
-package com.example.phantom.disk.stat;
+package com.example.phantom.disk.usage;
 
 import com.example.phantom.disk.FileRepository;
 import com.example.phantom.disk.favourite.FavouriteFileRepository;
 import org.springframework.stereotype.Service;
 
 @Service
-public class DiskStatService {
+public class DiskUsageService {
 
     private final FileRepository fileRepository;
     private final FavouriteFileRepository favouriteFileRepository;
 
-    public DiskStatService(FileRepository fileRepository, FavouriteFileRepository favouriteFileRepository) {
+    public DiskUsageService(FileRepository fileRepository, FavouriteFileRepository favouriteFileRepository) {
         this.fileRepository = fileRepository;
         this.favouriteFileRepository = favouriteFileRepository;
     }

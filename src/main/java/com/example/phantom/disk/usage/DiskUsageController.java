@@ -1,4 +1,4 @@
-package com.example.phantom.disk.stat;
+package com.example.phantom.disk.usage;
 
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -6,12 +6,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @Validated
-@RequestMapping("/api/disk/stats")
-public class DiskStatController {
+@RequestMapping("/api/disk/usage")
+public class DiskUsageController {
 
-    private final DiskStatService diskStatService;
+    private final DiskUsageService diskStatService;
 
-    public DiskStatController(DiskStatService diskStatService) {
+    public DiskUsageController(DiskUsageService diskStatService) {
         this.diskStatService = diskStatService;
     }
 }
