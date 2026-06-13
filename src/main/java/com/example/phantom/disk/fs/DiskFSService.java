@@ -1,6 +1,5 @@
-package com.example.phantom.disk.cleaner;
+package com.example.phantom.disk.fs;
 
-import com.example.phantom.disk.DiskFilesystemService;
 import com.example.phantom.disk.FileRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -8,14 +7,11 @@ import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-public class DiskCleanerService {
-
+public class DiskFSService {
     private final FileRepository fileRepository;
-    private final DiskFilesystemService diskFilesystemService;
 
-    public DiskCleanerService(FileRepository fileRepository, DiskFilesystemService diskFilesystemService) {
+    public DiskFSService(FileRepository fileRepository) {
         this.fileRepository = fileRepository;
-        this.diskFilesystemService = diskFilesystemService;
     }
 
     @Scheduled(fixedDelay = 1L * 24 * 60 * 60 * 1000)

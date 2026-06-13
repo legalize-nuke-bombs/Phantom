@@ -1,6 +1,7 @@
 package com.example.phantom.disk;
 
 import com.example.phantom.disk.favourite.FavouriteFileRepository;
+import com.example.phantom.disk.fs.DiskFSService;
 import com.example.phantom.disk.usage.DiskUsageService;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
@@ -26,12 +27,12 @@ public class DiskService {
     private final FileRepository fileRepository;
     private final FavouriteFileRepository favouriteFileRepository;
     private final UsageLimitService usageLimitService;
-    private final DiskFilesystemService diskFilesystemService;
+    private final DiskFSService diskFilesystemService;
     private final DiskSettings diskSettings;
     private final DiskUsageService diskStatService;
     private final ProfileService profileService;
 
-    public DiskService(UserRepository userRepository, LevelFeatureService levelFeatureService, FileRepository fileRepository, FavouriteFileRepository favouriteFileRepository, UsageLimitService usageLimitService, DiskFilesystemService diskFilesystemService, DiskSettings diskSettings, DiskUsageService diskStatService, ProfileService profileService) {
+    public DiskService(UserRepository userRepository, LevelFeatureService levelFeatureService, FileRepository fileRepository, FavouriteFileRepository favouriteFileRepository, UsageLimitService usageLimitService, DiskFSService diskFilesystemService, DiskSettings diskSettings, DiskUsageService diskStatService, ProfileService profileService) {
         this.userRepository = userRepository;
         this.levelFeatureService = levelFeatureService;
         this.fileRepository = fileRepository;
