@@ -27,9 +27,6 @@ public class File {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
 
-    @Column(nullable = false)
-    private Boolean visible;
-
     @Column(nullable = false, length = FileConstants.FILENAME_MAX_LENGTH)
     private String originalName;
 
