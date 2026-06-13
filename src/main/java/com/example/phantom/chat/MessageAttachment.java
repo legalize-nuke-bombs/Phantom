@@ -2,6 +2,9 @@ package com.example.phantom.chat;
 
 import com.example.phantom.disk.File;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -9,6 +12,9 @@ import org.hibernate.annotations.OnDeleteAction;
 @Table(name = "message_attachments", indexes = {
         @Index(name = "idx_message_attachments_message_id", columnList = "message_id")
 })
+@Getter
+@Setter
+@NoArgsConstructor
 public class MessageAttachment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
