@@ -2,11 +2,13 @@ package com.example.phantom.experience;
 
 import lombok.Getter;
 
+import java.util.Set;
+
 @Getter
 public enum Level {
     Whisper(0L),
-    Echo(500L),
-    Shade(2500L),
+    Echo(500L, Set.of(LevelFeature.SEND_MESSAGE, LevelFeature.SEND_PRESENT, LevelFeature.DISK_BASE)),
+    Shade(2500L, Set.of(LevelFeature.DISK_ADVANCED)),
     Wisp(5000L),
     Spectre(10000L),
     Phantom(25000L),
@@ -15,9 +17,15 @@ public enum Level {
     ;
 
     private final Long amount;
+    private final Set<LevelFeature> features;
+
+    Level(Long amount, Set<LevelFeature> features) {
+        this.amount = amount;
+        this.features = features;
+    }
 
     Level(Long amount) {
         this.amount = amount;
+        this.features = Set.of();
     }
-
 }

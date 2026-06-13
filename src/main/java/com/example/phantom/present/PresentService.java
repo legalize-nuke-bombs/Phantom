@@ -2,8 +2,8 @@ package com.example.phantom.present;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.experience.Experience;
-import com.example.phantom.experience.ExperienceRepository;
+import com.example.phantom.experience.LevelFeature;
+import com.example.phantom.experience.LevelFeatureService;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
@@ -26,15 +26,15 @@ import java.util.Objects;
 public class PresentService {
 
     private final UserRepository userRepository;
-    private final ExperienceRepository experienceRepository;
+    private final LevelFeatureService levelFeatureService;
     private final WalletService walletService;
     private final PresentRepository presentRepository;
     private final UsageLimitService usageLimitService;
     private final ProfileService profileService;
 
-    public PresentService(UserRepository userRepository, ExperienceRepository experienceRepository, WalletService walletService, PresentRepository presentRepository, UsageLimitService usageLimitService, ProfileService profileService) {
+    public PresentService(UserRepository userRepository, LevelFeatureService levelFeatureService, WalletService walletService, PresentRepository presentRepository, UsageLimitService usageLimitService, ProfileService profileService) {
         this.userRepository = userRepository;
-        this.experienceRepository = experienceRepository;
+        this.levelFeatureService = levelFeatureService;
         this.walletService = walletService;
         this.presentRepository = presentRepository;
         this.usageLimitService = usageLimitService;
@@ -72,10 +72,7 @@ public class PresentService {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
         User receiver = userRepository.findById(receiverId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-        Experience experience = experienceRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND));
-        if (experience.getAmountCached() < PresentConstants.MIN_EXPERIENCE) {
-            throw new ApiException(ErrorCode.INSUFFICIENT_EXPERIENCE);
-        }
+        levelFeatureService.validateAccess(userId, LevelFeature.SEND_PRESENT);
 
         usageLimitService.startAction(user, UsageAction.SEND_PRESENT, 1);
 

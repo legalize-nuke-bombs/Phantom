@@ -7,8 +7,8 @@ import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepositor
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.experience.Experience;
-import com.example.phantom.experience.ExperienceRepository;
+import com.example.phantom.experience.LevelFeature;
+import com.example.phantom.experience.LevelFeatureService;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.usagelimit.UsageAction;
@@ -30,7 +30,7 @@ import java.util.Objects;
 public class ChatService {
 
     private final UserRepository userRepository;
-    private final ExperienceRepository experienceRepository;
+    private final LevelFeatureService levelFeatureService;
     private final MessageRepository messageRepository;
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
@@ -38,9 +38,9 @@ public class ChatService {
 
     private final UsageLimitService usageLimitService;
 
-    public ChatService(UserRepository userRepository, ExperienceRepository experienceRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, UsageLimitService usageLimitService) {
+    public ChatService(UserRepository userRepository, LevelFeatureService levelFeatureService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, UsageLimitService usageLimitService) {
         this.userRepository = userRepository;
-        this.experienceRepository = experienceRepository;
+        this.levelFeatureService = levelFeatureService;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
@@ -81,9 +81,7 @@ public class ChatService {
         }
 
         if (!user.getRole().chatModeratorAccess()) {
-            if (getExperience(user.getId()).getAmountCached() < ChatConstants.MIN_EXPERIENCE) {
-                throw new ApiException(ErrorCode.INSUFFICIENT_EXPERIENCE);
-            }
+            levelFeatureService.validateAccess(userId, LevelFeature.SEND_MESSAGE);
         }
 
         usageLimitService.startAction(user, UsageAction.SEND_MESSAGE, 1L);
@@ -133,9 +131,5 @@ public class ChatService {
 
     private Message getMessage(Long messageId) {
         return messageRepository.findById(messageId).orElseThrow(() -> new ApiException(ErrorCode.MESSAGE_NOT_FOUND));
-    }
-
-    private Experience getExperience(Long userId) {
-        return experienceRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND));
     }
 }
