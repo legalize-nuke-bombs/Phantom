@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private static final long MAX_REQUESTS = 50;
+    private static final long MAX_REQUESTS = 100;
 
     private final ConcurrentHashMap<String, Long> counts = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
