@@ -42,7 +42,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    @Scheduled(fixedDelay = 10 * 1000)
+    @Scheduled(fixedDelay = 60 * 1000)
     public void resetCounts() {
         counts.clear();
     }
