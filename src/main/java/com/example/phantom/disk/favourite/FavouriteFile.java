@@ -10,7 +10,9 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
-@Table(name = "favourite_files")
+@Table(name = "favourite_files", indexes = {
+        @Index(name = "idx_favourite_files_user_id", columnList = "user_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
