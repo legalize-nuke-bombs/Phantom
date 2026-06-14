@@ -1,7 +1,5 @@
 package com.example.phantom.disk;
 
-import com.example.phantom.disk.favourite.DiskFavouritesService;
-import com.example.phantom.disk.favourite.FavouriteFileRepresentation;
 import com.example.phantom.disk.fs.DiskFSService;
 import com.example.phantom.disk.registry.DiskRegistryService;
 import com.example.phantom.disk.usage.DiskUsageService;
@@ -24,16 +22,14 @@ public class DiskService {
 
     private final DiskRegistryService diskRegistryService;
     private final DiskFSService diskFilesystemService;
-    private final DiskFavouritesService diskFavouritesService;
     private final DiskUsageService diskUsageService;
     private final DiskSettings diskSettings;
     private final LevelFeatureService levelFeatureService;
     private final RateLimitService rateLimitService;
 
-    public DiskService(DiskRegistryService diskRegistryService, DiskFSService diskFilesystemService, DiskFavouritesService diskFavouritesService, DiskUsageService diskUsageService, DiskSettings diskSettings, LevelFeatureService levelFeatureService, RateLimitService rateLimitService) {
+    public DiskService(DiskRegistryService diskRegistryService, DiskFSService diskFilesystemService, DiskUsageService diskUsageService, DiskSettings diskSettings, LevelFeatureService levelFeatureService, RateLimitService rateLimitService) {
         this.diskRegistryService = diskRegistryService;
         this.diskFilesystemService = diskFilesystemService;
-        this.diskFavouritesService = diskFavouritesService;
         this.diskUsageService = diskUsageService;
         this.diskSettings = diskSettings;
         this.levelFeatureService = levelFeatureService;
@@ -102,19 +98,6 @@ public class DiskService {
     public void delete(Long userId, UUID fileId) {
         diskRegistryService.unregister(userId, fileId);
         diskFilesystemService.deleteQuietly(fileId);
-    }
-
-    public List<FavouriteFileRepresentation> getFavourites(Long userId, Long before, Integer limit) {
-        rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
-        return diskFavouritesService.get(userId, before, limit);
-    }
-
-    public void addFavourite(Long userId, FileIdRequest request) {
-        diskFavouritesService.post(userId, request);
-    }
-
-    public void removeFavourite(Long userId, FileIdRequest request) {
-        diskFavouritesService.delete(userId, request);
     }
 
     public DiskQuota getPersonalUsage(Long userId) {
