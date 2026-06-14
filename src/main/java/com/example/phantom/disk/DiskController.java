@@ -69,7 +69,7 @@ public class DiskController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .header("X-Content-Type-Options", "nosniff")
-                .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePrivate().immutable())
                 .contentType(contentType)
                 .contentLength(download.size())
                 .body(download.resource());
