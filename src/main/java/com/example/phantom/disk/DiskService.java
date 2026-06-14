@@ -63,7 +63,7 @@ public class DiskService {
         }
 
         if (multipart.getSize() >= LOGGER_MIN_FILE_SIZE) {
-            log.info("user {} is uploading big file ({} bytes) ...", userId, multipart.getSize());
+            log.info("user {} is uploading big file ({} bytes)", userId, multipart.getSize());
         }
 
         boolean tryCompress = Boolean.TRUE.equals(useImageCompression)
@@ -118,7 +118,7 @@ public class DiskService {
         rateLimitService.startAction(userId, RateLimitAction.DOWNLOAD, file.getSize());
 
         if (file.getSize() >= LOGGER_MIN_FILE_SIZE) {
-            log.info("user {} is downloading big file ({} bytes) ...", userId, file.getSize());
+            log.info("user {} is downloading big file ({} bytes)", userId, file.getSize());
         }
 
         Resource resource = diskFilesystemService.load(file.getId());
