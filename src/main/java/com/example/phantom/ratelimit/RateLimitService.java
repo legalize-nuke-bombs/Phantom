@@ -32,9 +32,9 @@ public class RateLimitService {
         this.rules = new ConcurrentHashMap<>();
         this.states = new ConcurrentHashMap<>();
 
-        this.registerRule(RateLimitAction.PAGINATION, null, new RateLimitRule(20L * 100, 60L));
-        this.registerRule(RateLimitAction.CRYPTO, null, new RateLimitRule(10L, 60L));
-        this.registerRule(RateLimitAction.LOTTERY, null, new RateLimitRule(10L, 60L));
+        this.registerRule(RateLimitAction.PAGINATION, null, new RateLimitRule(40L * 100, 60L));
+        this.registerRule(RateLimitAction.CRYPTO, null, new RateLimitRule(20L, 60L));
+        this.registerRule(RateLimitAction.LOTTERY, null, new RateLimitRule(20L, 60L));
         this.registerRule(RateLimitAction.SEND_MESSAGE, LevelFeature.SEND_MESSAGE, new RateLimitRule(100L, 10L * 60));
         this.registerRule(RateLimitAction.SEND_PRESENT, LevelFeature.SEND_PRESENT, new RateLimitRule(100L, 10L * 60));
 
