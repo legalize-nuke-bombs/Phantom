@@ -54,7 +54,7 @@ public class ChatService {
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<Message> messages = messageRepository.findAllWithUsersPageable(before, pageable);
+        List<Message> messages = messageRepository.findAllWithAttachmentsAndUsersPageable(before, pageable);
 
         List<User> users = messages.stream().map(Message::getUser).toList();
         Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
