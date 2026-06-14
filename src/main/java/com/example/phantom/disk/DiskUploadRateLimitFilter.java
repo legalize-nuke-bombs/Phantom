@@ -1,6 +1,7 @@
 package com.example.phantom.disk;
 
 import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,9 +36,13 @@ public class DiskUploadRateLimitFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         if ("POST".equalsIgnoreCase(request.getMethod()) && DISK_UPLOAD_PATH.equals(request.getRequestURI())) {
-            Long userId = currentUserId();
             long contentLength = request.getContentLengthLong();
-            if (userId != null && contentLength > 0) {
+            if (contentLength < 0) {
+                writeProblem(response, new ApiException(ErrorCode.LENGTH_REQUIRED));
+                return;
+            }
+            Long userId = currentUserId();
+            if (userId != null) {
                 try {
                     rateLimitService.startAction(userId, RateLimitAction.UPLOAD, contentLength);
                 }

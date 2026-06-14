@@ -33,12 +33,6 @@ public class LevelFeatureService {
         }
     }
 
-    public void validateAccess(Long userId, LevelFeature feature) {
-        if (!haveAccess(userId, feature)) {
-            throw new ApiException(ErrorCode.INSUFFICIENT_EXPERIENCE);
-        }
-    }
-
     public boolean haveAccess(Long userId, LevelFeature feature) {
         return getFeatures(userId).contains(feature);
     }

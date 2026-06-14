@@ -52,8 +52,6 @@ public class DiskService {
     }
 
     public FileRepresentation upload(Long userId, MultipartFile multipart, Boolean useImageCompression) {
-        levelFeatureService.validateAccess(userId, LevelFeature.DISK_BASE);
-
         String name = multipart.getOriginalFilename();
         if (name == null || name.isBlank()) {
             name = "file";
@@ -110,8 +108,6 @@ public class DiskService {
     }
 
     public Download download(Long userId, UUID fileId) {
-        levelFeatureService.validateAccess(userId, LevelFeature.DISK_BASE);
-
         File file = diskRegistryService.getFile(fileId);
         rateLimitService.startAction(userId, RateLimitAction.DOWNLOAD, file.getSize());
 
