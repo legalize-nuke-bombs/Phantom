@@ -1,6 +1,7 @@
 package com.example.phantom.disk;
 
 import com.example.phantom.disk.fs.DiskFSService;
+import com.example.phantom.disk.image.ImageCompressionService;
 import com.example.phantom.disk.registry.DiskRegistryService;
 import com.example.phantom.disk.usage.DiskUsageService;
 import com.example.phantom.exception.ApiException;
@@ -9,15 +10,18 @@ import com.example.phantom.experience.LevelFeature;
 import com.example.phantom.experience.LevelFeatureService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class DiskService {
 
     private final DiskRegistryService diskRegistryService;
@@ -26,14 +30,16 @@ public class DiskService {
     private final DiskSettings diskSettings;
     private final LevelFeatureService levelFeatureService;
     private final RateLimitService rateLimitService;
+    private final ImageCompressionService imageCompressionService;
 
-    public DiskService(DiskRegistryService diskRegistryService, DiskFSService diskFilesystemService, DiskUsageService diskUsageService, DiskSettings diskSettings, LevelFeatureService levelFeatureService, RateLimitService rateLimitService) {
+    public DiskService(DiskRegistryService diskRegistryService, DiskFSService diskFilesystemService, DiskUsageService diskUsageService, DiskSettings diskSettings, LevelFeatureService levelFeatureService, RateLimitService rateLimitService, ImageCompressionService imageCompressionService) {
         this.diskRegistryService = diskRegistryService;
         this.diskFilesystemService = diskFilesystemService;
         this.diskUsageService = diskUsageService;
         this.diskSettings = diskSettings;
         this.levelFeatureService = levelFeatureService;
         this.rateLimitService = rateLimitService;
+        this.imageCompressionService = imageCompressionService;
     }
 
     public DiskSettings getSettings() {
@@ -56,18 +62,32 @@ public class DiskService {
             throw new ApiException(ErrorCode.FILENAME_TOO_LONG);
         }
 
-        long size = multipart.getSize();
-        rateLimitService.startAction(userId, RateLimitAction.UPLOAD, size);
-
-        if (useImageCompression == true && (multipart.getContentType() != null && multipart.getContentType().contains("image"))) {
-            // TODO compressing
-        }
+        boolean tryCompress = Boolean.TRUE.equals(useImageCompression)
+                && multipart.getContentType() != null
+                && multipart.getContentType().startsWith("image");
 
         UUID id = UUID.randomUUID();
+        long size;
+        String storedName = name;
         try {
-            diskFilesystemService.store(id, multipart);
+            byte[] compressed = null;
+            if (tryCompress) {
+                try (InputStream in = multipart.getInputStream()) {
+                    compressed = imageCompressionService.compress(in);
+                }
+            }
+            if (compressed != null) {
+                diskFilesystemService.store(id, compressed);
+                size = compressed.length;
+                storedName = withJpegExtension(name);
+            }
+            else {
+                diskFilesystemService.store(id, multipart);
+                size = multipart.getSize();
+            }
         }
         catch (IOException e) {
+            log.warn("failed to store file {}", multipart, e);
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
         }
 
@@ -75,12 +95,18 @@ public class DiskService {
                 ? diskSettings.getExtendedRule()
                 : diskSettings.getBaseRule();
         try {
-            return diskRegistryService.register(userId, id, name, size, rule);
+            return diskRegistryService.register(userId, id, storedName, size, rule);
         }
         catch (RuntimeException e) {
             diskFilesystemService.deleteQuietly(id);
             throw e;
         }
+    }
+
+    private static String withJpegExtension(String name) {
+        int dot = name.lastIndexOf('.');
+        String base = dot > 0 ? name.substring(0, dot) : name;
+        return base + ".jpg";
     }
 
     public Download download(Long userId, UUID fileId) {

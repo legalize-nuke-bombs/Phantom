@@ -28,6 +28,12 @@ public class DiskFSService {
         }
     }
 
+    public void store(UUID id, byte[] bytes) throws IOException {
+        Path target = pathFor(id);
+        Files.createDirectories(target.getParent());
+        Files.write(target, bytes);
+    }
+
     public Resource load(UUID id) {
         return new FileSystemResource(pathFor(id));
     }

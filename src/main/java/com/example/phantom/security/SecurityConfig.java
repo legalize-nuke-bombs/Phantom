@@ -1,7 +1,10 @@
 package com.example.phantom.security;
 
+import com.example.phantom.disk.DiskUploadRateLimitFilter;
 import com.example.phantom.jwt.JwtAuthEntryPoint;
 import com.example.phantom.jwt.JwtAuthFilter;
+import com.example.phantom.ratelimit.RateLimitService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -24,7 +27,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           RateLimitService rateLimitService,
+                                           ObjectMapper objectMapper) throws Exception {
         return http
                 .cors(cors -> cors.configurationSource(request -> {
                     var config = new org.springframework.web.cors.CorsConfiguration();
@@ -47,6 +52,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(jwtAuthEntryPoint)
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new DiskUploadRateLimitFilter(rateLimitService, objectMapper), JwtAuthFilter.class)
                 .build();
     }
 }
