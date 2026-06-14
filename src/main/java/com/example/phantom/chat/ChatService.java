@@ -5,6 +5,7 @@ import com.example.phantom.chat.banlist.BanRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
+import com.example.phantom.disk.File;
 import com.example.phantom.disk.FileRepository;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
@@ -85,13 +86,16 @@ public class ChatService {
         rateLimitService.startAction(user.getId(), RateLimitAction.SEND_MESSAGE, 1L);
 
         String content = request.getContent();
+
         UUID attachmentId = request.getAttachmentId();
+        File attachment = null;
+        if (attachmentId != null) attachment = fileRepository.findById(attachmentId).orElseThrow(() -> new ApiException(ErrorCode.FILE_NOT_FOUND));
 
         Message message = new Message();
         message.setUser(user);
         message.setTimestamp(Instant.now().getEpochSecond());
         message.setContent(content);
-        message.setAttachment(fileRepository.findById(attachmentId).orElseThrow(() -> new ApiException(ErrorCode.FILE_NOT_FOUND)));
+        message.setAttachment(attachment);
         message = messageRepository.save(message);
 
         return new MessageRepresentation(message, profileService.getCardForUser(userId, user));
