@@ -32,6 +32,8 @@ public class DiskService {
     private final RateLimitService rateLimitService;
     private final ImageCompressionService imageCompressionService;
 
+    private static final long LOGGER_MIN_FILE_SIZE = 1024 * 1024;
+
     public DiskService(DiskRegistryService diskRegistryService, DiskFSService diskFilesystemService, DiskUsageService diskUsageService, DiskSettings diskSettings, LevelFeatureService levelFeatureService, RateLimitService rateLimitService, ImageCompressionService imageCompressionService) {
         this.diskRegistryService = diskRegistryService;
         this.diskFilesystemService = diskFilesystemService;
@@ -58,6 +60,10 @@ public class DiskService {
         }
         if (name.length() > FileConstants.FILENAME_MAX_LENGTH) {
             throw new ApiException(ErrorCode.FILENAME_TOO_LONG);
+        }
+
+        if (multipart.getSize() >= LOGGER_MIN_FILE_SIZE) {
+            log.info("user {} is uploading big file ({} bytes) ...", userId, multipart.getSize());
         }
 
         boolean tryCompress = Boolean.TRUE.equals(useImageCompression)
@@ -110,6 +116,10 @@ public class DiskService {
     public Download download(Long userId, UUID fileId) {
         File file = diskRegistryService.getFile(fileId);
         rateLimitService.startAction(userId, RateLimitAction.DOWNLOAD, file.getSize());
+
+        if (file.getSize() >= LOGGER_MIN_FILE_SIZE) {
+            log.info("user {} is downloading big file ({} bytes) ...", userId, file.getSize());
+        }
 
         Resource resource = diskFilesystemService.load(file.getId());
         if (!resource.exists()) {
