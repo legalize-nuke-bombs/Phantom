@@ -26,15 +26,13 @@ import java.util.Objects;
 public class PresentService {
 
     private final UserRepository userRepository;
-    private final LevelFeatureService levelFeatureService;
     private final WalletService walletService;
     private final PresentRepository presentRepository;
     private final RateLimitService rateLimitService;
     private final ProfileService profileService;
 
-    public PresentService(UserRepository userRepository, LevelFeatureService levelFeatureService, WalletService walletService, PresentRepository presentRepository, RateLimitService rateLimitService, ProfileService profileService) {
+    public PresentService(UserRepository userRepository, WalletService walletService, PresentRepository presentRepository, RateLimitService rateLimitService, ProfileService profileService) {
         this.userRepository = userRepository;
-        this.levelFeatureService = levelFeatureService;
         this.walletService = walletService;
         this.presentRepository = presentRepository;
         this.rateLimitService = rateLimitService;
@@ -71,8 +69,6 @@ public class PresentService {
 
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
         User receiver = userRepository.findById(receiverId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-
-        levelFeatureService.validateAccess(userId, LevelFeature.SEND_PRESENT);
 
         rateLimitService.startAction(user.getId(), RateLimitAction.SEND_PRESENT, 1);
 

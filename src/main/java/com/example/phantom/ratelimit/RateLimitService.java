@@ -35,8 +35,8 @@ public class RateLimitService {
         this.registerRule(RateLimitAction.PAGINATION, null, new RateLimitRule(20L * 100, 60L));
         this.registerRule(RateLimitAction.CRYPTO, null, new RateLimitRule(10L, 60L));
         this.registerRule(RateLimitAction.LOTTERY, null, new RateLimitRule(10L, 60L));
-        this.registerRule(RateLimitAction.SEND_MESSAGE, null, new RateLimitRule(100L, 10L * 60));
-        this.registerRule(RateLimitAction.SEND_PRESENT, null, new RateLimitRule(100L, 10L * 60));
+        this.registerRule(RateLimitAction.SEND_MESSAGE, LevelFeature.SEND_MESSAGE, new RateLimitRule(100L, 10L * 60));
+        this.registerRule(RateLimitAction.SEND_PRESENT, LevelFeature.SEND_PRESENT, new RateLimitRule(100L, 10L * 60));
 
         this.registerRule(RateLimitAction.DOWNLOAD, null, new RateLimitRule(50L * 1024 * 1024, 8L * 3600));
 

@@ -29,7 +29,6 @@ import java.util.*;
 public class ChatService {
 
     private final UserRepository userRepository;
-    private final LevelFeatureService levelFeatureService;
     private final MessageRepository messageRepository;
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
@@ -37,9 +36,8 @@ public class ChatService {
     private final FileRepository fileRepository;
     private final RateLimitService rateLimitService;
 
-    public ChatService(UserRepository userRepository, LevelFeatureService levelFeatureService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, RateLimitService rateLimitService, FileRepository fileRepository) {
+    public ChatService(UserRepository userRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, RateLimitService rateLimitService, FileRepository fileRepository) {
         this.userRepository = userRepository;
-        this.levelFeatureService = levelFeatureService;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
@@ -79,9 +77,7 @@ public class ChatService {
             throw new ApiException(ErrorCode.BANNED);
         }
 
-        if (!user.getRole().getChatModeratorAccess()) {
-            levelFeatureService.validateAccess(userId, LevelFeature.SEND_MESSAGE);
-        }
+        rateLimitService.startAction(user.getId(), RateLimitAction.SEND_MESSAGE, 1L);
 
         String content = request.getContent();
 
@@ -92,8 +88,6 @@ public class ChatService {
         if (content.isBlank() && attachment == null) {
             throw new ApiException(ErrorCode.EMPTY_REQUEST);
         }
-
-        rateLimitService.startAction(user.getId(), RateLimitAction.SEND_MESSAGE, 1L);
 
         Message message = new Message();
         message.setUser(user);
