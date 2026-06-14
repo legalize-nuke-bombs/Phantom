@@ -17,6 +17,6 @@ public class MessageRepresentation {
         this.profileCard = profileCard;
         this.timestamp = message.getTimestamp();
         this.content = message.getContent();
-        this.attachment = new FileRepresentation(message.getAttachment(), profileCard);
+        this.attachment = message.getAttachment() != null ? new FileRepresentation(message.getAttachment(), profileCard) : null;
     }
 }
