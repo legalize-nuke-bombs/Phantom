@@ -30,7 +30,8 @@ public class Message {
     @Column(nullable = false, length = ChatConstants.MAX_MESSAGE_CONTENT_LENGTH)
     private String content;
 
-    @Column
+    @ManyToOne
+    @JoinColumn(name = "attachment_id")
     @OnDelete(action = OnDeleteAction.SET_NULL)
     private File attachment;
 }
