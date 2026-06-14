@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @Slf4j
@@ -34,9 +35,11 @@ public class DiskCleanerService {
             return;
         }
 
-        AtomicInteger removed = new AtomicInteger();
+        AtomicLong removed = new AtomicLong();
+        AtomicLong total = new AtomicLong();
         try (var stream = Files.walk(rootPath)) {
             stream.filter(Files::isRegularFile).forEach(path -> {
+                total.incrementAndGet();
                 UUID id;
                 try {
                     id = UUID.fromString(path.getFileName().toString());
@@ -61,6 +64,6 @@ public class DiskCleanerService {
             return;
         }
 
-        log.info("cleaning finished, removed {} files", removed.get());
+        log.info("cleaning finished, removed {} / {} files", removed.get(), total.get());
     }
 }
