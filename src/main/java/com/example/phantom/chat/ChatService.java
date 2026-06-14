@@ -5,6 +5,7 @@ import com.example.phantom.chat.banlist.BanRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
+import com.example.phantom.disk.FileRepository;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.LevelFeature;
@@ -21,10 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @Service
 public class ChatService {
@@ -35,17 +33,17 @@ public class ChatService {
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
     private final ProfileService profileService;
-
+    private final FileRepository fileRepository;
     private final RateLimitService rateLimitService;
 
-    public ChatService(UserRepository userRepository, LevelFeatureService levelFeatureService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, RateLimitService rateLimitService) {
+    public ChatService(UserRepository userRepository, LevelFeatureService levelFeatureService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, RateLimitService rateLimitService, FileRepository fileRepository) {
         this.userRepository = userRepository;
         this.levelFeatureService = levelFeatureService;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
         this.profileService = profileService;
-
+        this.fileRepository = fileRepository;
         this.rateLimitService = rateLimitService;
     }
 
@@ -87,11 +85,13 @@ public class ChatService {
         rateLimitService.startAction(user.getId(), RateLimitAction.SEND_MESSAGE, 1L);
 
         String content = request.getContent();
+        UUID attachmentId = request.getAttachmentId();
 
         Message message = new Message();
         message.setUser(user);
         message.setTimestamp(Instant.now().getEpochSecond());
         message.setContent(content);
+        message.setAttachment(fileRepository.findById(attachmentId).orElseThrow(() -> new ApiException(ErrorCode.FILE_NOT_FOUND)));
         message = messageRepository.save(message);
 
         return new MessageRepresentation(message, profileService.getCardForUser(userId, user));

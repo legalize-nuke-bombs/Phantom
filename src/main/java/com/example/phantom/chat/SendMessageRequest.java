@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,4 +17,6 @@ public class SendMessageRequest {
     @NotBlank
     @Size(max = ChatConstants.MAX_MESSAGE_CONTENT_LENGTH)
     private String content;
+
+    private UUID attachmentId;
 }

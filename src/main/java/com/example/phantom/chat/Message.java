@@ -1,5 +1,6 @@
 package com.example.phantom.chat;
 
+import com.example.phantom.disk.File;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -28,4 +29,8 @@ public class Message {
 
     @Column(nullable = false, length = ChatConstants.MAX_MESSAGE_CONTENT_LENGTH)
     private String content;
+
+    @Column
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    private File attachment;
 }
