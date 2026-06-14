@@ -45,7 +45,7 @@ public class DiskService {
         return diskRegistryService.getFiles(userId, before, limit);
     }
 
-    public FileRepresentation upload(Long userId, MultipartFile multipart) {
+    public FileRepresentation upload(Long userId, MultipartFile multipart, Boolean useImageCompression) {
         levelFeatureService.validateAccess(userId, LevelFeature.DISK_BASE);
 
         String name = multipart.getOriginalFilename();
@@ -56,15 +56,14 @@ public class DiskService {
             throw new ApiException(ErrorCode.FILENAME_TOO_LONG);
         }
 
-        DiskQuota rule = levelFeatureService.haveAccess(userId, LevelFeature.DISK_ADVANCED)
-                ? diskSettings.getExtendedRule()
-                : diskSettings.getBaseRule();
-
         long size = multipart.getSize();
         rateLimitService.startAction(userId, RateLimitAction.UPLOAD, size);
 
-        UUID id = UUID.randomUUID();
+        if (useImageCompression == true && (multipart.getContentType() != null && multipart.getContentType().contains("image"))) {
+            // TODO compressing
+        }
 
+        UUID id = UUID.randomUUID();
         try {
             diskFilesystemService.store(id, multipart);
         }
@@ -72,6 +71,9 @@ public class DiskService {
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
         }
 
+        DiskQuota rule = levelFeatureService.haveAccess(userId, LevelFeature.DISK_ADVANCED)
+                ? diskSettings.getExtendedRule()
+                : diskSettings.getBaseRule();
         try {
             return diskRegistryService.register(userId, id, name, size, rule);
         }

@@ -49,8 +49,9 @@ public class DiskController {
 
     @PostMapping("/files")
     public FileRepresentation upload(@AuthenticationPrincipal Long userId,
-                                     @RequestParam("file") MultipartFile file) {
-        return diskService.upload(userId, file);
+                                     @RequestParam("file") MultipartFile file,
+                                     @RequestParam(defaultValue = "true") Boolean useImageCompression) {
+        return diskService.upload(userId, file, useImageCompression);
     }
 
     @GetMapping("/files/{id}")
