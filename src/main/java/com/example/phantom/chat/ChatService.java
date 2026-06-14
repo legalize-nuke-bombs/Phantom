@@ -83,13 +83,17 @@ public class ChatService {
             levelFeatureService.validateAccess(userId, LevelFeature.SEND_MESSAGE);
         }
 
-        rateLimitService.startAction(user.getId(), RateLimitAction.SEND_MESSAGE, 1L);
-
         String content = request.getContent();
 
         UUID attachmentId = request.getAttachmentId();
         File attachment = null;
         if (attachmentId != null) attachment = fileRepository.findById(attachmentId).orElseThrow(() -> new ApiException(ErrorCode.FILE_NOT_FOUND));
+
+        if (content.isBlank() && attachment == null) {
+            throw new ApiException(ErrorCode.EMPTY_REQUEST);
+        }
+
+        rateLimitService.startAction(user.getId(), RateLimitAction.SEND_MESSAGE, 1L);
 
         Message message = new Message();
         message.setUser(user);
