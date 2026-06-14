@@ -17,6 +17,7 @@ import com.example.phantom.ref.RefStorageRepository;
 import com.example.phantom.user.*;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 
 @Service
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -155,6 +157,8 @@ public class AuthService {
         diskUsage.setFiles(0L);
         diskUsageRepository.save(diskUsage);
 
+        log.info("user {} registered", user.getId());
+
         return Map.of("recoveryKey", recoveryKey);
     }
 
@@ -164,6 +168,7 @@ public class AuthService {
 
         User user = userRepository.findByUsername(username).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            log.info("login rejected: invalid password for user {}", user.getId());
             throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
@@ -178,9 +183,9 @@ public class AuthService {
 
         RecoveryKeyService.KeyPair recoveryKeyPair = recoveryKeyService.recoveryKeyToKeyPair(recoveryKey);
 
-        User user = userRepository.findByPublicRecoveryKey(recoveryKeyPair.publicKey()).orElseThrow(() -> new ApiException(ErrorCode.INVALID_RECOVERY_KEY));
-
-        if (!passwordEncoder.matches(recoveryKeyPair.privateKey(), user.getPrivateRecoveryKeyHash())) {
+        User user = userRepository.findByPublicRecoveryKey(recoveryKeyPair.publicKey()).orElse(null);
+        if (user == null || !passwordEncoder.matches(recoveryKeyPair.privateKey(), user.getPrivateRecoveryKeyHash())) {
+            log.info("recover rejected: invalid recovery key");
             throw new ApiException(ErrorCode.INVALID_RECOVERY_KEY);
         }
 
