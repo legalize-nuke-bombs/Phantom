@@ -88,4 +88,8 @@ public enum ErrorCode {
     ErrorCode(HttpStatus status) {
         this.status = status;
     }
+
+    public HttpStatus getStatus() {
+        return status;
+    }
 }

@@ -4,6 +4,7 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.LevelFeature;
 import com.example.phantom.experience.LevelFeatureService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Slf4j
 public class RateLimitService {
 
     private final LevelFeatureService levelFeatureService;
@@ -56,12 +58,13 @@ public class RateLimitService {
 
         Map<LevelFeature, RateLimitRule> actionRules = rules.get(action);
         if (actionRules == null) {
-            throw new IllegalArgumentException("action not supported");
+            log.warn("unknown action {}", action);
+            throw new ApiException(ErrorCode.NO_PERMISSION);
         }
 
         RateLimitRule rule = resolveRule(actionRules, levelFeatureService.getFeatures(userId));
         if (rule == null) {
-            throw new RuntimeException("rule not found");
+            throw new ApiException(ErrorCode.NO_PERMISSION);
         }
 
         states.compute(userId, (key1, userStates) -> {

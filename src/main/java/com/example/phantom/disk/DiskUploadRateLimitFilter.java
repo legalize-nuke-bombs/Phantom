@@ -40,7 +40,8 @@ public class DiskUploadRateLimitFilter extends OncePerRequestFilter {
             if (userId != null && contentLength > 0) {
                 try {
                     rateLimitService.startAction(userId, RateLimitAction.UPLOAD, contentLength);
-                } catch (ApiException e) {
+                }
+                catch (ApiException e) {
                     writeProblem(response, e);
                     return;
                 }
@@ -56,12 +57,13 @@ public class DiskUploadRateLimitFilter extends OncePerRequestFilter {
     }
 
     private void writeProblem(HttpServletResponse response, ApiException e) throws IOException {
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS);
+        HttpStatus status = e.getCode().getStatus();
+        ProblemDetail problem = ProblemDetail.forStatus(status);
         problem.setProperty("code", e.getCode().name());
         if (e.getMessage() != null) {
             problem.setDetail(e.getMessage());
         }
-        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+        response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         objectMapper.writeValue(response.getOutputStream(), problem);
     }

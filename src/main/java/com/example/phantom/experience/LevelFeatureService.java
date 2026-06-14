@@ -35,7 +35,7 @@ public class LevelFeatureService {
 
     public void validateAccess(Long userId, LevelFeature feature) {
         if (!haveAccess(userId, feature)) {
-            throw new ApiException(ErrorCode.EXPERIENCE_NOT_FOUND);
+            throw new ApiException(ErrorCode.INSUFFICIENT_EXPERIENCE);
         }
     }
 
