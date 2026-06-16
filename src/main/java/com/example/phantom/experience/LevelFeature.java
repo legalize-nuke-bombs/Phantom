@@ -4,5 +4,6 @@ public enum LevelFeature {
     SEND_MESSAGE,
     SEND_PRESENT,
     DISK_BASE,
-    DISK_ADVANCED
+    DISK_PLUS,
+    DISK_PRO
 }

@@ -9,9 +9,9 @@ public enum Level {
     Whisper(0L),
     Echo(500L, Set.of(LevelFeature.SEND_MESSAGE, LevelFeature.SEND_PRESENT, LevelFeature.DISK_BASE)),
     Shade(2500L),
-    Wisp(5000L, Set.of(LevelFeature.DISK_ADVANCED)),
+    Wisp(5000L, Set.of(LevelFeature.DISK_PLUS)),
     Spectre(10000L),
-    Phantom(25000L),
+    Phantom(25000L, Set.of(LevelFeature.DISK_PRO)),
     Revenant(50000L),
     Reaper(100000L)
     ;

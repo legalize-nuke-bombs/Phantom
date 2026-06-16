@@ -95,9 +95,17 @@ public class DiskService {
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
         }
 
-        DiskQuota rule = levelFeatureService.haveAccess(userId, LevelFeature.DISK_ADVANCED)
-                ? diskSettings.getExtendedRule()
-                : diskSettings.getBaseRule();
+        DiskQuota rule;
+        if (levelFeatureService.haveAccess(userId, LevelFeature.DISK_PRO)) {
+            rule = diskSettings.getProRule();
+        }
+        else if (levelFeatureService.haveAccess(userId, LevelFeature.DISK_PLUS)) {
+            rule = diskSettings.getPlusRule();
+        }
+        else {
+            rule = diskSettings.getBaseRule();
+        }
+
         try {
             return diskRegistryService.register(userId, id, storedName, size, rule);
         }
