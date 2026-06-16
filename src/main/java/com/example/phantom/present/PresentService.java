@@ -2,8 +2,8 @@ package com.example.phantom.present;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.experience.LevelFeature;
-import com.example.phantom.experience.LevelFeatureService;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
@@ -30,13 +30,15 @@ public class PresentService {
     private final PresentRepository presentRepository;
     private final RateLimitService rateLimitService;
     private final ProfileService profileService;
+    private final NotificationPublishService notificationPublishService;
 
-    public PresentService(UserRepository userRepository, WalletService walletService, PresentRepository presentRepository, RateLimitService rateLimitService, ProfileService profileService) {
+    public PresentService(UserRepository userRepository, WalletService walletService, PresentRepository presentRepository, RateLimitService rateLimitService, ProfileService profileService, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.presentRepository = presentRepository;
         this.rateLimitService = rateLimitService;
         this.profileService = profileService;
+        this.notificationPublishService = notificationPublishService;
     }
 
     public List<PresentRepresentation> get(Long userId, Boolean claimed, Integer limit, Long before) {
@@ -87,6 +89,8 @@ public class PresentService {
         if (!anonymous) present.setSender(user);
         present.setReceiver(receiver);
         presentRepository.save(present);
+
+        notificationPublishService.createUserNotification(receiver, NotificationType.PRESENT_RECEIVED, null);
 
         return null;
     }

@@ -5,6 +5,8 @@ import com.example.phantom.crypto.withdrawal.WithdrawalRepository;
 import com.example.phantom.crypto.withdrawal.WithdrawalRepresentation;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
 import com.example.phantom.profile.ProfileCardRepresentation;
 import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
@@ -15,6 +17,7 @@ import com.example.phantom.user.UserRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -29,16 +32,19 @@ public class OwnerService {
     private final OwnerAccessService ownerAccessService;
     private final RateLimitService rateLimitService;
     private final ProfileService profileService;
+    private final NotificationPublishService notificationPublishService;
 
-    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, RateLimitService rateLimitService, ProfileService profileService) {
+    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, RateLimitService rateLimitService, ProfileService profileService, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.withdrawalRepository = withdrawalRepository;
 
         this.ownerAccessService = ownerAccessService;
         this.rateLimitService = rateLimitService;
         this.profileService = profileService;
+        this.notificationPublishService = notificationPublishService;
     }
 
+    @Transactional
     public Map<String, String> changeUserRole(Long userId, ChangeUserRoleRequest request) {
         getOwner(userId);
 
@@ -63,7 +69,9 @@ public class OwnerService {
         }
 
         target.setRole(role);
-        userRepository.save(target);
+        target = userRepository.save(target);
+
+        notificationPublishService.createUserNotification(target, NotificationType.ROLE_CLAIMED, null);
 
         return Map.of("message", "changed");
     }

@@ -5,6 +5,8 @@ import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepositor
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -19,11 +21,13 @@ public class BanlistService {
     private final UserRepository userRepository;
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
+    private final NotificationPublishService notificationPublishService;
 
-    public BanlistService(UserRepository userRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository) {
+    public BanlistService(UserRepository userRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
+        this.notificationPublishService = notificationPublishService;
     }
 
     public BanRepresentation getById(Long userId) {
@@ -79,6 +83,8 @@ public class BanlistService {
         ));
         chatModeratorActionRepository.save(chatModeratorAction);
 
+        notificationPublishService.createUserNotification(target, NotificationType.BANNED, null);
+
         return Map.of("message", "banned");
     }
 
@@ -88,9 +94,7 @@ public class BanlistService {
 
         String reason = request.getReason();
 
-        if (!userRepository.existsById(targetId)) {
-            throw new ApiException(ErrorCode.USER_NOT_FOUND);
-        }
+        User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         Ban ban = banRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.NOT_BANNED));
         if (!ban.isActive()) {
@@ -106,6 +110,8 @@ public class BanlistService {
                 "reason", reason
         ));
         chatModeratorActionRepository.save(chatModeratorAction);
+
+        notificationPublishService.createUserNotification(target, NotificationType.UNBANNED, null);
 
         banRepository.delete(ban);
     }
