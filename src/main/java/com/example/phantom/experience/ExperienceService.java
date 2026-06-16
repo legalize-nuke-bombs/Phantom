@@ -6,6 +6,8 @@ import com.example.phantom.experience.experiencechange.ExperienceChange;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepository;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepresentation;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.PrivacySettingService;
@@ -33,15 +35,17 @@ public class ExperienceService {
     private final ExperienceChangeRepository experienceChangeRepository;
     private final PrivacySettingService privacySettingService;
     private final RateLimitService rateLimitService;
+    private final NotificationPublishService notificationPublishService;
 
     private static final int MAX_BATCH_SIZE = 100;
 
-    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingService privacySettingService, RateLimitService rateLimitService) {
+    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingService privacySettingService, RateLimitService rateLimitService, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.experienceRepository = experienceRepository;
         this.experienceChangeRepository = experienceChangeRepository;
         this.privacySettingService = privacySettingService;
         this.rateLimitService = rateLimitService;
+        this.notificationPublishService = notificationPublishService;
     }
 
     public Experience lock(Long experienceId) {
@@ -57,8 +61,10 @@ public class ExperienceService {
         if (details == null) details = "";
 
         Experience experience = lock(user.getId());
+        ExperienceRepresentation oldExperience = new ExperienceRepresentation(experience);
+
         experience.setAmountCached(experience.getAmountCached() + amount);
-        experienceRepository.save(experience);
+        experience = experienceRepository.save(experience);
 
         ExperienceChange experienceChange = new ExperienceChange();
         experienceChange.setUser(user);
@@ -67,6 +73,11 @@ public class ExperienceService {
         experienceChange.setTimestamp(Instant.now().getEpochSecond());
         experienceChange.setDetails(details);
         experienceChangeRepository.save(experienceChange);
+
+        ExperienceRepresentation newExperience = new ExperienceRepresentation(experience);
+        if (!Objects.equals(oldExperience.getLevel(), newExperience.getLevel())) {
+            notificationPublishService.createUserNotification(user, NotificationType.LEVEL_UP, newExperience);
+        }
     }
 
     public ExperienceRepresentation get(Long userId, Long targetId) {

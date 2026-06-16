@@ -5,5 +5,6 @@ public enum NotificationType {
     BANNED,
     UNBANNED,
     ROLE_CLAIMED,
-    WELCOME
+    WELCOME,
+    LEVEL_UP
 }
