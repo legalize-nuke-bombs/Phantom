@@ -90,7 +90,7 @@ public class DiskService {
                 size = multipart.getSize();
             }
         }
-        catch (IOException e) {
+        catch (DiskFSService.DiskFSServiceException | IOException e) {
             log.warn("failed to store file {}", multipart, e);
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
         }

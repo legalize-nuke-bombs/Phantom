@@ -19,16 +19,34 @@ public class DiskFSService {
     @Value("${disk.root}")
     private String root;
 
-    public void store(UUID id, MultipartFile file) throws IOException {
-        Path target = pathFor(id);
-        Files.createDirectories(target.getParent());
-        file.transferTo(target.toAbsolutePath().toFile());
+    public static class DiskFSServiceException extends Exception {
+        public DiskFSServiceException(String m) {
+            super(m);
+        }
     }
 
-    public void store(UUID id, byte[] bytes) throws IOException {
-        Path target = pathFor(id);
-        Files.createDirectories(target.getParent());
-        Files.write(target, bytes);
+    public void store(UUID id, MultipartFile file) throws DiskFSServiceException {
+        try {
+            Path target = pathFor(id);
+            Files.createDirectories(target.getParent());
+            file.transferTo(target.toAbsolutePath().toFile());
+        }
+        catch (Exception e) {
+            log.warn("couldn't store multipart file, {}", id, e);
+            throw new DiskFSServiceException(e.getMessage());
+        }
+    }
+
+    public void store(UUID id, byte[] bytes) throws DiskFSServiceException {
+        try {
+            Path target = pathFor(id);
+            Files.createDirectories(target.getParent());
+            Files.write(target, bytes);
+        }
+        catch (Exception e) {
+            log.warn("couldn't store byte file {}", id, e);
+            throw new DiskFSServiceException(e.getMessage());
+        }
     }
 
     public Resource load(UUID id) {
