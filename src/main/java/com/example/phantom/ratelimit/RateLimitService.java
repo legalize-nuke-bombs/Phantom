@@ -83,6 +83,7 @@ public class RateLimitService {
                 }
                 if (state.getTokens() + tokens > rule.getTokens()) {
                     long retryIn = state.getTimestamp() + rule.getSeconds() - now;
+                    log.info("user {} reached limit for {}", userId, action);
                     throw new ApiException(ErrorCode.RATE_LIMITED, "try again in " + retryIn + " seconds");
                 }
                 state.setTokens(state.getTokens() + tokens);
