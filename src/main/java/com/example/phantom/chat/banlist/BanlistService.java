@@ -10,7 +10,6 @@ import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
@@ -85,7 +84,7 @@ public class BanlistService {
         ));
         chatModeratorActionRepository.save(chatModeratorAction);
 
-        notificationPublishService.createUserNotification(target, NotificationType.BANNED, new ChatModeratorActionRepresentation(chatModeratorAction, new UserShortRepresentation(user)));
+        notificationPublishService.createUserNotification(target, NotificationType.BANNED, new ChatModeratorActionRepresentation(chatModeratorAction));
 
         return Map.of("message", "banned");
     }
@@ -113,7 +112,7 @@ public class BanlistService {
         ));
         chatModeratorActionRepository.save(chatModeratorAction);
 
-        notificationPublishService.createUserNotification(target, NotificationType.UNBANNED, new ChatModeratorActionRepresentation(chatModeratorAction, new UserShortRepresentation(user)));
+        notificationPublishService.createUserNotification(target, NotificationType.UNBANNED, new ChatModeratorActionRepresentation(chatModeratorAction));
 
         banRepository.delete(ban);
     }

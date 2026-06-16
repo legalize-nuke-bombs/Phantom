@@ -18,9 +18,9 @@ public class WithdrawalRepresentation {
     private final TransferStatus status;
     private final String hash;
 
-    public WithdrawalRepresentation(Withdrawal withdrawal, UserShortRepresentation user) {
+    public WithdrawalRepresentation(Withdrawal withdrawal) {
         this.id = withdrawal.getId();
-        this.user = user;
+        this.user = new UserShortRepresentation(withdrawal.getUser());
         this.coin = withdrawal.getCoin();
         this.timestamp = withdrawal.getTimestamp();
         this.receiver = withdrawal.getReceiver();

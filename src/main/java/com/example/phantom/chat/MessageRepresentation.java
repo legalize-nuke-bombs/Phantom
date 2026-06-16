@@ -12,11 +12,11 @@ public class MessageRepresentation {
     private final String content;
     private final FileRepresentation attachment;
 
-    public MessageRepresentation(Message message, UserShortRepresentation user) {
+    public MessageRepresentation(Message message) {
         this.id = message.getId();
-        this.user = user;
+        this.user = new UserShortRepresentation(message.getUser());
         this.timestamp = message.getTimestamp();
         this.content = message.getContent();
-        this.attachment = message.getAttachment() != null ? new FileRepresentation(message.getAttachment(), user) : null;
+        this.attachment = message.getAttachment() != null ? new FileRepresentation(message.getAttachment()) : null;
     }
 }

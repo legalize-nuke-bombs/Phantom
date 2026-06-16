@@ -12,9 +12,9 @@ public class ChatModeratorActionRepresentation {
     private final ChatModeratorActionType type;
     private final Map<String, String> data;
 
-    public ChatModeratorActionRepresentation(ChatModeratorAction chatModeratorAction, UserShortRepresentation user) {
+    public ChatModeratorActionRepresentation(ChatModeratorAction chatModeratorAction) {
         this.id = chatModeratorAction.getId();
-        this.user = user;
+        this.user = chatModeratorAction.getUser() != null ? new UserShortRepresentation(chatModeratorAction.getUser()) : null;
         this.timestamp = chatModeratorAction.getTimestamp();
         this.type = chatModeratorAction.getType();
         this.data = chatModeratorAction.getData();

@@ -20,9 +20,9 @@ public class GameRepresentation {
     private final String clientSeed;
     private final Map<String, Object> data;
 
-    public GameRepresentation(Game game, UserShortRepresentation user) {
+    public GameRepresentation(Game game) {
         this.id = game.getId();
-        this.user = user;
+        this.user = new UserShortRepresentation(game.getUser());
         this.gameType = game.getGameType();
         this.timestamp = game.getTimestamp();
         this.bet = game.getBet();

@@ -13,7 +13,6 @@ import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.user.UserShortRepresentation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -80,7 +79,7 @@ public class CryptoService {
         withdrawal = withdrawalService.send(withdrawal);
 
         log.info("withdrawal request created {}, {}, {}, {}", amount, coin, address, user.getId());
-        return new WithdrawalRepresentation(withdrawal, new UserShortRepresentation(user));
+        return new WithdrawalRepresentation(withdrawal);
     }
 
     public List<WithdrawalRepresentation> checkPendingWithdrawals(Long userId) {
@@ -93,8 +92,7 @@ public class CryptoService {
         withdrawalService.applyCheckedStatuses(userId, checked);
 
         log.info("found {} pending withdrawals for {}", checked.size(), user.getId());
-        UserShortRepresentation userRepresentation = new UserShortRepresentation(user);
-        return checked.stream().map(withdrawal -> new WithdrawalRepresentation(withdrawal, userRepresentation)).toList();
+        return checked.stream().map(WithdrawalRepresentation::new).toList();
     }
 
     private User getUser(Long userId) {

@@ -5,7 +5,6 @@ import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.user.User;
-import com.example.phantom.user.UserShortRepresentation;
 import com.example.phantom.wallet.Wallet;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -85,7 +84,7 @@ public abstract class GameService {
         game.setTimestamp(Instant.now().getEpochSecond());
         deps.gameRepository.save(game);
 
-        return new GameRepresentation(game, new UserShortRepresentation(user));
+        return new GameRepresentation(game);
     }
 
     @Transactional

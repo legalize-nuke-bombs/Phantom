@@ -9,7 +9,6 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,10 +36,7 @@ public class DiskRegistryService {
         Pageable pageable = PageRequest.of(0, limit);
         List<File> files = fileRepository.findAllWithUsers(userId, before, pageable);
 
-        List<User> users = files.stream().map(File::getUser).toList();
-        Map<Long, UserShortRepresentation> userMap = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
-
-        return files.stream().map(f -> new FileRepresentation(f, userMap.get(f.getUser().getId()))).toList();
+        return files.stream().map(FileRepresentation::new).toList();
     }
 
     public File getFile(UUID fileId) {
@@ -61,7 +57,7 @@ public class DiskRegistryService {
         file.setSize(size);
         fileRepository.save(file);
 
-        return new FileRepresentation(file, new UserShortRepresentation(user));
+        return new FileRepresentation(file);
     }
 
     @Transactional

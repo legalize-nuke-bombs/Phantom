@@ -14,12 +14,12 @@ public class PresentRepresentation {
     private final String description;
     private final UserShortRepresentation sender;
 
-    public PresentRepresentation(Present present, UserShortRepresentation sender) {
+    public PresentRepresentation(Present present) {
         this.id = present.getId();
         this.claimed = present.getClaimed();
         this.timestamp = present.getTimestamp();
         this.amount = present.getAmount();
         this.description = present.getDescription();
-        this.sender = sender;
+        this.sender = present.getSender() != null ? new UserShortRepresentation(present.getSender()) : null;
     }
 }

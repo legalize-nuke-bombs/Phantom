@@ -18,7 +18,6 @@ import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -57,17 +56,7 @@ public class ChatService {
 
         List<Message> messages = messageRepository.findAllWithAttachmentsAndUsersPageable(before, pageable);
 
-        List<User> users = messages.stream().map(Message::getUser).toList();
-        Map<Long, UserShortRepresentation> usersById = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
-
-        List<MessageRepresentation> messageRepresentations = new ArrayList<>();
-        for (Message message : messages) {
-            messageRepresentations.add(new MessageRepresentation(
-                    message,
-                    usersById.get(message.getUser().getId())
-            ));
-        }
-        return messageRepresentations;
+        return messages.stream().map(MessageRepresentation::new).toList();
     }
 
     @Transactional
@@ -98,7 +87,7 @@ public class ChatService {
         message.setAttachment(attachment);
         message = messageRepository.save(message);
 
-        return new MessageRepresentation(message, new UserShortRepresentation(user));
+        return new MessageRepresentation(message);
     }
 
     @Transactional
@@ -122,7 +111,7 @@ public class ChatService {
                 ));
                 chatModeratorActionRepository.save(chatModeratorAction);
 
-                notificationPublishService.createUserNotification(message.getUser(), NotificationType.YOUR_MESSAGE_DELETED, new ChatModeratorActionRepresentation(chatModeratorAction, new UserShortRepresentation(user)));
+                notificationPublishService.createUserNotification(message.getUser(), NotificationType.YOUR_MESSAGE_DELETED, new ChatModeratorActionRepresentation(chatModeratorAction));
             }
             else {
                 throw new ApiException(ErrorCode.NO_PERMISSION);

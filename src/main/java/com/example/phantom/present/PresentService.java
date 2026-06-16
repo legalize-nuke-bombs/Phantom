@@ -8,7 +8,6 @@ import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.user.UserShortRepresentation;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.data.domain.PageRequest;
@@ -44,11 +43,8 @@ public class PresentService {
         rateLimitService.startAction(user.getId(), RateLimitAction.PAGINATION, limit);
 
         List<Present> presents = presentRepository.findByReceiverIdClaimedWithSenders(user.getId(), claimed, before, PageRequest.of(0, limit));
-        List<User> senders = presents.stream().map(Present::getSender).toList();
 
-        Map<Long, UserShortRepresentation> senderMap = senders.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
-
-        return presents.stream().map(k -> new PresentRepresentation(k, k.getSender() != null ? senderMap.get(k.getSender().getId()) : null)).toList();
+        return presents.stream().map(PresentRepresentation::new).toList();
     }
 
     public Map<String, String> count(Long userId, Boolean claimed) {
@@ -87,7 +83,7 @@ public class PresentService {
         present.setReceiver(receiver);
         presentRepository.save(present);
 
-        notificationPublishService.createUserNotification(receiver, NotificationType.PRESENT_RECEIVED, new PresentRepresentation(present, anonymous ? null : new UserShortRepresentation(user)));
+        notificationPublishService.createUserNotification(receiver, NotificationType.PRESENT_RECEIVED, new PresentRepresentation(present));
 
         return null;
     }
@@ -111,7 +107,7 @@ public class PresentService {
 
         walletService.addChange(wallet, present.getAmount());
 
-        return new PresentRepresentation(present, present.getSender() != null ? new UserShortRepresentation(present.getSender()) : null);
+        return new PresentRepresentation(present);
     }
 
     @Transactional

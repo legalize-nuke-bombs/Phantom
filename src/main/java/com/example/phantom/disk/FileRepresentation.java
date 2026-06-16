@@ -13,10 +13,10 @@ public class FileRepresentation {
     private final String name;
     private final Long size;
 
-    public FileRepresentation(File file, UserShortRepresentation user) {
+    public FileRepresentation(File file) {
         this.id = file.getId();
         this.timestamp = file.getTimestamp();
-        this.user = user;
+        this.user = new UserShortRepresentation(file.getUser());
         this.name = file.getOriginalName();
         this.size = file.getSize();
     }

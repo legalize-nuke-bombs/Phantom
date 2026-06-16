@@ -6,14 +6,11 @@ import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class ChatModeratorActionService {
@@ -39,22 +36,6 @@ public class ChatModeratorActionService {
 
         List<ChatModeratorAction> actions = chatModeratorActionRepository.findAllWithUsersPageable(before, pageable);
 
-        List<User> users = new ArrayList<>();
-        for (ChatModeratorAction action : actions) {
-            if (action.getUser() != null) users.add(action.getUser());
-        }
-
-        Map<Long, UserShortRepresentation> usersById = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
-
-        List<ChatModeratorActionRepresentation> actionRepresentations = new ArrayList<>();
-        for (ChatModeratorAction action : actions) {
-            actionRepresentations.add(new ChatModeratorActionRepresentation(
-                    action,
-                    action.getUser() != null
-                    ? usersById.get(action.getUser().getId())
-                    : null
-            ));
-        }
-        return actionRepresentations;
+        return actions.stream().map(ChatModeratorActionRepresentation::new).toList();
     }
 }

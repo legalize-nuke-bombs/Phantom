@@ -7,16 +7,13 @@ import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class GameHistoryStatService {
@@ -45,9 +42,7 @@ public class GameHistoryStatService {
 
         List<Game> games = gameRepository.findHistoryByUser(target.getId(), before, pageable);
 
-        UserShortRepresentation targetRepresentation = new UserShortRepresentation(target);
-
-        return games.stream().map(game -> new GameRepresentation(game, targetRepresentation)).toList();
+        return games.stream().map(GameRepresentation::new).toList();
     }
 
     public List<GameRepresentation> getPlatformHistory(Long userId, Integer limit, Long before) {
@@ -59,17 +54,7 @@ public class GameHistoryStatService {
 
         List<Game> games = gameRepository.findHistoryWithUsersUsingPrivacyPolicy(user.getId(), before, pageable);
 
-        List<User> users = games.stream().map(Game::getUser).toList();
-        Map<Long, UserShortRepresentation> usersById = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
-
-        List<GameRepresentation> gameRepresentations = new ArrayList<>();
-        for (Game game : games) {
-            gameRepresentations.add(new GameRepresentation(
-                    game,
-                    usersById.get(game.getUser().getId())
-            ));
-        }
-        return gameRepresentations;
+        return games.stream().map(GameRepresentation::new).toList();
     }
 
     public UserGameStatRepresentation getUserStats(Long userId, Long targetId) {

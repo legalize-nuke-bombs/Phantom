@@ -12,7 +12,6 @@ import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -82,10 +81,7 @@ public class OwnerService {
 
         List<Withdrawal> withdrawals = withdrawalRepository.findHistoryWithUsers(before, pageable);
 
-        List<User> users = withdrawals.stream().map(Withdrawal::getUser).toList();
-        Map<Long, UserShortRepresentation> userMap = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
-
-        return withdrawals.stream().map(withdrawal -> new WithdrawalRepresentation(withdrawal, userMap.get(withdrawal.getUser().getId()))).toList();
+        return withdrawals.stream().map(WithdrawalRepresentation::new).toList();
     }
 
     private User getOwner(Long userId) {
