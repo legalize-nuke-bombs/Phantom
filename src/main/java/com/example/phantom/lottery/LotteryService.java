@@ -212,7 +212,7 @@ public class LotteryService {
         return Map.of("message", "refunded");
     }
 
-    @Scheduled(fixedDelay = 10 * 1000)
+    @Scheduled(fixedDelay = 1000)
     @Transactional
     public void checkCurrentLottery() {
         Lottery lottery = lotteryRepository.findCurrent().orElse(null);
