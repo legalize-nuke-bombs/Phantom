@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 @RestControllerAdvice
@@ -17,6 +18,14 @@ public class MainExceptionHandler extends ResponseEntityExceptionHandler {
         if (e.getMessage() != null) {
             problem.setDetail(e.getMessage());
         }
+        return problem;
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ProblemDetail handleMultipart(MultipartException e) {
+        log.warn("multipart upload exception: {}", e.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatus(ErrorCode.MALFORMED_REQUEST.status);
+        problem.setProperty("code", ErrorCode.MALFORMED_REQUEST.name());
         return problem;
     }
 
