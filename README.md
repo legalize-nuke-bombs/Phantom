@@ -9,6 +9,7 @@ REST API for a gambling platform.
 * User experience system
 * Referral system
 * Stats & history
+* WebSocket & notifications
 * User privacy settings
 * Rate limit
 * Wallets
@@ -29,7 +30,7 @@ REST API for a gambling platform.
 
 ## Tech Stack
 
-Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Hibernate, PostgreSQL, JJWT, Lombok, Gradle.
+Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Spring WebSocket, Hibernate, PostgreSQL, JJWT, Lombok, Gradle.
 
 ## Building
 
