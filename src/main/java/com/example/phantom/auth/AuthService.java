@@ -9,6 +9,8 @@ import com.example.phantom.crypto.CryptoWallet;
 import com.example.phantom.crypto.CryptoWalletRepository;
 import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceRepository;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
 import com.example.phantom.owner.OwnerAccessService;
 import com.example.phantom.ref.RefMember;
 import com.example.phantom.ref.RefMemberRepository;
@@ -48,8 +50,9 @@ public class AuthService {
     private final OwnerAccessService ownerAccessService;
     private final RecoveryKeyService recoveryKeyService;
     private final CoinProviderRegistry coinProviderRegistry;
+    private final NotificationPublishService notificationPublishService;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, DiskUsageRepository diskUsageRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessService ownerAccessService, RecoveryKeyService recoveryKeyService, CoinProviderRegistry coinProviderRegistry) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, DiskUsageRepository diskUsageRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessService ownerAccessService, RecoveryKeyService recoveryKeyService, CoinProviderRegistry coinProviderRegistry, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.experienceRepository = experienceRepository;
@@ -64,6 +67,7 @@ public class AuthService {
         this.ownerAccessService = ownerAccessService;
         this.recoveryKeyService = recoveryKeyService;
         this.coinProviderRegistry = coinProviderRegistry;
+        this.notificationPublishService = notificationPublishService;
     }
 
     @Transactional
@@ -157,6 +161,7 @@ public class AuthService {
         diskUsage.setFiles(0L);
         diskUsageRepository.save(diskUsage);
 
+        notificationPublishService.createUserNotification(user, NotificationType.WELCOME, null);
         log.info("registration successful: user {}", user.getId());
         return Map.of("recoveryKey", recoveryKey);
     }

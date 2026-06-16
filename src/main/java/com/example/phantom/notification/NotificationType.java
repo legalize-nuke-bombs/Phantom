@@ -4,5 +4,6 @@ public enum NotificationType {
     PRESENT_RECEIVED,
     BANNED,
     UNBANNED,
-    ROLE_CLAIMED
+    ROLE_CLAIMED,
+    WELCOME
 }
