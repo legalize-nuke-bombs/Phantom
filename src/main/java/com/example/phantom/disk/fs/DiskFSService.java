@@ -10,7 +10,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 @Service
@@ -23,9 +22,7 @@ public class DiskFSService {
     public void store(UUID id, MultipartFile file) throws IOException {
         Path target = pathFor(id);
         Files.createDirectories(target.getParent());
-        try (var in = file.getInputStream()) {
-            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-        }
+        file.transferTo(target.toAbsolutePath().toFile());
     }
 
     public void store(UUID id, byte[] bytes) throws IOException {

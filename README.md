@@ -52,6 +52,7 @@ TON_API_KEY=<your_ton_api_key>
 Optional environment variables:
 ```
 DISK_ROOT=<your_disk_root>
+SPRING_MULTIPART_CACHE_ROOT=<your_spring_multipart_cache_root>
 ```
 
 Cloudflare is blocked in some regions. In this case, set up a proxy:
