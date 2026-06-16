@@ -54,6 +54,7 @@ Optional environment variables:
 ```
 DISK_ROOT=<your_disk_root>
 SPRING_MULTIPART_CACHE_ROOT=<your_spring_multipart_cache_root>
+LOGS_ROOT=<your_logs_root>
 ```
 
 Cloudflare is blocked in some regions. In this case, set up a proxy:
