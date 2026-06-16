@@ -69,6 +69,7 @@ public class RateLimitService {
 
         RateLimitRule rule = resolveRule(actionRules, levelFeatureService.getFeatures(userId));
         if (rule == null) {
+            log.info("user {} does not have permission for {}", userId, action);
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
 
