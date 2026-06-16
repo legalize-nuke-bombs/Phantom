@@ -48,10 +48,6 @@ DB_PASSWORD=<your_db_password>
 JWT_SECRET=<base64_encoded_secret_min_32_bytes>
 OWNER_KEY=<base64_encoded_key_min_32_bytes>
 TON_API_KEY=<your_ton_api_key>
-```
-
-Optional environment variables:
-```
 DISK_ROOT=<your_disk_root>
 SPRING_MULTIPART_CACHE_ROOT=<your_spring_multipart_cache_root>
 LOGS_ROOT=<your_logs_root>
