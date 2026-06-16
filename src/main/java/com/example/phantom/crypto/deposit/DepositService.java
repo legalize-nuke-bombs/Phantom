@@ -6,6 +6,8 @@ import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.User;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +15,7 @@ import java.time.Instant;
 import java.util.*;
 
 @Service
+@Slf4j
 public class DepositService {
 
     private static final int TX_FETCH_LIMIT = 20;
@@ -81,9 +84,19 @@ public class DepositService {
         return deposits;
     }
 
+    public static class DepositsAreAlreadyAppliedException extends Exception {
+        public DepositsAreAlreadyAppliedException() {}
+    }
+
     @Transactional
-    public void applyDeposits(User user, List<Deposit> deposits) {
-        depositRepository.saveAll(deposits);
+    public void applyDeposits(User user, List<Deposit> deposits) throws DepositsAreAlreadyAppliedException {
+        try {
+            depositRepository.saveAll(deposits);
+        }
+        catch (DataIntegrityViolationException e) {
+            log.warn("thread condition happened during applying deposits");
+            throw new DepositsAreAlreadyAppliedException();
+        }
 
         Wallet wallet = walletService.lock(user.getId());
         for (Deposit deposit : deposits) {

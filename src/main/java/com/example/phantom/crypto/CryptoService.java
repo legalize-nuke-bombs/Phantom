@@ -60,7 +60,12 @@ public class CryptoService {
         rateLimit(user);
 
         List<Deposit> deposits = depositService.fetchDeposits(user, coin);
-        depositService.applyDeposits(user, deposits);
+        try {
+            depositService.applyDeposits(user, deposits);
+        }
+        catch (DepositService.DepositsAreAlreadyAppliedException e) {
+            return List.of();
+        }
 
         log.info("applied {} {} deposits for user {}", deposits.size(), coin, userId);
         return deposits.stream().map(DepositRepresentation::new).toList();
