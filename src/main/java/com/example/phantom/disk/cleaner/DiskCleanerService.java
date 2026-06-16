@@ -26,7 +26,7 @@ public class DiskCleanerService {
         this.fileRepository = fileRepository;
     }
 
-    @Scheduled(fixedDelay = 1L * 24 * 60 * 60 * 1000)
+    @Scheduled(fixedDelay = 8L * 3600 * 1000)
     public void clean() {
         log.info("starting cleaning...");
         Path rootPath = Path.of(root);
