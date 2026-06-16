@@ -9,6 +9,7 @@ import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 @Service
+@Slf4j
 public class MasterWalletService {
 
     private final UserRepository userRepository;
@@ -81,6 +83,7 @@ public class MasterWalletService {
         setting.setPrivateKey(keyPair.privateKey());
         masterWalletSettingRepository.save(setting);
 
+        log.info("set {} master wallet by user {}", coin, userId);
         return Map.of("message", "set");
     }
 

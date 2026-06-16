@@ -2,6 +2,7 @@ package com.example.phantom.user;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
@@ -84,6 +86,7 @@ public class UserService {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            log.info("secure patch rejected: invalid password for user {}", user.getId());
             throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
@@ -100,6 +103,7 @@ public class UserService {
             throw new ApiException(ErrorCode.USERNAME_TAKEN);
         }
 
+        log.info("secure patch successful: user {}", user.getId());
         return Map.of("message", "patched");
     }
 
@@ -110,6 +114,7 @@ public class UserService {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            log.info("new recovery key rejected: invalid password for user {}", user.getId());
             throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
@@ -120,6 +125,7 @@ public class UserService {
         user.setPrivateRecoveryKeyHash(passwordEncoder.encode(recoveryKeyPair.privateKey()));
         userRepository.save(user);
 
+        log.info("new recovery key successful: user {}", user.getId());
         return Map.of("recoveryKey", recoveryKey);
     }
 
@@ -130,9 +136,11 @@ public class UserService {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            log.info("delete rejected: invalid password for user {}", user.getId());
             throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
         userRepository.delete(user);
+        log.info("delete done successful: goodbye, user {}", user.getId());
     }
 }

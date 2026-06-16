@@ -157,8 +157,7 @@ public class AuthService {
         diskUsage.setFiles(0L);
         diskUsageRepository.save(diskUsage);
 
-        log.info("user {} registered", user.getId());
-
+        log.info("registration successful: user {}", user.getId());
         return Map.of("recoveryKey", recoveryKey);
     }
 
@@ -172,6 +171,7 @@ public class AuthService {
             throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
+        log.info("login successful: user {}", user.getId());
         return Map.of("token", jwtTokenProvider.generateToken(user.getId()));
     }
 
@@ -204,6 +204,7 @@ public class AuthService {
         }
         catch (DataIntegrityViolationException e) { throw new ApiException(ErrorCode.USERNAME_TAKEN); }
 
+        log.info("recover successful: user {}", user.getId());
         return Map.of("message", "recovered");
     }
 }

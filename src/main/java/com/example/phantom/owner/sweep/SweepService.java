@@ -86,6 +86,7 @@ public class SweepService {
         setting.setDelay(request.getSeconds());
         sweepSettingRepository.save(setting);
 
+        log.info("set new sweep schedule by user {}", userId);
         return Map.of("message", "set");
     }
 
@@ -95,6 +96,7 @@ public class SweepService {
         SweepSetting setting = sweepSettingRepository.find().orElseThrow(() -> new ApiException(ErrorCode.SWEEP_SCHEDULE_NOT_FOUND));
         setting.setDelay(null);
         sweepSettingRepository.save(setting);
+        log.info("sweep schedule deleted by user {}", userId);
     }
 
     @Scheduled(fixedDelay = 1000)
