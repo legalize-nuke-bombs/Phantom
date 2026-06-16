@@ -7,13 +7,12 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,16 +30,14 @@ public class OwnerService {
 
     private final OwnerAccessService ownerAccessService;
     private final RateLimitService rateLimitService;
-    private final ProfileService profileService;
     private final NotificationPublishService notificationPublishService;
 
-    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, RateLimitService rateLimitService, ProfileService profileService, NotificationPublishService notificationPublishService) {
+    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, RateLimitService rateLimitService, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.withdrawalRepository = withdrawalRepository;
 
         this.ownerAccessService = ownerAccessService;
         this.rateLimitService = rateLimitService;
-        this.profileService = profileService;
         this.notificationPublishService = notificationPublishService;
     }
 
@@ -86,9 +83,9 @@ public class OwnerService {
         List<Withdrawal> withdrawals = withdrawalRepository.findHistoryWithUsers(before, pageable);
 
         List<User> users = withdrawals.stream().map(Withdrawal::getUser).toList();
-        Map<Long, ProfileCardRepresentation> profileCardMap = profileService.getCardsForUsers(userId, users);
+        Map<Long, UserShortRepresentation> userMap = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
 
-        return withdrawals.stream().map(withdrawal -> new WithdrawalRepresentation(withdrawal, profileCardMap.get(withdrawal.getUser().getId()))).toList();
+        return withdrawals.stream().map(withdrawal -> new WithdrawalRepresentation(withdrawal, userMap.get(withdrawal.getUser().getId()))).toList();
     }
 
     private User getOwner(Long userId) {

@@ -6,14 +6,13 @@ import com.example.phantom.experience.experiencechange.ExperienceChange;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepository;
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepresentation;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,6 +22,10 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class ExperienceService {
@@ -32,15 +35,13 @@ public class ExperienceService {
     private final ExperienceChangeRepository experienceChangeRepository;
     private final PrivacySettingService privacySettingService;
     private final RateLimitService rateLimitService;
-    private final ProfileService profileService;
 
-    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingService privacySettingService, RateLimitService rateLimitService, ProfileService profileService   ) {
+    public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingService privacySettingService, RateLimitService rateLimitService) {
         this.userRepository = userRepository;
         this.experienceRepository = experienceRepository;
         this.experienceChangeRepository = experienceChangeRepository;
         this.privacySettingService = privacySettingService;
         this.rateLimitService = rateLimitService;
-        this.profileService = profileService;
     }
 
     public Experience lock(Long experienceId) {
@@ -93,7 +94,7 @@ public class ExperienceService {
         return changes.stream().map(ExperienceChangeRepresentation::new).toList();
     }
 
-    public List<ProfileCardRepresentation> getLeaderboard(Long userId, Integer limit, Long beforeAmount, Long beforeUserId) {
+    public List<LeaderboardEntryRepresentation> getLeaderboard(Long userId, Integer limit, Long beforeAmount, Long beforeUserId) {
         User user = requireAuthenticated(userId);
 
         if ((beforeAmount == null) != (beforeUserId == null)) {
@@ -106,8 +107,21 @@ public class ExperienceService {
 
         List<User> users = experienceRepository.findBestUsersUsingPrivacyPolicy(user.getId(), beforeAmount, beforeUserId, pageable);
 
-        Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
-        return users.stream().map(u -> cardsByUserId.get(u.getId())).toList();
+        Set<Long> visibleIds = users.stream()
+                .filter(Objects::nonNull)
+                .filter(u -> privacySettingService.isVisible(user.getId(), u.getId(), u.getExperiencePrivacySetting()))
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        Map<Long, Experience> experiences = experienceRepository.findAllById(visibleIds).stream().collect(Collectors.toMap(Experience::getId, Function.identity()));
+
+        return users.stream()
+                .filter(Objects::nonNull)
+                .map(u -> {
+                    Experience experience = experiences.get(u.getId());
+                    return new LeaderboardEntryRepresentation(new UserShortRepresentation(u), experience != null ? new ExperienceRepresentation(experience) : null);
+                })
+                .toList();
     }
 
     private User requireAuthenticated(Long userId) {

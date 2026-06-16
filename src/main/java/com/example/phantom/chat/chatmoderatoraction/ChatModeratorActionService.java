@@ -2,12 +2,11 @@ package com.example.phantom.chat.chatmoderatoraction;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,14 +20,12 @@ public class ChatModeratorActionService {
 
     private final ChatModeratorActionRepository chatModeratorActionRepository;
     private final UserRepository userRepository;
-    private final ProfileService profileService;
 
     private final RateLimitService rateLimitService;
 
-    public ChatModeratorActionService(ChatModeratorActionRepository chatModeratorActionRepository, UserRepository userRepository, ProfileService profileService, RateLimitService rateLimitService) {
+    public ChatModeratorActionService(ChatModeratorActionRepository chatModeratorActionRepository, UserRepository userRepository, RateLimitService rateLimitService) {
         this.chatModeratorActionRepository = chatModeratorActionRepository;
         this.userRepository = userRepository;
-        this.profileService = profileService;
 
         this.rateLimitService = rateLimitService;
     }
@@ -47,14 +44,14 @@ public class ChatModeratorActionService {
             if (action.getUser() != null) users.add(action.getUser());
         }
 
-        Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
+        Map<Long, UserShortRepresentation> usersById = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
 
         List<ChatModeratorActionRepresentation> actionRepresentations = new ArrayList<>();
         for (ChatModeratorAction action : actions) {
             actionRepresentations.add(new ChatModeratorActionRepresentation(
                     action,
                     action.getUser() != null
-                    ? cardsByUserId.get(action.getUser().getId())
+                    ? usersById.get(action.getUser().getId())
                     : null
             ));
         }

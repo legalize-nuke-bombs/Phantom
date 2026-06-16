@@ -2,13 +2,12 @@ package com.example.phantom.game;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,14 +23,12 @@ public class GameHistoryStatService {
 
     private final UserRepository userRepository;
     private final GameRepository gameRepository;
-    private final ProfileService profileService;
     private final RateLimitService rateLimitService;
     private final PrivacySettingService privacySettingService;
 
-    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, ProfileService profileService, RateLimitService rateLimitService, PrivacySettingService privacySettingService) {
+    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, RateLimitService rateLimitService, PrivacySettingService privacySettingService) {
         this.userRepository = userRepository;
         this.gameRepository = gameRepository;
-        this.profileService = profileService;
         this.rateLimitService = rateLimitService;
         this.privacySettingService = privacySettingService;
     }
@@ -48,9 +45,9 @@ public class GameHistoryStatService {
 
         List<Game> games = gameRepository.findHistoryByUser(target.getId(), before, pageable);
 
-        ProfileCardRepresentation targetCard = profileService.getCardForUser(userId, target);
+        UserShortRepresentation targetRepresentation = new UserShortRepresentation(target);
 
-        return games.stream().map(game -> new GameRepresentation(game, targetCard)).toList();
+        return games.stream().map(game -> new GameRepresentation(game, targetRepresentation)).toList();
     }
 
     public List<GameRepresentation> getPlatformHistory(Long userId, Integer limit, Long before) {
@@ -63,13 +60,13 @@ public class GameHistoryStatService {
         List<Game> games = gameRepository.findHistoryWithUsersUsingPrivacyPolicy(user.getId(), before, pageable);
 
         List<User> users = games.stream().map(Game::getUser).toList();
-        Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
+        Map<Long, UserShortRepresentation> usersById = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
 
         List<GameRepresentation> gameRepresentations = new ArrayList<>();
         for (Game game : games) {
             gameRepresentations.add(new GameRepresentation(
                     game,
-                    cardsByUserId.get(game.getUser().getId())
+                    usersById.get(game.getUser().getId())
             ));
         }
         return gameRepresentations;

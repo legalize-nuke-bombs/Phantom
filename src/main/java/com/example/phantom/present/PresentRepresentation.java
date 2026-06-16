@@ -1,6 +1,6 @@
 package com.example.phantom.present;
 
-import com.example.phantom.profile.ProfileCardRepresentation;
+import com.example.phantom.user.UserShortRepresentation;
 import lombok.Getter;
 
 import java.math.BigDecimal;
@@ -12,9 +12,9 @@ public class PresentRepresentation {
     private final Long timestamp;
     private final BigDecimal amount;
     private final String description;
-    private final ProfileCardRepresentation sender;
+    private final UserShortRepresentation sender;
 
-    public PresentRepresentation(Present present, ProfileCardRepresentation sender) {
+    public PresentRepresentation(Present present, UserShortRepresentation sender) {
         this.id = present.getId();
         this.claimed = present.getClaimed();
         this.timestamp = present.getTimestamp();

@@ -11,12 +11,11 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.LevelFeature;
 import com.example.phantom.experience.LevelFeatureService;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,16 +31,14 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
-    private final ProfileService profileService;
     private final FileRepository fileRepository;
     private final RateLimitService rateLimitService;
 
-    public ChatService(UserRepository userRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, ProfileService profileService, RateLimitService rateLimitService, FileRepository fileRepository) {
+    public ChatService(UserRepository userRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimitService rateLimitService, FileRepository fileRepository) {
         this.userRepository = userRepository;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
-        this.profileService = profileService;
         this.fileRepository = fileRepository;
         this.rateLimitService = rateLimitService;
     }
@@ -56,13 +53,13 @@ public class ChatService {
         List<Message> messages = messageRepository.findAllWithAttachmentsAndUsersPageable(before, pageable);
 
         List<User> users = messages.stream().map(Message::getUser).toList();
-        Map<Long, ProfileCardRepresentation> cardsByUserId = profileService.getCardsForUsers(userId, users);
+        Map<Long, UserShortRepresentation> usersById = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
 
         List<MessageRepresentation> messageRepresentations = new ArrayList<>();
         for (Message message : messages) {
             messageRepresentations.add(new MessageRepresentation(
                     message,
-                    cardsByUserId.get(message.getUser().getId())
+                    usersById.get(message.getUser().getId())
             ));
         }
         return messageRepresentations;
@@ -96,7 +93,7 @@ public class ChatService {
         message.setAttachment(attachment);
         message = messageRepository.save(message);
 
-        return new MessageRepresentation(message, profileService.getCardForUser(userId, user));
+        return new MessageRepresentation(message, new UserShortRepresentation(user));
     }
 
     @Transactional

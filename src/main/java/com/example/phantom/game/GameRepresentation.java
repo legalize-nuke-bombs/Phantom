@@ -1,6 +1,6 @@
 package com.example.phantom.game;
 
-import com.example.phantom.profile.ProfileCardRepresentation;
+import com.example.phantom.user.UserShortRepresentation;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 
@@ -11,7 +11,7 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class GameRepresentation {
     private final Long id;
-    private final ProfileCardRepresentation profileCard;
+    private final UserShortRepresentation user;
     private final GameType gameType;
     private final Long timestamp;
     private final BigDecimal bet;
@@ -20,9 +20,9 @@ public class GameRepresentation {
     private final String clientSeed;
     private final Map<String, Object> data;
 
-    public GameRepresentation(Game game, ProfileCardRepresentation profileCard) {
+    public GameRepresentation(Game game, UserShortRepresentation user) {
         this.id = game.getId();
-        this.profileCard = profileCard;
+        this.user = user;
         this.gameType = game.getGameType();
         this.timestamp = game.getTimestamp();
         this.bet = game.getBet();

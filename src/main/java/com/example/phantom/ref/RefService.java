@@ -2,12 +2,11 @@ package com.example.phantom.ref;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.data.domain.PageRequest;
@@ -25,19 +24,17 @@ public class RefService {
     private final RefStorageRepository refStorageRepository;
     private final RefMemberRepository refMemberRepository;
     private final WalletService walletService;
-    private final ProfileService profileService;
     private final RateLimitService rateLimitService;
 
-    public RefService(UserRepository userRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, WalletService walletService, ProfileService profileService, RateLimitService rateLimitService) {
+    public RefService(UserRepository userRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, WalletService walletService, RateLimitService rateLimitService) {
         this.userRepository = userRepository;
         this.refStorageRepository = refStorageRepository;
         this.refMemberRepository = refMemberRepository;
         this.walletService = walletService;
-        this.profileService = profileService;
         this.rateLimitService = rateLimitService;
     }
 
-    public List<ProfileCardRepresentation> getRefMembers(Long userId, Integer limit, Long before) {
+    public List<UserShortRepresentation> getRefMembers(Long userId, Integer limit, Long before) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
         RefStorage rs = refStorageRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.REF_STORAGE_NOT_FOUND));
 
@@ -48,7 +45,7 @@ public class RefService {
         List<RefMember> refMembers = refMemberRepository.findByRefStorageIdWithUsers(rs.getId(), before, pageable);
         List<User> users = refMembers.stream().map(RefMember::getUser).toList();
 
-        return profileService.getCardsForUsers(userId, users).values().stream().toList();
+        return users.stream().filter(java.util.Objects::nonNull).map(UserShortRepresentation::new).toList();
     }
 
     public RefStorageRepresentation getRefStorage(Long userId) {

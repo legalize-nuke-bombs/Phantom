@@ -9,12 +9,11 @@ import com.example.phantom.crypto.withdrawal.WithdrawalRepresentation;
 import com.example.phantom.crypto.withdrawal.WithdrawalService;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -30,22 +29,19 @@ public class CryptoService {
     private final DepositService depositService;
     private final WithdrawalService withdrawalService;
     private final RateLimitService rateLimitService;
-    private final ProfileService profileService;
 
     public CryptoService(
             UserRepository userRepository,
             CryptoWalletRepository cryptoWalletRepository,
             DepositService depositService,
             WithdrawalService withdrawalService,
-            RateLimitService rateLimitService,
-            ProfileService profileService
+            RateLimitService rateLimitService
     ) {
         this.userRepository = userRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.depositService = depositService;
         this.withdrawalService = withdrawalService;
         this.rateLimitService = rateLimitService;
-        this.profileService = profileService;
     }
 
     public CryptoWalletRepresentation getWallet(Long userId, CoinType coin) {
@@ -84,7 +80,7 @@ public class CryptoService {
         withdrawal = withdrawalService.send(withdrawal);
 
         log.info("withdrawal request created {}, {}, {}, {}", amount, coin, address, user.getId());
-        return new WithdrawalRepresentation(withdrawal, profileService.getCardForUser(user.getId(), user));
+        return new WithdrawalRepresentation(withdrawal, new UserShortRepresentation(user));
     }
 
     public List<WithdrawalRepresentation> checkPendingWithdrawals(Long userId) {
@@ -97,8 +93,8 @@ public class CryptoService {
         withdrawalService.applyCheckedStatuses(userId, checked);
 
         log.info("found {} pending withdrawals for {}", checked.size(), user.getId());
-        ProfileCardRepresentation profileCard = profileService.getCardForUser(user.getId(), user);
-        return checked.stream().map(withdrawal -> new WithdrawalRepresentation(withdrawal, profileCard)).toList();
+        UserShortRepresentation userRepresentation = new UserShortRepresentation(user);
+        return checked.stream().map(withdrawal -> new WithdrawalRepresentation(withdrawal, userRepresentation)).toList();
     }
 
     private User getUser(Long userId) {

@@ -1,22 +1,22 @@
 package com.example.phantom.chat;
 
 import com.example.phantom.disk.FileRepresentation;
-import com.example.phantom.profile.ProfileCardRepresentation;
+import com.example.phantom.user.UserShortRepresentation;
 import lombok.Getter;
 
 @Getter
 public class MessageRepresentation {
     private final Long id;
-    private final ProfileCardRepresentation profileCard;
+    private final UserShortRepresentation user;
     private final Long timestamp;
     private final String content;
     private final FileRepresentation attachment;
 
-    public MessageRepresentation(Message message, ProfileCardRepresentation profileCard) {
+    public MessageRepresentation(Message message, UserShortRepresentation user) {
         this.id = message.getId();
-        this.profileCard = profileCard;
+        this.user = user;
         this.timestamp = message.getTimestamp();
         this.content = message.getContent();
-        this.attachment = message.getAttachment() != null ? new FileRepresentation(message.getAttachment(), profileCard) : null;
+        this.attachment = message.getAttachment() != null ? new FileRepresentation(message.getAttachment(), user) : null;
     }
 }

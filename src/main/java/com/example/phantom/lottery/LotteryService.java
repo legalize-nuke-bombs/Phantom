@@ -5,8 +5,6 @@ import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.experience.experiencechange.ExperienceChange;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
 import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.ref.RefService;
 import com.example.phantom.ratelimit.RateLimitAction;
@@ -14,6 +12,7 @@ import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import lombok.extern.slf4j.Slf4j;
@@ -41,11 +40,10 @@ public class LotteryService {
     private final LotteryBetRepository lotteryBetRepository;
     private final LotteryCreatorService lotteryCreatorService;
     private final RateLimitService rateLimitService;
-    private final ProfileService profileService;
     private final ProvablyFairService provablyFairService;
     private final PrivacySettingService privacySettingService;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotteryCreatorService lotteryCreatorService, RateLimitService rateLimitService, ProfileService profileService, ProvablyFairService provablyFairService, PrivacySettingService privacySettingService) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotteryCreatorService lotteryCreatorService, RateLimitService rateLimitService, ProvablyFairService provablyFairService, PrivacySettingService privacySettingService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
@@ -54,7 +52,6 @@ public class LotteryService {
         this.lotteryBetRepository = lotteryBetRepository;
         this.lotteryCreatorService = lotteryCreatorService;
         this.rateLimitService = rateLimitService;
-        this.profileService = profileService;
         this.provablyFairService = provablyFairService;
         this.privacySettingService = privacySettingService;
     }
@@ -99,7 +96,7 @@ public class LotteryService {
                 .filter(Objects::nonNull)
                 .filter(u -> privacySettingService.isVisible(user.getId(), u.getId(), u.getLotteryPrivacySetting()))
                 .toList();
-        Map<Long, ProfileCardRepresentation> winnerCards = profileService.getCardsForUsers(userId, winners);
+        Map<Long, UserShortRepresentation> winnerMap = winners.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
 
         List<FinishedLotteryRepresentation> lotteryRepresentations = new ArrayList<>();
         for (Lottery lottery : lotteries) {
@@ -108,7 +105,7 @@ public class LotteryService {
                     lottery.getTimestamp(),
                     lottery.getSeed1(),
                     lottery.getSeed2(),
-                    lottery.getWinner() != null ? winnerCards.get(lottery.getWinner().getId()) : null,
+                    lottery.getWinner() != null ? winnerMap.get(lottery.getWinner().getId()) : null,
                     lottery.getHappyTicket(),
                     lottery.getPrize(),
                     lottery.getTicketsAmountTotal()
@@ -136,11 +133,11 @@ public class LotteryService {
                 .filter(u -> privacySettingService.isVisible(user.getId(), u.getId(), u.getLotteryPrivacySetting()))
                 .toList();
 
-        Map<Long, ProfileCardRepresentation> profileCards = profileService.getCardsForUsers(user.getId(), users);
+        Map<Long, UserShortRepresentation> usersById = users.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
 
         List<LotteryBetRepresentation> betRepresentations = new ArrayList<>();
         for (LotteryBet bet : bets) {
-            betRepresentations.add(new LotteryBetRepresentation(bet, bet.getUser() != null ? profileCards.get(bet.getUser().getId()) : null));
+            betRepresentations.add(new LotteryBetRepresentation(bet, bet.getUser() != null ? usersById.get(bet.getUser().getId()) : null));
         }
         return betRepresentations;
     }

@@ -4,12 +4,11 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
-import com.example.phantom.profile.ProfileCardRepresentation;
-import com.example.phantom.profile.ProfileService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import org.springframework.data.domain.PageRequest;
@@ -29,15 +28,13 @@ public class PresentService {
     private final WalletService walletService;
     private final PresentRepository presentRepository;
     private final RateLimitService rateLimitService;
-    private final ProfileService profileService;
     private final NotificationPublishService notificationPublishService;
 
-    public PresentService(UserRepository userRepository, WalletService walletService, PresentRepository presentRepository, RateLimitService rateLimitService, ProfileService profileService, NotificationPublishService notificationPublishService) {
+    public PresentService(UserRepository userRepository, WalletService walletService, PresentRepository presentRepository, RateLimitService rateLimitService, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.presentRepository = presentRepository;
         this.rateLimitService = rateLimitService;
-        this.profileService = profileService;
         this.notificationPublishService = notificationPublishService;
     }
 
@@ -49,9 +46,9 @@ public class PresentService {
         List<Present> presents = presentRepository.findByReceiverIdClaimedWithSenders(user.getId(), claimed, before, PageRequest.of(0, limit));
         List<User> senders = presents.stream().map(Present::getSender).toList();
 
-        Map<Long, ProfileCardRepresentation> profileCardMap = profileService.getCardsForUsers(userId, senders);
+        Map<Long, UserShortRepresentation> senderMap = senders.stream().filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toMap(User::getId, UserShortRepresentation::new, (a, b) -> a));
 
-        return presents.stream().map(k -> new PresentRepresentation(k, k.getSender() != null ? profileCardMap.get(k.getSender().getId()) : null)).toList();
+        return presents.stream().map(k -> new PresentRepresentation(k, k.getSender() != null ? senderMap.get(k.getSender().getId()) : null)).toList();
     }
 
     public Map<String, String> count(Long userId, Boolean claimed) {
@@ -114,7 +111,7 @@ public class PresentService {
 
         walletService.addChange(wallet, present.getAmount());
 
-        return new PresentRepresentation(present, profileService.getCardForUser(userId, present.getSender()));
+        return new PresentRepresentation(present, present.getSender() != null ? new UserShortRepresentation(present.getSender()) : null);
     }
 
     @Transactional

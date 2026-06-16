@@ -1,6 +1,6 @@
 package com.example.phantom.ref;
 
-import com.example.phantom.profile.ProfileCardRepresentation;
+import com.example.phantom.user.UserShortRepresentation;
 import jakarta.validation.constraints.Min;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -20,7 +20,7 @@ public class RefController {
     }
 
     @GetMapping("/members")
-    public List<ProfileCardRepresentation> getRefMembers(
+    public List<UserShortRepresentation> getRefMembers(
             @AuthenticationPrincipal Long userId,
             @RequestParam(defaultValue = "20") @Min(1) Integer limit,
             @RequestParam(required = false) Long before

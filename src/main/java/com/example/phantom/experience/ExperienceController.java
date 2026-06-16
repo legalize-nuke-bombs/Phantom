@@ -1,7 +1,6 @@
 package com.example.phantom.experience;
 
 import com.example.phantom.experience.experiencechange.ExperienceChangeRepresentation;
-import com.example.phantom.profile.ProfileCardRepresentation;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -46,7 +45,7 @@ public class ExperienceController {
     }
 
     @GetMapping("/leaderboard")
-    public ResponseEntity<List<ProfileCardRepresentation>> getLeaderboard(
+    public ResponseEntity<List<LeaderboardEntryRepresentation>> getLeaderboard(
             @AuthenticationPrincipal Long userId,
             @RequestParam(defaultValue = "20") @Min(1) Integer limit,
             @RequestParam(required = false) Long beforeAmount,
