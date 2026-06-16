@@ -19,10 +19,10 @@ public class NotificationPublishService {
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
 
-    public NotificationPublishService(NotificationRepository notificationRepository, SimpMessagingTemplate messagingTemplate) {
+    public NotificationPublishService(NotificationRepository notificationRepository, SimpMessagingTemplate messagingTemplate, ObjectMapper objectMapper) {
         this.notificationRepository = notificationRepository;
         this.messagingTemplate = messagingTemplate;
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = objectMapper;
     }
 
     @Transactional

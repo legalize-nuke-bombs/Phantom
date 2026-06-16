@@ -14,8 +14,7 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Table(name = "notifications", indexes = {
         @Index(name = "idx_notifications_published", columnList = "published"),
-        @Index(name = "idx_notifications_destination_user_id", columnList = "destination_user_id"),
-        @Index(name = "idx_notifications_destinationType", columnList = "destinationType")
+        @Index(name = "idx_notifications_destination_user_id", columnList = "destination_user_id")
 })
 @Getter
 @Setter
