@@ -122,7 +122,7 @@ public class ChatService {
                 ));
                 chatModeratorActionRepository.save(chatModeratorAction);
 
-                notificationPublishService.createUserNotification(message.getUser(), NotificationType.YOUR_MESSAGE_DELETED, new ChatModeratorActionRepresentation(chatModeratorAction, new UserShortRepresentation(message.getUser())));
+                notificationPublishService.createUserNotification(message.getUser(), NotificationType.YOUR_MESSAGE_DELETED, new ChatModeratorActionRepresentation(chatModeratorAction, new UserShortRepresentation(user)));
             }
             else {
                 throw new ApiException(ErrorCode.NO_PERMISSION);

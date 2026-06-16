@@ -87,7 +87,7 @@ public class PresentService {
         present.setReceiver(receiver);
         presentRepository.save(present);
 
-        notificationPublishService.createUserNotification(receiver, NotificationType.PRESENT_RECEIVED, null);
+        notificationPublishService.createUserNotification(receiver, NotificationType.PRESENT_RECEIVED, new PresentRepresentation(present, anonymous ? null : new UserShortRepresentation(user)));
 
         return null;
     }
