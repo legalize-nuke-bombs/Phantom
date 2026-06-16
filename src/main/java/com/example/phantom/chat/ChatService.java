@@ -4,6 +4,7 @@ import com.example.phantom.chat.banlist.Ban;
 import com.example.phantom.chat.banlist.BanRepository;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
+import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepresentation;
 import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
 import com.example.phantom.disk.File;
 import com.example.phantom.disk.FileRepository;
@@ -11,6 +12,8 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.LevelFeature;
 import com.example.phantom.experience.LevelFeatureService;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
@@ -33,14 +36,16 @@ public class ChatService {
     private final ChatModeratorActionRepository chatModeratorActionRepository;
     private final FileRepository fileRepository;
     private final RateLimitService rateLimitService;
+    private final NotificationPublishService notificationPublishService;
 
-    public ChatService(UserRepository userRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimitService rateLimitService, FileRepository fileRepository) {
+    public ChatService(UserRepository userRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimitService rateLimitService, FileRepository fileRepository, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
         this.fileRepository = fileRepository;
         this.rateLimitService = rateLimitService;
+        this.notificationPublishService = notificationPublishService;
     }
 
     public List<MessageRepresentation> get(Long userId, Integer limit, Long before) {
@@ -106,6 +111,7 @@ public class ChatService {
                 if (message.getUser().getRole().getChatModeratorAccess()) {
                     throw new ApiException(ErrorCode.NO_PERMISSION);
                 }
+
                 ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
                 chatModeratorAction.setUser(user);
                 chatModeratorAction.setTimestamp(Instant.now().getEpochSecond());
@@ -115,6 +121,8 @@ public class ChatService {
                         "message_content", message.getContent()
                 ));
                 chatModeratorActionRepository.save(chatModeratorAction);
+
+                notificationPublishService.createUserNotification(message.getUser(), NotificationType.YOUR_MESSAGE_DELETED, new ChatModeratorActionRepresentation(chatModeratorAction, new UserShortRepresentation(message.getUser())));
             }
             else {
                 throw new ApiException(ErrorCode.NO_PERMISSION);

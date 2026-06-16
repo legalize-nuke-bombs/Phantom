@@ -6,5 +6,6 @@ public enum NotificationType {
     UNBANNED,
     ROLE_CLAIMED,
     WELCOME,
-    LEVEL_UP
+    LEVEL_UP,
+    YOUR_MESSAGE_DELETED
 }
