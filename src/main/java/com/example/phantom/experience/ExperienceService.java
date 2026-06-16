@@ -9,7 +9,6 @@ import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.PrivacySettingService;
-import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.user.UserShortRepresentation;
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,6 +33,8 @@ public class ExperienceService {
     private final ExperienceChangeRepository experienceChangeRepository;
     private final PrivacySettingService privacySettingService;
     private final RateLimitService rateLimitService;
+
+    private static final int MAX_BATCH_SIZE = 100;
 
     public ExperienceService(UserRepository userRepository, ExperienceRepository experienceRepository, ExperienceChangeRepository experienceChangeRepository, PrivacySettingService privacySettingService, RateLimitService rateLimitService) {
         this.userRepository = userRepository;
@@ -70,7 +70,7 @@ public class ExperienceService {
     }
 
     public ExperienceRepresentation get(Long userId, Long targetId) {
-        User user = requireAuthenticated(userId);
+        User user = getAuthenticated(userId);
         User target = getUser(targetId);
 
         privacySettingService.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
@@ -79,8 +79,25 @@ public class ExperienceService {
         return new ExperienceRepresentation(experience);
     }
 
+    public Map<Long, ExperienceRepresentation> getBatch(Long userId, Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        if (ids.size() > MAX_BATCH_SIZE) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+
+        List<User> users = userRepository.findAllById(ids);
+        Set<Long> visibleIds = users.stream()
+                .filter(u -> privacySettingService.isVisible(userId, u.getId(), u.getExperiencePrivacySetting()))
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        return experienceRepository.findAllById(visibleIds).stream().collect(Collectors.toMap(Experience::getId, ExperienceRepresentation::new));
+    }
+
     public List<ExperienceChangeRepresentation> getHistory(Long userId, Long targetId, Integer limit, Long before) {
-        User user = requireAuthenticated(userId);
+        User user = getAuthenticated(userId);
         User target = getUser(targetId);
 
         privacySettingService.validate(user.getId(), target.getId(), target.getExperiencePrivacySetting());
@@ -95,7 +112,7 @@ public class ExperienceService {
     }
 
     public List<LeaderboardEntryRepresentation> getLeaderboard(Long userId, Integer limit, Long beforeAmount, Long beforeUserId) {
-        User user = requireAuthenticated(userId);
+        User user = getAuthenticated(userId);
 
         if ((beforeAmount == null) != (beforeUserId == null)) {
             throw new ApiException(ErrorCode.INVALID_CURSOR);
@@ -124,7 +141,7 @@ public class ExperienceService {
                 .toList();
     }
 
-    private User requireAuthenticated(Long userId) {
+    private User getAuthenticated(Long userId) {
         return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
     }
 

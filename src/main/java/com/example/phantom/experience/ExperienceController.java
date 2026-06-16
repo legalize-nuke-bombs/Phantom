@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @RestController
 @Validated
@@ -32,6 +34,14 @@ public class ExperienceController {
             @PathVariable Long targetId
     ) {
         return ResponseEntity.ok(service.get(userId, targetId));
+    }
+
+    @GetMapping("/batch")
+    public ResponseEntity<Map<Long, ExperienceRepresentation>> getBatch(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam Set<Long> ids
+    ) {
+        return ResponseEntity.ok(service.getBatch(userId, ids));
     }
 
     @GetMapping("/{targetId}/history")
