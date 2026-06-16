@@ -97,7 +97,7 @@ public class SweepService {
         sweepSettingRepository.save(setting);
     }
 
-    @Scheduled(fixedDelay = 10 * 1000)
+    @Scheduled(fixedDelay = 1000)
     public void sweep() {
         SweepSetting setting = sweepSettingRepository.find().orElse(null);
         if (setting == null) {
