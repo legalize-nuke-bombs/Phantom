@@ -1,12 +1,15 @@
 package com.example.phantom.notification;
 
 import com.example.phantom.user.User;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "notifications", indexes = {
@@ -40,6 +43,7 @@ public class Notification {
     @Column(nullable = false)
     private NotificationType type;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column
-    private Object payload;
+    private JsonNode payload;
 }

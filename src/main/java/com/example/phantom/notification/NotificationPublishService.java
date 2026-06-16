@@ -1,6 +1,7 @@
 package com.example.phantom.notification;
 
 import com.example.phantom.user.User;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -16,10 +17,12 @@ public class NotificationPublishService {
 
     private final NotificationRepository notificationRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ObjectMapper objectMapper;
 
     public NotificationPublishService(NotificationRepository notificationRepository, SimpMessagingTemplate messagingTemplate) {
         this.notificationRepository = notificationRepository;
         this.messagingTemplate = messagingTemplate;
+        this.objectMapper = new ObjectMapper();
     }
 
     @Transactional
@@ -29,7 +32,7 @@ public class NotificationPublishService {
         notification.setDestinationType(NotificationDestinationType.TOPIC);
         notification.setTimestamp(Instant.now().getEpochSecond());
         notification.setType(type);
-        notification.setPayload(payload);
+        notification.setPayload(objectMapper.valueToTree(payload));
         notificationRepository.save(notification);
     }
 
@@ -41,7 +44,7 @@ public class NotificationPublishService {
         notification.setDestinationUser(user);
         notification.setTimestamp(Instant.now().getEpochSecond());
         notification.setType(type);
-        notification.setPayload(payload);
+        notification.setPayload(objectMapper.valueToTree(payload));
         notificationRepository.save(notification);
     }
 
@@ -60,7 +63,7 @@ public class NotificationPublishService {
         }
         notificationRepository.saveAll(notifications);
         if (!notifications.isEmpty()) {
-            log.info("published {} notifications", notifications);
+            log.info("published {} notifications", notifications.size());
         }
     }
 
