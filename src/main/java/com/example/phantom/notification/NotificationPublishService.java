@@ -48,7 +48,7 @@ public class NotificationPublishService {
         notificationRepository.save(notification);
     }
 
-    @Scheduled(fixedDelay = 1000)
+    @Scheduled(fixedDelay = 100)
     @Transactional
     public void publishNotifications() {
         List<Notification> notifications = notificationRepository.findByPublishedForPessimisticWrite(false);
