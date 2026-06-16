@@ -96,10 +96,7 @@ public class DiskService {
         }
 
         DiskQuota rule;
-        if (levelFeatureService.haveAccess(userId, LevelFeature.DISK_PRO)) {
-            rule = diskSettings.getProRule();
-        }
-        else if (levelFeatureService.haveAccess(userId, LevelFeature.DISK_PLUS)) {
+        if (levelFeatureService.haveAccess(userId, LevelFeature.DISK_PLUS)) {
             rule = diskSettings.getPlusRule();
         }
         else {
