@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class SpaController {
 
     @GetMapping(value = {
-            "/{path:[^\\.]*}",
+            "/{path:(?!ws$)[^\\.]*}",
             "/{path:[^\\.]*}/{subpath:[^\\.]*}"
     })
     public String forward() {
