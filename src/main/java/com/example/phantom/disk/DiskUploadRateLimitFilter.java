@@ -9,6 +9,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -18,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+@Slf4j
 public class DiskUploadRateLimitFilter extends OncePerRequestFilter {
 
     private static final String DISK_UPLOAD_PATH = "/api/disk/files";
@@ -48,6 +50,11 @@ public class DiskUploadRateLimitFilter extends OncePerRequestFilter {
                 }
                 catch (ApiException e) {
                     writeProblem(response, e);
+                    return;
+                }
+                catch (Exception e) {
+                    log.error("unexpected problem happened", e);
+                    writeProblem(response, new ApiException(ErrorCode.INTERNAL_ERROR));
                     return;
                 }
             }
