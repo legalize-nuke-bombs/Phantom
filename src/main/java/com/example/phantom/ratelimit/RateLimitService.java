@@ -43,8 +43,8 @@ public class RateLimitService {
         this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_BASE, new RateLimitRule(2L * 1024 * 1024 * 1024, 8L * 3600));
         this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_BASE, new RateLimitRule(4L * 1024 * 1024 * 1024, 8L * 3600));
 
-        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(20L * 1024 * 1024 * 1024 * 1024, 8L * 3600));
-        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(40L * 1024 * 1024 * 1024 * 1024, 8L * 3600));
+        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(20L * 1024 * 1024 * 1024, 8L * 3600));
+        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(40L * 1024 * 1024 * 1024, 8L * 3600));
     }
 
     public void registerRule(RateLimitAction action, LevelFeature requiredFeature, RateLimitRule rule) {
