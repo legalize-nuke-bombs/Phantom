@@ -74,16 +74,16 @@ public class DiskService {
         long size;
         String storedName = name;
         try {
-            byte[] compressed = null;
+            ImageCompressionService.Result compressed = null;
             if (tryCompress) {
                 try (InputStream in = multipart.getInputStream()) {
                     compressed = imageCompressionService.compress(in);
                 }
             }
             if (compressed != null) {
-                diskFilesystemService.store(id, compressed);
-                size = compressed.length;
-                storedName = withJpegExtension(name);
+                diskFilesystemService.store(id, compressed.bytes());
+                size = compressed.bytes().length;
+                storedName = withExtension(name, compressed.extension());
             }
             else {
                 diskFilesystemService.store(id, multipart);
@@ -115,10 +115,10 @@ public class DiskService {
         }
     }
 
-    private static String withJpegExtension(String name) {
+    private static String withExtension(String name, String extension) {
         int dot = name.lastIndexOf('.');
         String base = dot > 0 ? name.substring(0, dot) : name;
-        return base + ".jpg";
+        return base + "." + extension;
     }
 
     public Download download(Long userId, UUID fileId) {
