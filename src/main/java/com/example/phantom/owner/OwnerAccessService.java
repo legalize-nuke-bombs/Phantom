@@ -35,7 +35,6 @@ public class OwnerAccessService {
             throw new ApiException(ErrorCode.OWNER_KEY_INVALID);
         }
 
-        log.info("valid owner key specified");
         return true;
     }
 }
