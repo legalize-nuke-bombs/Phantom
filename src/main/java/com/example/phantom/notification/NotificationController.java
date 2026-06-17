@@ -1,5 +1,6 @@
 package com.example.phantom.notification;
 
+import jakarta.validation.constraints.Min;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,7 +25,7 @@ public class NotificationController {
     public List<NotificationRepresentation> get(
             @AuthenticationPrincipal Long userId,
             @RequestParam(required = false) Long before,
-            @RequestParam(defaultValue = "20") Integer limit
+            @RequestParam(defaultValue = "20") @Min(1) Integer limit
     ) {
         return notificationService.get(userId, before, limit);
     }

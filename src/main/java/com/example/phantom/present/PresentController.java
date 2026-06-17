@@ -1,6 +1,7 @@
 package com.example.phantom.present;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +24,7 @@ public class PresentController {
     public List<PresentRepresentation> get(
             @AuthenticationPrincipal Long userId,
             @RequestParam(required = false) Boolean claimed,
-            @RequestParam(defaultValue = "20") Integer limit,
+            @RequestParam(defaultValue = "20") @Min(1) Integer limit,
             @RequestParam(required = false) Long before
     ) {
         return presentService.get(userId, claimed, limit, before);

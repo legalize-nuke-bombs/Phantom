@@ -1,5 +1,6 @@
 package com.example.phantom.disk;
 
+import jakarta.validation.constraints.Min;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -44,7 +45,7 @@ public class DiskController {
     public List<FileRepresentation> getFiles(
             @AuthenticationPrincipal Long userId,
             @RequestParam(required = false) Long before,
-            @RequestParam(defaultValue = "20") Integer limit
+            @RequestParam(defaultValue = "20") @Min(1) Integer limit
     ) {
         return diskService.getFiles(userId, before, limit);
     }

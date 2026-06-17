@@ -56,6 +56,11 @@ public class RateLimitService {
     }
 
     public void startAction(Long userId, RateLimitAction action, long tokens) {
+        if (tokens < 0) {
+            log.warn("startAction skipped: unexpected tokens value user {} action {} tokens {}", userId, action, tokens);
+            return;
+        }
+
         long now = Instant.now().getEpochSecond();
 
         Map<LevelFeature, RateLimitRule> actionRules = rules.get(action);
