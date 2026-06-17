@@ -57,7 +57,7 @@ public class CoinFlipService extends GameService {
     @Override
     protected Game runGame(Game game, Random random) {
         game.setResult(
-                (random.nextInt() % 2 == 1)
+                (random.nextInt(2) == 1)
                 ? new BigDecimal(game.getData().get("possibleResult").toString())
                 : BigDecimal.ZERO
         );
