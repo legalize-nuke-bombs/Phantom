@@ -35,6 +35,7 @@ public class OwnerAccessService {
             throw new ApiException(ErrorCode.OWNER_KEY_INVALID);
         }
 
+        log.info("owner access granted");
         return true;
     }
 }
