@@ -3,8 +3,10 @@ package com.example.phantom.lottery;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.ExperienceService;
-import com.example.phantom.experience.experiencechange.ExperienceChange;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
+import com.example.phantom.notification.topic.globaltopic.GlobalTopicService;
 import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.ref.RefService;
 import com.example.phantom.ratelimit.RateLimitAction;
@@ -16,7 +18,6 @@ import com.example.phantom.user.UserShortRepresentation;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.annotations.Filter;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -42,8 +43,10 @@ public class LotteryService {
     private final RateLimitService rateLimitService;
     private final ProvablyFairService provablyFairService;
     private final PrivacySettingService privacySettingService;
+    private final NotificationPublishService notificationPublishService;
+    private final GlobalTopicService globalTopicService;
 
-    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotteryCreatorService lotteryCreatorService, RateLimitService rateLimitService, ProvablyFairService provablyFairService, PrivacySettingService privacySettingService) {
+    public LotteryService(UserRepository userRepository, WalletService walletService, ExperienceService experienceService, RefService refService, LotteryRepository lotteryRepository, LotteryBetRepository lotteryBetRepository, LotteryCreatorService lotteryCreatorService, RateLimitService rateLimitService, ProvablyFairService provablyFairService, PrivacySettingService privacySettingService, NotificationPublishService notificationPublishService, GlobalTopicService globalTopicService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
         this.experienceService = experienceService;
@@ -54,6 +57,8 @@ public class LotteryService {
         this.rateLimitService = rateLimitService;
         this.provablyFairService = provablyFairService;
         this.privacySettingService = privacySettingService;
+        this.notificationPublishService = notificationPublishService;
+        this.globalTopicService = globalTopicService;
     }
 
     public CurrentLotteryRepresentation getCurrent(Long userId) {
@@ -212,12 +217,24 @@ public class LotteryService {
     @Scheduled(fixedDelay = 1000)
     @Transactional
     public void checkCurrentLottery() {
+        Long now = Instant.now().getEpochSecond();
+
         Lottery lottery = lotteryRepository.findCurrent().orElse(null);
         if (lottery == null) {
             lottery = lotteryCreatorService.createNewLottery();
         }
 
-        if (lottery.getTimestampEnd() > Instant.now().getEpochSecond()) {
+        if (lottery.getTimestampNotificationEnding() != null &&
+                lottery.getNotificationEndingFired() != null &&
+                now >= lottery.getTimestampNotificationEnding() &&
+                !lottery.getNotificationEndingFired()) {
+            log.info("firing notification ending...");
+            lottery.setNotificationEndingFired(true);
+            lotteryRepository.save(lottery);
+            notificationPublishService.createTopicNotification(globalTopicService.findAuthorized(), NotificationType.LOTTERY_IS_ENDING, null);
+        }
+
+        if (lottery.getTimestampEnd() > now) {
             return;
         }
 
@@ -271,9 +288,14 @@ public class LotteryService {
         lottery.setTicketsAmountTotal(ticketsAmountTotal);
         lotteryRepository.save(lottery);
 
+        log.info("firing notification ended...");
+        notificationPublishService.createTopicNotification(globalTopicService.findAuthorized(), NotificationType.LOTTERY_ENDED, null);
+
         if (winner != null) {
+            log.info("granting the winner...");
             Wallet winnerWallet = walletService.lock(winner.getId());
             walletService.addChange(winnerWallet, prize);
+            notificationPublishService.createUserNotification(winner, NotificationType.YOU_WON_LOTTERY, null);
         }
 
         lotteryCreatorService.createNewLottery();

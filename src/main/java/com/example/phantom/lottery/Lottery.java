@@ -25,6 +25,12 @@ public class Lottery {
     @Column(nullable = false)
     private Long timestamp;
 
+    @Column
+    private Long timestampNotificationEnding;
+
+    @Column
+    private Boolean notificationEndingFired;
+
     @Column(nullable = false)
     private Long timestampBlock;
 

@@ -28,6 +28,8 @@ public class LotteryCreatorService {
         Lottery lottery = new Lottery();
 
         lottery.setTimestamp(Instant.now().getEpochSecond());
+        lottery.setTimestampNotificationEnding(lottery.getTimestamp() + lotteryCreatorSettings.getNotificationEnding());
+        lottery.setNotificationEndingFired(false);
         lottery.setTimestampBlock(lottery.getTimestamp() + lotteryCreatorSettings.getBlock());
         lottery.setTimestampEnd(lottery.getTimestamp() + lotteryCreatorSettings.getEnd());
 

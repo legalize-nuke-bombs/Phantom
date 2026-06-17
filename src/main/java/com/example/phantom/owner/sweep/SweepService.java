@@ -3,6 +3,9 @@ package com.example.phantom.owner.sweep;
 import com.example.phantom.crypto.*;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
+import com.example.phantom.notification.topic.globaltopic.GlobalTopicService;
 import com.example.phantom.owner.masterwallet.MasterWalletSetting;
 import com.example.phantom.owner.masterwallet.MasterWalletSettingRepository;
 import com.example.phantom.ratelimit.RateLimitAction;
@@ -10,6 +13,7 @@ import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,6 +38,8 @@ public class SweepService {
     private final SweepLogRepository sweepLogRepository;
     private final CoinProviderRegistry coinProviderRegistry;
     private final RateLimitService rateLimitService;
+    private final NotificationPublishService notificationPublishService;
+    private final GlobalTopicService globalTopicService;
     private volatile Instant lastSweep;
 
     public SweepService(
@@ -43,7 +49,9 @@ public class SweepService {
             MasterWalletSettingRepository masterWalletSettingRepository,
             SweepLogRepository sweepLogRepository,
             CoinProviderRegistry coinProviderRegistry,
-            RateLimitService rateLimitService
+            RateLimitService rateLimitService,
+            NotificationPublishService notificationPublishService,
+            GlobalTopicService globalTopicService
     ) {
         this.userRepository = userRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
@@ -52,6 +60,8 @@ public class SweepService {
         this.sweepLogRepository = sweepLogRepository;
         this.coinProviderRegistry = coinProviderRegistry;
         this.rateLimitService = rateLimitService;
+        this.notificationPublishService = notificationPublishService;
+        this.globalTopicService = globalTopicService;
         this.lastSweep = Instant.now();
     }
 
@@ -80,12 +90,13 @@ public class SweepService {
     }
 
     public Map<String, String> setSchedule(Long userId, SetScheduleRequest request) {
-        getOwner(userId);
+        User user = getOwner(userId);
 
         SweepSetting setting = sweepSettingRepository.find().orElseGet(SweepSetting::new);
         setting.setDelay(request.getSeconds());
         sweepSettingRepository.save(setting);
 
+        notificationPublishService.createTopicNotification(globalTopicService.findOwners(), NotificationType.SWEEP_SCHEDULE_SET, new UserShortRepresentation(user));
         log.info("set new sweep schedule by user {}", userId);
         return Map.of("message", "set");
     }
