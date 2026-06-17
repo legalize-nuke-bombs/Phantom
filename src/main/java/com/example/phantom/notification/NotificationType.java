@@ -7,5 +7,6 @@ public enum NotificationType {
     ROLE_CLAIMED,
     WELCOME,
     LEVEL_UP,
-    YOUR_MESSAGE_DELETED
+    YOUR_MESSAGE_DELETED,
+    BROADCAST
 }

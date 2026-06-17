@@ -1,9 +1,10 @@
 package com.example.phantom.notification.topic.globaltopic;
 
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.topic.Topic;
 import com.example.phantom.notification.topic.TopicBuilderService;
 import com.example.phantom.notification.topic.TopicRepository;
-import com.example.phantom.user.Role;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.event.EventListener;
@@ -12,14 +13,35 @@ import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-public class GlobalTopicInitService {
+public class GlobalTopicService {
 
     private final TopicRepository topicRepository;
     private final TopicBuilderService topicBuilderService;
 
-    public GlobalTopicInitService(TopicRepository topicRepository, TopicBuilderService topicBuilderService) {
+    public GlobalTopicService(TopicRepository topicRepository, TopicBuilderService topicBuilderService) {
         this.topicRepository = topicRepository;
         this.topicBuilderService = topicBuilderService;
+    }
+
+    public Topic findAuthorized() {
+        return findTopic("authorized");
+    }
+
+    public Topic findChatModerators() {
+        return findTopic("chat-moderators");
+    }
+
+    public Topic findOwners() {
+        return findTopic("owners");
+    }
+
+    private Topic findTopic(String id) {
+        Topic topic = topicRepository.findById(id).orElse(null);
+        if (topic == null) {
+            log.error("failed to find topic {}", id);
+            throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+        return topic;
     }
 
     @EventListener(ApplicationStartedEvent.class)
@@ -30,13 +52,8 @@ public class GlobalTopicInitService {
     }
 
     private void createTopic(String id, boolean allowAuthorized, boolean allowChatModerators, boolean allowOwners) {
-        try {
-            Topic topic = topicBuilderService.build(id, allowAuthorized, allowChatModerators, allowOwners, false);
-            topicRepository.save(topic);
-            log.info("topic {} created", id);
-        }
-        catch (DataIntegrityViolationException e) {
-            log.info("topic {} was already created", id);
-        }
+        Topic topic = topicBuilderService.build(id, allowAuthorized, allowChatModerators, allowOwners, false);
+        topicRepository.save(topic);
+        log.info("topic {} created", id);
     }
 }

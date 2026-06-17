@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -16,10 +17,32 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("""
 SELECT n
 FROM Notification n
-WHERE n.destinationType = ?1 AND
-n.destinationUser.id = ?2 AND
-(?3 IS NULL OR n.id < ?3)
+WHERE (
+(n.destinationType = :destinationTypeUser AND
+n.destinationUser IS NOT NULL AND
+n.destinationUser.id = :userId)
+OR
+(n.destinationType = :destinationTypeTopic AND
+n.destinationTopic IS NOT NULL AND
+(
+(n.destinationTopic.allowAuthorized) OR
+(n.destinationTopic.allowChatModerators AND :chatModeratorAccess = true) OR
+(n.destinationTopic.allowOwners AND :ownerAccess = true)
+)))
+AND
+(:before IS NULL OR n.id < :before)
 ORDER BY n.id DESC
 """)
-    List<Notification> findByDestinationTypeDestinationUserId(NotificationDestinationType destinationType, Long destinationUserId, Long before, Pageable pageable);
+    List<Notification> findRelevant(
+            @Param("destinationTypeUser") NotificationDestinationType destinationTypeUser,
+            @Param("destinationTypeTopic") NotificationDestinationType destinationTypeTopic,
+
+            @Param("userId") Long userId,
+
+            @Param("chatModeratorAccess") boolean chatModeratorAccess,
+            @Param("ownerAccess") boolean ownerAccess,
+
+            @Param("before") Long before,
+            Pageable pageable
+    );
 }

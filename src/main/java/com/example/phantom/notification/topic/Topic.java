@@ -1,15 +1,17 @@
 package com.example.phantom.notification.topic;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "topics")
+@Table(name = "topics", indexes = {
+        @Index(name = "idx_topics_allowAuthorized", columnList = "allowAuthorized"),
+        @Index(name = "idx_topics_allowChatModerators", columnList = "allowChatModerators"),
+        @Index(name = "idx_topics_allowOwners", columnList = "allowOwners"),
+        @Index(name = "idx_topics_allowCustomMembers", columnList = "allowCustomMembers")
+})
 @Getter
 @Setter
 @NoArgsConstructor
