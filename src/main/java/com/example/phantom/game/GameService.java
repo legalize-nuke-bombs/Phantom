@@ -6,6 +6,7 @@ import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.user.User;
 import com.example.phantom.wallet.Wallet;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -14,6 +15,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Random;
 
+@Slf4j
 public abstract class GameService {
 
     protected final GameDependencies deps;
@@ -83,6 +85,8 @@ public abstract class GameService {
         game.setResult(result);
         game.setTimestamp(Instant.now().getEpochSecond());
         deps.gameRepository.save(game);
+
+        log.info("game run user {} type {} bet {} result {} id {}", user.getId(), game.getGameType(), game.getBet(), game.getResult(), game.getId());
 
         return new GameRepresentation(game);
     }
