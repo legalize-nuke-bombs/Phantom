@@ -1,5 +1,6 @@
 package com.example.phantom.notification;
 
+import com.example.phantom.notification.topic.Topic;
 import com.example.phantom.user.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -26,10 +27,11 @@ public class NotificationPublishService {
     }
 
     @Transactional
-    public void createTopicNotification(String topic, NotificationType type, Object payload) {
+    public void createTopicNotification(Topic topic, NotificationType type, Object payload) {
         Notification notification = new Notification();
         notification.setPublished(false);
         notification.setDestinationType(NotificationDestinationType.TOPIC);
+        notification.setDestinationTopic(topic);
         notification.setTimestamp(Instant.now().getEpochSecond());
         notification.setType(type);
         notification.setPayload(objectMapper.valueToTree(payload));
@@ -68,14 +70,10 @@ public class NotificationPublishService {
     }
 
     private void convertAndSend(Notification notification) {
-        switch (notification.getDestinationType()) {
-            case TOPIC -> {
-                // TODO
-                messagingTemplate.convertAndSend("/topic/" + "...", new NotificationRepresentation(notification));
-            }
-            case USER -> {
-                messagingTemplate.convertAndSendToUser(String.valueOf(notification.getDestinationUser().getId()), "/queue/notifications", new NotificationRepresentation(notification));
-            }
-        }
+        String destination = switch (notification.getDestinationType()) {
+            case USER -> WsDestinations.user(notification.getDestinationUser().getId());
+            case TOPIC -> WsDestinations.topic(notification.getDestinationTopic().getId());
+        };
+        messagingTemplate.convertAndSend(destination, new NotificationRepresentation(notification));
     }
 }

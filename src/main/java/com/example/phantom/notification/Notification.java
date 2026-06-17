@@ -1,5 +1,6 @@
 package com.example.phantom.notification;
 
+import com.example.phantom.notification.topic.Topic;
 import com.example.phantom.user.User;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
@@ -35,6 +36,11 @@ public class Notification {
     @JoinColumn(name = "destination_user_id")
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User destinationUser;
+
+    @ManyToOne
+    @JoinColumn(name = "topic_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private Topic destinationTopic;
 
     @Column(nullable = false)
     private Long timestamp;
