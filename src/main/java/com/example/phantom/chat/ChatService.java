@@ -107,7 +107,8 @@ public class ChatService {
                 chatModeratorAction.setType(ChatModeratorActionType.DELETE_MESSAGE);
                 chatModeratorAction.setData(Map.of(
                         "user_id", String.valueOf(message.getUser().getId()),
-                        "message_content", message.getContent()
+                        "message_content", message.getContent(),
+                        "message_attachment_id", message.getAttachment() != null ? message.getAttachment().getId().toString() : ""
                 ));
                 chatModeratorActionRepository.save(chatModeratorAction);
 
