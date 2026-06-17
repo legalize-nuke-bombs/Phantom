@@ -87,7 +87,7 @@ public class DiskService {
             }
         }
         catch (DiskFSService.DiskFSServiceException | IOException e) {
-            log.warn("failed to store file {}", multipart, e);
+            log.warn("failed to store file for user {} {}", userId, multipart, e);
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
         }
 
@@ -103,6 +103,7 @@ public class DiskService {
             return diskRegistryService.register(userId, id, storedName, size, rule);
         }
         catch (RuntimeException e) {
+            log.info("file register rejected for user {}: {}", userId, e.getMessage());
             diskFilesystemService.deleteQuietly(id);
             throw e;
         }
