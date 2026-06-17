@@ -26,9 +26,15 @@ public class ImageCompressionService {
             byte[] source = input.readAllBytes();
 
             Info info = readInfo(source);
-            if (info == null || (long) info.width() * info.height() > MAX_SOURCE_PIXELS) {
+            if (info == null) {
+                log.info("compression skipped: info is null");
                 return null;
             }
+            if ((long)info.width() * info.height() > MAX_SOURCE_PIXELS) {
+                log.info("compression skipped: image is too large {} x {}", info.width(), info.height());
+                return null;
+            }
+            log.info("compressing image {} x {} ...", info.width(), info.height());
 
             String raw = info.format() == null ? "" : info.format().toLowerCase();
             String format = raw.equals("jpeg") ? "jpg" : raw;
