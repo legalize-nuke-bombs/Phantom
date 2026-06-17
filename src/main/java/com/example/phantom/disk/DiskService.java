@@ -73,7 +73,7 @@ public class DiskService {
             ImageCompressionService.Result compressed = null;
             if (tryCompress) {
                 try (InputStream in = multipart.getInputStream()) {
-                    compressed = imageCompressionService.compress(in);
+                    compressed = imageCompressionService.compress(in, userId);
                 }
             }
             if (compressed != null) {

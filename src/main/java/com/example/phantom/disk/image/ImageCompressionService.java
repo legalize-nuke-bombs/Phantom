@@ -21,20 +21,20 @@ public class ImageCompressionService {
     private static final long MAX_SOURCE_PIXELS = 50L * 1_000_000;
     private static final double JPEG_QUALITY = 0.8;
 
-    public Result compress(InputStream input) {
+    public Result compress(InputStream input, Long userId) {
         try {
             byte[] source = input.readAllBytes();
 
             Info info = readInfo(source);
             if (info == null) {
-                log.info("compression skipped: info is null");
+                log.info("compression for {} skipped: info is null", userId);
                 return null;
             }
             if ((long)info.width() * info.height() > MAX_SOURCE_PIXELS) {
-                log.info("compression skipped: image is too large {} x {}", info.width(), info.height());
+                log.info("compression for {} skipped: image is too large {} x {}", userId, info.width(), info.height());
                 return null;
             }
-            log.info("compressing image {} x {} ...", info.width(), info.height());
+            log.info("compressing for {}, image {} x {} ...", userId, info.width(), info.height());
 
             String raw = info.format() == null ? "" : info.format().toLowerCase();
             String format = raw.equals("jpeg") ? "jpg" : raw;
