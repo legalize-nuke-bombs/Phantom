@@ -87,7 +87,6 @@ public class WithdrawalService {
         String masterPrivateKey = masterWalletSetting.getPrivateKey();
         if (masterAddress == null || masterPrivateKey == null) {
             log.info("withdrawal rejected: master wallet has not been set");
-            notificationPublishService.createTopicNotification(globalTopicService.findOwners(), NotificationType.WITHDRAWAL_FAILED, new WithdrawalRepresentation(withdrawal));
             throw new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE);
         }
 
@@ -96,7 +95,6 @@ public class WithdrawalService {
         try {
             if (provider.getBalanceUsd(masterAddress).compareTo(toSend) < 0) {
                 log.info("withdrawal rejected: master wallet insufficient balance");
-                notificationPublishService.createTopicNotification(globalTopicService.findOwners(), NotificationType.WITHDRAWAL_FAILED, new WithdrawalRepresentation(withdrawal));
                 throw new ApiException(ErrorCode.MASTER_WALLET_DRAINED);
             }
 
@@ -109,7 +107,6 @@ public class WithdrawalService {
         }
         catch (CryptoException e) {
             log.warn("withdrawal failed", e);
-            notificationPublishService.createTopicNotification(globalTopicService.findOwners(), NotificationType.WITHDRAWAL_FAILED, new WithdrawalRepresentation(withdrawal));
             throw new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE);
         }
 
