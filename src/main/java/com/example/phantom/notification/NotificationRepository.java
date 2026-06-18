@@ -24,11 +24,7 @@ n.destinationUser.id = :userId)
 OR
 (n.destinationType = :destinationTypeTopic AND
 n.destinationTopic IS NOT NULL AND
-(
-(n.destinationTopic.allowAuthorized) OR
-(n.destinationTopic.allowChatModerators AND :chatModeratorAccess = true) OR
-(n.destinationTopic.allowOwners AND :ownerAccess = true)
-)))
+n.destinationTopic.id IN :accessibleTopicIds))
 AND
 (:before IS NULL OR n.id < :before)
 ORDER BY n.id DESC
@@ -39,8 +35,7 @@ ORDER BY n.id DESC
 
             @Param("userId") Long userId,
 
-            @Param("chatModeratorAccess") boolean chatModeratorAccess,
-            @Param("ownerAccess") boolean ownerAccess,
+            @Param("accessibleTopicIds") List<String> accessibleTopicIds,
 
             @Param("before") Long before,
             Pageable pageable

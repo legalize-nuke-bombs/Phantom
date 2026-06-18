@@ -1,9 +1,13 @@
 package com.example.phantom.notification.topic;
 
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.WsDestinations;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class TopicAccessService {
@@ -26,21 +30,29 @@ public class TopicAccessService {
         return false;
     }
 
+    public List<String> getAccessible(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
+        return topicRepository.findAccessibleTopicIds(
+                user.getRole().getChatModeratorAccess(),
+                user.getRole().getOwnerAccess(),
+                null
+        );
+    }
+
     private boolean canReadUser(Long userId, String destination) {
         return destination.equals(WsDestinations.user(userId));
     }
 
     private boolean canReadTopic(Long userId, String destination) {
         String topicId = destination.substring(WsDestinations.TOPIC_PREFIX.length());
-        Topic topic = topicRepository.findById(topicId).orElse(null);
         User user = userRepository.findById(userId).orElse(null);
-        if (topic == null || user == null) {
+        if (user == null) {
             return false;
         }
-
-        // TODO TopicMember validation
-        return (topic.getAllowAuthorized() ||
-                (topic.getAllowChatModerators() && user.getRole().getChatModeratorAccess()) ||
-                (topic.getAllowOwners() && user.getRole().getOwnerAccess()));
+        return !topicRepository.findAccessibleTopicIds(
+                user.getRole().getChatModeratorAccess(),
+                user.getRole().getOwnerAccess(),
+                topicId
+        ).isEmpty();
     }
 }
