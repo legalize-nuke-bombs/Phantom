@@ -56,7 +56,7 @@ public class ChatService {
 
         Long id = chatIdsGenerator.nextLong();
 
-        Topic topic = topicBuilderService.build("personal-chat-" + id, false, false, false, true);
+        Topic topic = topicBuilderService.build(ChatConstants.PERSONAL_CHAT_PREFIX + id, false, false, false, true);
         topicRepository.save(topic);
 
         TopicMember chatMember = new TopicMember();
