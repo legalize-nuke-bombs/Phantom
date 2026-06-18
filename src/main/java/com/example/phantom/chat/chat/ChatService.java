@@ -9,11 +9,12 @@ import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.user.UserShortRepresentation;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -64,15 +65,36 @@ public class ChatService {
         return new ChatRepresentation(chat, List.of(new UserShortRepresentation(user)));
     }
 
-    public ChatRepresentation get(Long userId, Long chatId) {
-        Chat chat = getChat(userId, chatId);
+    public List<ChatRepresentation> get(Long userId, Integer limit, Long before) {
+        rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
+
+        Pageable pageable = PageRequest.of(0, limit);
+
+        List<TopicMember> topicMembers = topicMemberRepository.findByUserIdWithTopics(userId);
+        List<String> topicMembersTopicIds = topicMembers.stream().map(TopicMember::getTopic).map(Topic::getId).toList();
+
+        List<Chat> chats = chatRepository.findByTopicIdsWithTopics(topicMembersTopicIds, before, pageable);
+        List<String> chatTopicIds = chats.stream().map(Chat::getTopic).map(Topic::getId).toList();
+
+        List<TopicMember> globalTopicMembers = topicMemberRepository.findByTopicIdsWithUsersTopics(chatTopicIds);
+        Map<String, List<UserShortRepresentation>> usersMap = new HashMap<>();
+        for (TopicMember tm : globalTopicMembers) {
+            usersMap.putIfAbsent(tm.getTopic().getId(), new ArrayList<>());
+            usersMap.get(tm.getTopic().getId()).add(new UserShortRepresentation(tm.getUser()));
+        }
+
+        return chats.stream().map(c -> new ChatRepresentation(c, usersMap.get(c.getTopic().getId()))).toList();
+    }
+
+    public ChatRepresentation getChat(Long userId, Long chatId) {
+        Chat chat = getVisibleChat(userId, chatId);
 
         List<TopicMember> topicMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
 
         return new ChatRepresentation(chat, topicMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
     }
 
-    private Chat getChat(Long userId, Long chatId) {
+    private Chat getVisibleChat(Long userId, Long chatId) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
         if (!topicAccessService.canReadTopic(userId, chat.getTopic().getId())) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
