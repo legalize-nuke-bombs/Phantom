@@ -110,7 +110,6 @@ public class ChatService {
         validateMembership(userId, topicId);
 
         if (topicMemberRepository.countByTopicId(topicId) == 1) {
-            chatRepository.delete(chat);
             topicRepository.delete(chat.getTopic());
             log.info("user {} was the last member and left, so the chat is deleted", userId);
         }
@@ -127,7 +126,6 @@ public class ChatService {
         Chat chat = getChat(chatId);
         validateEldership(userId, chat.getTopic().getId());
 
-        chatRepository.delete(chat);
         topicRepository.delete(chat.getTopic());
         log.info("user {} deleted the chat", userId);
     }
