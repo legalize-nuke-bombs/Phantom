@@ -7,7 +7,7 @@ import lombok.Getter;
 @Getter
 public class MessageRepresentation {
     private final Long id;
-    private final Long chatId;
+    private final String chatId;
     private final UserShortRepresentation user;
     private final Long timestamp;
     private final String content;
@@ -15,7 +15,7 @@ public class MessageRepresentation {
 
     public MessageRepresentation(Message message) {
         this.id = message.getId();
-        this.chatId = message.getChat().getId();
+        this.chatId = String.valueOf(message.getChat().getId());
         this.user = new UserShortRepresentation(message.getUser());
         this.timestamp = message.getTimestamp();
         this.content = message.getContent();
