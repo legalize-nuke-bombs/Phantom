@@ -52,10 +52,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             }
             String destination = accessor.getDestination();
             if (destination == null || !topicAccessService.canRead(userId, destination)) {
-                log.info("rejected unauthorized subscribe attempt: user {} does not have {} access", userId, destination);
                 throw new MessagingException("forbidden destination: " + destination);
             }
-            log.info("user {} connected to {} successful", userId, destination);
         }
 
         return message;
