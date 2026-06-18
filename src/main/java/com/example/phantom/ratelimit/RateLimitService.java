@@ -36,7 +36,7 @@ public class RateLimitService {
         this.registerRule(RateLimitAction.CRYPTO, null, new RateLimitRule(20L, 60L));
         this.registerRule(RateLimitAction.LOTTERY, null, new RateLimitRule(20L, 60L));
         this.registerRule(RateLimitAction.SEND_MESSAGE, LevelFeature.SEND_MESSAGE, new RateLimitRule(100L, 10L * 60));
-        this.registerRule(RateLimitAction.CREATE_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(100L, 8L * 3600));
+        this.registerRule(RateLimitAction.CREATE_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(25L, 8L * 3600));
         this.registerRule(RateLimitAction.SEND_PRESENT, LevelFeature.SEND_PRESENT, new RateLimitRule(100L, 10L * 60));
 
         this.registerRule(RateLimitAction.DOWNLOAD, null, new RateLimitRule(200L * 1024 * 1024, 8L * 3600));
