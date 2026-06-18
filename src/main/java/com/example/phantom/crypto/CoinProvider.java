@@ -17,7 +17,8 @@ public interface CoinProvider {
     String generateMnemonic() throws CryptoException;
     KeyPair deriveKeyPair(String mnemonic) throws CryptoException;
 
-    BigDecimal getWithdrawalCommission();
+    BigDecimal getWithdrawalMinAmount();
+    BigDecimal getWithdrawalUserEdge();
     BigDecimal getMinSweepAmount();
 
     record IncomingTransfer(String txHash, BigDecimal amountUsd) {}

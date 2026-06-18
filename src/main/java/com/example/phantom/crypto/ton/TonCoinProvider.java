@@ -39,7 +39,8 @@ public class TonCoinProvider implements CoinProvider {
 
     private static final BigDecimal NANOTON = new BigDecimal("1000000000");
     private static final long WALLET_ID_V5 = 2147483409L;
-    private static final BigDecimal WITHDRAWAL_COMMISSION = new BigDecimal("0.1");
+    private static final BigDecimal WITHDRAWAL_MIN_AMOUNT = new BigDecimal("1");
+    private static final BigDecimal WITHDRAWAL_USER_EDGE = new BigDecimal("0.99");
     private static final BigDecimal MIN_SWEEP_AMOUNT = new BigDecimal("0.1");
     private static final long VALIDATION_DURATION = 10 * 60;
     private static final int EXIT_CODE_OK = 0;
@@ -254,8 +255,11 @@ public class TonCoinProvider implements CoinProvider {
     }
 
     @Override
-    public BigDecimal getWithdrawalCommission() {
-        return WITHDRAWAL_COMMISSION;
+    public BigDecimal getWithdrawalMinAmount() { return WITHDRAWAL_MIN_AMOUNT; }
+
+    @Override
+    public BigDecimal getWithdrawalUserEdge() {
+        return WITHDRAWAL_USER_EDGE;
     }
 
     @Override

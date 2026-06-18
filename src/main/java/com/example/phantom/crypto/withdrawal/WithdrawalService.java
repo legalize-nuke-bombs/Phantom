@@ -56,9 +56,8 @@ public class WithdrawalService {
         CoinProvider provider = coinProviderRegistry.get(coin);
         provider.validateAddress(receiver);
 
-        BigDecimal commission = provider.getWithdrawalCommission();
-        if (amount.compareTo(commission) <= 0) {
-            throw new ApiException(ErrorCode.AMOUNT_BELOW_COMMISSION);
+        if (amount.compareTo(provider.getWithdrawalMinAmount()) < 0) {
+            throw new ApiException(ErrorCode.INSUFFICIENT_WITHDRAWAL);
         }
 
         Wallet wallet = walletService.lock(user.getId());
@@ -90,7 +89,7 @@ public class WithdrawalService {
             throw new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE);
         }
 
-        BigDecimal toSend = withdrawal.getAmount().subtract(provider.getWithdrawalCommission());
+        BigDecimal toSend = withdrawal.getAmount().multiply(provider.getWithdrawalUserEdge());
 
         try {
             if (provider.getBalanceUsd(masterAddress).compareTo(toSend) < 0) {
