@@ -23,6 +23,7 @@ SELECT 1 FROM TopicMember m
 WHERE m.topic.id = t.id AND m.user.id = :userId
 ))
 )
+ORDER BY t.id DESC
 """)
     List<String> findAccessibleTopicIds(
             @Param("chatModeratorAccess") boolean chatModeratorAccess,
