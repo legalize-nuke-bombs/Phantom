@@ -14,12 +14,10 @@ public class TopicAccessService {
 
     private final UserRepository userRepository;
     private final TopicRepository topicRepository;
-    private final TopicMemberRepository topicMemberRepository;
 
-    public TopicAccessService(UserRepository userRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository) {
+    public TopicAccessService(UserRepository userRepository, TopicRepository topicRepository) {
         this.userRepository = userRepository;
         this.topicRepository = topicRepository;
-        this.topicMemberRepository = topicMemberRepository;
     }
 
     public boolean canRead(Long userId, String destination) {
@@ -37,7 +35,7 @@ public class TopicAccessService {
         return topicRepository.findAccessibleTopicIds(
                 user.getRole().getChatModeratorAccess(),
                 user.getRole().getOwnerAccess(),
-                topicMemberRepository.findByUserIdWithTopics(userId).stream().map(TopicMember::getTopic).map(Topic::getId).toList(),
+                userId,
                 null
         );
     }
@@ -55,7 +53,7 @@ public class TopicAccessService {
         return !topicRepository.findAccessibleTopicIds(
                 user.getRole().getChatModeratorAccess(),
                 user.getRole().getOwnerAccess(),
-                topicMemberRepository.findByUserIdWithTopics(userId).stream().map(TopicMember::getTopic).map(Topic::getId).toList(),
+                userId,
                 topicId
         ).isEmpty();
     }
