@@ -130,9 +130,11 @@ public class RateLimitService {
 
     @Scheduled(fixedDelay = CLEAN_DELAY_SEC * 1000)
     public void cleanExpired() {
+        log.info("cleaning expired started...");
         long now = Instant.now().getEpochSecond();
         states.values().forEach(userStates -> userStates.values().removeIf(state -> now - state.getTimestamp() > CLEAN_DELAY_SEC));
         states.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        log.info("cleaning expired done");
     }
 
     private RateLimitRule resolveRule(Map<LevelFeature, RateLimitRule> actionRules, Set<LevelFeature> features) {
