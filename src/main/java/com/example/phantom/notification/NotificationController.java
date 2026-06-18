@@ -24,9 +24,10 @@ public class NotificationController {
     @GetMapping
     public List<NotificationRepresentation> get(
             @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) String topicId,
             @RequestParam(required = false) Long before,
             @RequestParam(defaultValue = "20") @Min(1) Integer limit
     ) {
-        return notificationService.get(userId, before, limit);
+        return notificationService.get(userId, topicId, before, limit);
     }
 }

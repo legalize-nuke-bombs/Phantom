@@ -1,14 +1,10 @@
 package com.example.phantom.notification.topic;
 
-import com.example.phantom.exception.ApiException;
-import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.WsDestinations;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @Slf4j

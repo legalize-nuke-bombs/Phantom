@@ -1,5 +1,7 @@
 package com.example.phantom.notification;
 
+import com.example.phantom.notification.topic.Topic;
+import com.example.phantom.notification.topic.TopicAccessService;
 import com.example.phantom.notification.topic.TopicService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
@@ -13,18 +15,18 @@ import java.util.List;
 public class NotificationService {
 
     private final TopicService topicService;
+    private final TopicAccessService topicAccessService;
     private final NotificationRepository notificationRepository;
     private final RateLimitService rateLimitService;
 
-    public NotificationService(TopicService topicService, NotificationRepository notificationRepository, RateLimitService rateLimitService) {
+    public NotificationService(TopicService topicService, TopicAccessService topicAccessService, NotificationRepository notificationRepository, RateLimitService rateLimitService) {
         this.topicService = topicService;
+        this.topicAccessService = topicAccessService;
         this.notificationRepository = notificationRepository;
         this.rateLimitService = rateLimitService;
     }
 
-    public List<NotificationRepresentation> get(Long userId, Long before, Integer limit) {
-        List<String> accessibleTopicIds = topicService.get(userId);
-
+    public List<NotificationRepresentation> get(Long userId, String topicId, Long before, Integer limit) {
         rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
@@ -32,7 +34,7 @@ public class NotificationService {
                 NotificationDestinationType.USER,
                 NotificationDestinationType.TOPIC,
                 userId,
-                accessibleTopicIds,
+                topicId == null ? topicService.get(userId) : (topicAccessService.canReadTopic(userId, topicId) ? List.of(topicId) : List.of()),
                 before,
                 pageable
         );
