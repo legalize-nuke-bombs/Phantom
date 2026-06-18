@@ -8,6 +8,7 @@ public enum NotificationType {
     YOUR_MESSAGE_DELETED,
     MESSAGE_RECEIVED,
     MESSAGE_DELETED,
+    NEW_CHAT,
 
     ROLE_CLAIMED,
 

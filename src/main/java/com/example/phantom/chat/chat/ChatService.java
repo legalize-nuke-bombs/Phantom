@@ -3,6 +3,8 @@ package com.example.phantom.chat.chat;
 import com.example.phantom.chat.blacklist.BlacklistService;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
 import com.example.phantom.notification.topic.*;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
@@ -31,8 +33,9 @@ public class ChatService {
     private final RateLimitService rateLimitService;
     private final Random chatIdsGenerator;
     private final BlacklistService blacklistService;
+    private final NotificationPublishService notificationPublishService;
 
-    public ChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BlacklistService blacklistService) {
+    public ChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BlacklistService blacklistService, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
         this.topicRepository = topicRepository;
@@ -41,6 +44,7 @@ public class ChatService {
         this.rateLimitService = rateLimitService;
         this.chatIdsGenerator = chatIdsGenerator;
         this.blacklistService = blacklistService;
+        this.notificationPublishService = notificationPublishService;
     }
 
     @Transactional
@@ -169,10 +173,11 @@ public class ChatService {
             throw new ApiException(ErrorCode.ALREADY_ADDED);
         }
 
-        log.info("user {} added another user", userId);
-
         List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(topicId);
-        return new ChatRepresentation(chat, chatMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
+        ChatRepresentation representation = new ChatRepresentation(chat, chatMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
+        log.info("user {} added another user", userId);
+        notificationPublishService.createUserNotification(target, NotificationType.NEW_CHAT, representation);
+        return representation;
     }
 
     private void validateMembership(Long userId, String topicId) {
