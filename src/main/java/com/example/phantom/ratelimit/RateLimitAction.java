@@ -6,6 +6,7 @@ public enum RateLimitAction {
     LOTTERY,
     SEND_MESSAGE,
     CREATE_CHAT,
+    INVITE_TO_CHAT,
     SEND_PRESENT,
     UPLOAD,
     DOWNLOAD

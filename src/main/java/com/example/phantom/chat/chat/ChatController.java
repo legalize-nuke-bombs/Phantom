@@ -33,9 +33,25 @@ public class ChatController {
     }
 
     @PostMapping("/{chatId}/leave")
-    public Void leaveChat(@AuthenticationPrincipal Long userId, @PathVariable Long chatId) {
-        return chatService.leaveChat(userId, chatId);
+    public Void leave(@AuthenticationPrincipal Long userId, @PathVariable Long chatId) {
+        return chatService.leave(userId, chatId);
     }
+
+    @DeleteMapping("/{chatId}")
+    public void delete(@AuthenticationPrincipal Long userId, @PathVariable Long chatId) {
+        chatService.delete(userId, chatId);
+    }
+
+    @PostMapping("/{chatId}/kick/{targetId}")
+    public ChatRepresentation kick(@AuthenticationPrincipal Long userId, @PathVariable Long chatId, @PathVariable Long targetId) {
+        return chatService.kick(userId, chatId, targetId);
+    }
+
+    @PostMapping("/{chatId}/add/{targetId}")
+    public ChatRepresentation add(@AuthenticationPrincipal Long userId, @PathVariable Long chatId, @PathVariable Long targetId) {
+        return chatService.add(userId, chatId, targetId);
+    }
+
 
     public ChatController(ChatService chatService) {
         this.chatService = chatService;

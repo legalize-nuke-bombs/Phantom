@@ -13,7 +13,7 @@ import org.hibernate.annotations.OnDeleteAction;
         @Index(name = "idx_topic_members_topic_id", columnList = "topic_id"),
         @Index(name = "idx_topic_members_user_id", columnList = "user_id")
 }, uniqueConstraints = {
-        @UniqueConstraint(columnNames = "topic_id, user_id")
+        @UniqueConstraint(columnNames = {"topic_id", "user_id"})
 })
 @Getter
 @Setter
@@ -22,6 +22,9 @@ public class TopicMember {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
+    private Long timestamp;
 
     @ManyToOne
     @JoinColumn(name = "topic_id", nullable = false)

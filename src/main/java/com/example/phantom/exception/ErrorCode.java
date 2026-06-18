@@ -1,9 +1,11 @@
 package com.example.phantom.exception;
 
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 import static org.springframework.http.HttpStatus.*;
 
+@Getter
 public enum ErrorCode {
     NOT_AUTHENTICATED(UNAUTHORIZED),
     INVALID_PASSWORD(FORBIDDEN),
@@ -64,6 +66,9 @@ public enum ErrorCode {
     ALREADY_BANNED(BAD_REQUEST),
     NOT_BANNED(NOT_FOUND),
     CHAT_NOT_FOUND(NOT_FOUND),
+    CANT_SELF_KICK(BAD_REQUEST),
+    CANT_SELF_ADD(BAD_REQUEST),
+    ALREADY_ADDED(CONFLICT),
 
     UNSUPPORTED_COIN(BAD_REQUEST),
     INVALID_ADDRESS(BAD_REQUEST),
@@ -93,9 +98,5 @@ public enum ErrorCode {
 
     ErrorCode(HttpStatus status) {
         this.status = status;
-    }
-
-    public HttpStatus getStatus() {
-        return status;
     }
 }
