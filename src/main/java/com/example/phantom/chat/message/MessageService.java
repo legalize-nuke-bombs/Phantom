@@ -140,7 +140,7 @@ public class MessageService {
 
     private Chat getChat(Long chatId, User user) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
-        if (!topicAccessService.canRead(user.getId(), chat.getTopic().getId())) {
+        if (!topicAccessService.canReadTopic(user.getId(), chat.getTopic().getId())) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
         return chat;

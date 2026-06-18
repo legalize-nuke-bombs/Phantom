@@ -51,7 +51,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 throw new MessagingException("unauthorized");
             }
             String destination = accessor.getDestination();
-            if (destination == null || !topicAccessService.canRead(userId, destination)) {
+            if (destination == null || !topicAccessService.canReadWs(userId, destination)) {
                 throw new MessagingException("forbidden destination: " + destination);
             }
         }

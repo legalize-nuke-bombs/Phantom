@@ -22,40 +22,42 @@ public class TopicAccessService {
         this.topicRepository = topicRepository;
     }
 
-    public boolean canRead(Long userId, String destination) {
-        if (canReadQuiet(userId, destination)) {
-            log.info("access granted: user {} destination {}", userId, destination);
-            return true;
-        }
-        log.info("access rejected: user {} destination {}", userId, destination);
-        return false;
-    }
-
-    private boolean canReadQuiet(Long userId, String destination) {
+    public boolean canReadWs(Long userId, String destination) {
         if (destination.startsWith(WsDestinations.USERS_PREFIX)) {
-            return canReadUser(userId, destination);
+            return canReadUser(userId, destination.substring(WsDestinations.USERS_PREFIX.length()));
         }
         if (destination.startsWith(WsDestinations.TOPIC_PREFIX)) {
-            return canReadTopic(userId, destination);
+            return canReadTopic(userId, destination.substring(WsDestinations.TOPIC_PREFIX.length()));
         }
+        log.info("access rejected: user {} destination {} is unknown", userId, destination);
         return false;
     }
 
-    private boolean canReadUser(Long userId, String destination) {
-        return destination.equals(WsDestinations.user(userId));
+    public boolean canReadUser(Long userId, String destinationUserId) {
+        if (String.valueOf(userId).equals(destinationUserId)) {
+            log.info("access granted: user {} destination user {}", userId, destinationUserId);
+            return true;
+        }
+        log.info("access rejected: user {} destination user {}", userId, destinationUserId);
+        return false;
     }
 
-    private boolean canReadTopic(Long userId, String destination) {
-        String topicId = destination.substring(WsDestinations.TOPIC_PREFIX.length());
+    public boolean canReadTopic(Long userId, String destinationTopicId) {
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
+            log.info("access rejected: user {} not found", userId);
             return false;
         }
-        return !topicRepository.findAccessibleTopicIds(
+        if (topicRepository.findAccessibleTopicIds(
                 user.getRole().getChatModeratorAccess(),
                 user.getRole().getOwnerAccess(),
                 userId,
-                topicId
-        ).isEmpty();
+                destinationTopicId
+        ).isEmpty()) {
+            log.info("access rejected: user {} does not have permission to read topic {}", userId, destinationTopicId);
+            return false;
+        }
+        log.info("access granted: user {} topic {}", userId, destinationTopicId);
+        return true;
     }
 }
