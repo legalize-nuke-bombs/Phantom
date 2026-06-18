@@ -52,7 +52,8 @@ public class TopicAccessService {
                 user.getRole().getChatModeratorAccess(),
                 user.getRole().getOwnerAccess(),
                 userId,
-                destinationTopicId
+                destinationTopicId,
+                null, null
         ).isEmpty()) {
             log.info("access rejected: user {} does not have permission to read topic {}", userId, destinationTopicId);
             return false;

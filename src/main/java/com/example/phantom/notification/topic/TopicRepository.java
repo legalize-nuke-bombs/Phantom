@@ -1,5 +1,6 @@
 package com.example.phantom.notification.topic;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +12,8 @@ public interface TopicRepository extends JpaRepository<Topic, String> {
     @Query("""
 SELECT t.id
 FROM Topic t
-WHERE (:topicId IS NULL OR t.id = :topicId)
+WHERE (:topicId IS NULL OR t.id = :topicId) AND
+(:before IS NULL OR t.id < :before)
 AND (
 t.allowAuthorized
 OR (t.allowChatModerators AND :chatModeratorAccess = true)
@@ -26,6 +28,8 @@ WHERE m.topic.id = t.id AND m.user.id = :userId
             @Param("chatModeratorAccess") boolean chatModeratorAccess,
             @Param("ownerAccess") boolean ownerAccess,
             @Param("userId") Long userId,
-            @Param("topicId") String topicId
+            @Param("topicId") String topicId,
+            @Param("before") String before,
+            Pageable pageable
     );
 }
