@@ -16,11 +16,13 @@ AND (
 t.allowAuthorized
 OR (t.allowChatModerators AND :chatModeratorAccess = true)
 OR (t.allowOwners AND :ownerAccess = true)
+OR (t.allowCustomMembers AND t.id IN :topicMemberTopicIds)
 )
 """)
     List<String> findAccessibleTopicIds(
             @Param("chatModeratorAccess") boolean chatModeratorAccess,
             @Param("ownerAccess") boolean ownerAccess,
+            @Param("topicMemberTopicIds") List<String> topicMemberTopicIds,
             @Param("topicId") String topicId
     );
 }

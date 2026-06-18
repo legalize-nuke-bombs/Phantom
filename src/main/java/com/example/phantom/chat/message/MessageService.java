@@ -14,6 +14,7 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
+import com.example.phantom.notification.topic.TopicAccessService;
 import com.example.phantom.notification.topic.TopicRepository;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
@@ -32,7 +33,7 @@ public class MessageService {
 
     private final UserRepository userRepository;
     private final ChatRepository chatRepository;
-    private final TopicRepository topicRepository;
+    private final TopicAccessService topicAccessService;
     private final MessageRepository messageRepository;
     private final BanRepository banRepository;
     private final ChatModeratorActionRepository chatModeratorActionRepository;
@@ -40,10 +41,10 @@ public class MessageService {
     private final RateLimitService rateLimitService;
     private final NotificationPublishService notificationPublishService;
 
-    public MessageService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimitService rateLimitService, FileRepository fileRepository, NotificationPublishService notificationPublishService) {
+    public MessageService(UserRepository userRepository, ChatRepository chatRepository, TopicAccessService topicAccessService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimitService rateLimitService, FileRepository fileRepository, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
-        this.topicRepository = topicRepository;
+        this.topicAccessService = topicAccessService;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
         this.chatModeratorActionRepository = chatModeratorActionRepository;
@@ -132,11 +133,7 @@ public class MessageService {
 
     private Chat getChat(Long chatId, User user) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
-        if (topicRepository.findAccessibleTopicIds(
-                user.getRole().getChatModeratorAccess(),
-                user.getRole().getOwnerAccess(),
-                chat.getTopic().getId()).isEmpty()
-        ) {
+        if (!topicAccessService.canRead(user.getId(), chat.getTopic().getId())) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
         return chat;

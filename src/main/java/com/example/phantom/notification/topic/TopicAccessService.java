@@ -12,12 +12,14 @@ import java.util.List;
 @Service
 public class TopicAccessService {
 
-    private final TopicRepository topicRepository;
     private final UserRepository userRepository;
+    private final TopicRepository topicRepository;
+    private final TopicMemberRepository topicMemberRepository;
 
-    public TopicAccessService(TopicRepository topicRepository, UserRepository userRepository) {
-        this.topicRepository = topicRepository;
+    public TopicAccessService(UserRepository userRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository) {
         this.userRepository = userRepository;
+        this.topicRepository = topicRepository;
+        this.topicMemberRepository = topicMemberRepository;
     }
 
     public boolean canRead(Long userId, String destination) {
@@ -35,6 +37,7 @@ public class TopicAccessService {
         return topicRepository.findAccessibleTopicIds(
                 user.getRole().getChatModeratorAccess(),
                 user.getRole().getOwnerAccess(),
+                topicMemberRepository.findByUserIdWithTopics(userId).stream().map(TopicMember::getTopic).map(Topic::getId).toList(),
                 null
         );
     }
@@ -52,6 +55,7 @@ public class TopicAccessService {
         return !topicRepository.findAccessibleTopicIds(
                 user.getRole().getChatModeratorAccess(),
                 user.getRole().getOwnerAccess(),
+                topicMemberRepository.findByUserIdWithTopics(userId).stream().map(TopicMember::getTopic).map(Topic::getId).toList(),
                 topicId
         ).isEmpty();
     }

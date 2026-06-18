@@ -18,7 +18,7 @@ public class Chat {
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "topic_id")
+    @JoinColumn(name = "topic_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Topic topic;
 }
