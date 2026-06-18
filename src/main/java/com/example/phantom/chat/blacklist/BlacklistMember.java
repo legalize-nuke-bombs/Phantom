@@ -13,7 +13,7 @@ import org.hibernate.annotations.OnDeleteAction;
         @Index(name = "idx_blacklist_members_blacklist_id", columnList = "blacklist_id"),
         @Index(name = "idx_blacklist_members_user_id", columnList = "user_id")
 }, uniqueConstraints = {
-        @UniqueConstraint(columnNames = "blacklist_id, user_id")
+        @UniqueConstraint(columnNames = {"blacklist_id", "user_id"})
 })
 @Getter
 @Setter
