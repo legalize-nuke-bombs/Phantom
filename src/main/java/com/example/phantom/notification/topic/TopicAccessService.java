@@ -41,16 +41,6 @@ public class TopicAccessService {
         return false;
     }
 
-    public List<String> getAccessible(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
-        return topicRepository.findAccessibleTopicIds(
-                user.getRole().getChatModeratorAccess(),
-                user.getRole().getOwnerAccess(),
-                userId,
-                null
-        );
-    }
-
     private boolean canReadUser(Long userId, String destination) {
         return destination.equals(WsDestinations.user(userId));
     }
