@@ -18,6 +18,7 @@ public class Blacklist {
     @Column(name = "user_id")
     private Long id;
 
+    @MapsId
     @OneToOne
     @JoinColumn(name = "user_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
