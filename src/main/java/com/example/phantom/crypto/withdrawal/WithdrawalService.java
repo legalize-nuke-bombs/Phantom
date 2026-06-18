@@ -6,6 +6,7 @@ import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationService;
 import com.example.phantom.notification.NotificationType;
+import com.example.phantom.notification.topic.Topic;
 import com.example.phantom.notification.topic.globaltopic.GlobalTopicService;
 import com.example.phantom.owner.masterwallet.MasterWalletSetting;
 import com.example.phantom.owner.masterwallet.MasterWalletSettingRepository;
@@ -144,11 +145,13 @@ public class WithdrawalService {
     public void applyCheckedStatuses(Long userId, List<Withdrawal> checked) {
         Wallet wallet = walletService.lock(userId);
 
+        Topic ownersTopic = globalTopicService.findOwners();
         for (Withdrawal w : checked) {
             log.info("applying withdrawal {} status={}", w.getId(), w.getStatus());
 
             if (w.getStatus() == TransferStatus.REJECTED && refundRepository.insertIfNotExists(w.getId()) == 1) {
                 walletService.addChange(wallet, w.getAmount());
+                notificationPublishService.createTopicNotification(ownersTopic, NotificationType.WITHDRAWAL_FAILED, new WithdrawalRepresentation(w));
                 log.info("withdrawal {} refund {}", w.getId(), w.getAmount());
             }
         }
