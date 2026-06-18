@@ -9,6 +9,9 @@ import com.example.phantom.crypto.withdrawal.WithdrawalRepresentation;
 import com.example.phantom.crypto.withdrawal.WithdrawalService;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationType;
+import com.example.phantom.notification.topic.globaltopic.GlobalTopicService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
@@ -28,19 +31,25 @@ public class CryptoService {
     private final DepositService depositService;
     private final WithdrawalService withdrawalService;
     private final RateLimitService rateLimitService;
+    private final NotificationPublishService notificationPublishService;
+    private final GlobalTopicService globalTopicService;
 
     public CryptoService(
             UserRepository userRepository,
             CryptoWalletRepository cryptoWalletRepository,
             DepositService depositService,
             WithdrawalService withdrawalService,
-            RateLimitService rateLimitService
+            RateLimitService rateLimitService,
+            NotificationPublishService notificationPublishService,
+            GlobalTopicService globalTopicService
     ) {
         this.userRepository = userRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.depositService = depositService;
         this.withdrawalService = withdrawalService;
         this.rateLimitService = rateLimitService;
+        this.notificationPublishService = notificationPublishService;
+        this.globalTopicService = globalTopicService;
     }
 
     public CryptoWalletRepresentation getWallet(Long userId, CoinType coin) {
@@ -78,8 +87,10 @@ public class CryptoService {
         Withdrawal withdrawal = withdrawalService.reserveFinances(user, coin, address, amount);
         withdrawal = withdrawalService.send(withdrawal);
 
+        WithdrawalRepresentation representation = new WithdrawalRepresentation(withdrawal);
         log.info("withdrawal request created {}, {}, {}, {}", amount, coin, address, user.getId());
-        return new WithdrawalRepresentation(withdrawal);
+        notificationPublishService.createTopicNotification(globalTopicService.findOwners(), NotificationType.NEW_WITHDRAWAL, representation);
+        return representation;
     }
 
     public List<WithdrawalRepresentation> checkPendingWithdrawals(Long userId) {

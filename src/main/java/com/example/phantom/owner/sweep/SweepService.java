@@ -5,6 +5,7 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
+import com.example.phantom.notification.topic.Topic;
 import com.example.phantom.notification.topic.globaltopic.GlobalTopicService;
 import com.example.phantom.owner.masterwallet.MasterWalletSetting;
 import com.example.phantom.owner.masterwallet.MasterWalletSettingRepository;
@@ -130,14 +131,15 @@ public class SweepService {
 
         lastSweep = now;
 
+        Topic ownersTopic = globalTopicService.findOwners();
         for (CoinProvider provider : coinProviderRegistry.getAll()) {
-            sweepCoin(provider);
+            sweepCoin(provider, ownersTopic);
         }
 
         log.info("finished");
     }
 
-    private void sweepCoin(CoinProvider provider) {
+    private void sweepCoin(CoinProvider provider, Topic ownersTopic) {
         CoinType coin = provider.coin();
         log.info("{} starting...", coin);
 
@@ -191,7 +193,8 @@ public class SweepService {
                 sweepLog.setReceiver(masterAddressValue);
                 sweepLog.setStatus(hash != null ? "ok" : "failed");
                 sweepLog.setHash(hash);
-                sweepLogRepository.save(sweepLog);
+                sweepLog = sweepLogRepository.save(sweepLog);
+                notificationPublishService.createTopicNotification(ownersTopic, NotificationType.NEW_SWEEP, new SweepLogRepresentation(sweepLog));
             }
             else {
                 log.info("{} sending skipped {}", coin, address);

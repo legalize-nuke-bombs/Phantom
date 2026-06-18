@@ -3,6 +3,10 @@ package com.example.phantom.crypto.withdrawal;
 import com.example.phantom.crypto.*;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.notification.NotificationPublishService;
+import com.example.phantom.notification.NotificationService;
+import com.example.phantom.notification.NotificationType;
+import com.example.phantom.notification.topic.globaltopic.GlobalTopicService;
 import com.example.phantom.owner.masterwallet.MasterWalletSetting;
 import com.example.phantom.owner.masterwallet.MasterWalletSettingRepository;
 import com.example.phantom.user.User;
@@ -25,19 +29,25 @@ public class WithdrawalService {
     private final MasterWalletSettingRepository masterWalletSettingRepository;
     private final RefundRepository refundRepository;
     private final CoinProviderRegistry coinProviderRegistry;
+    private final NotificationPublishService notificationPublishService;
+    private final GlobalTopicService globalTopicService;
 
     public WithdrawalService(
             WalletService walletService,
             WithdrawalRepository withdrawalRepository,
             RefundRepository refundRepository,
             MasterWalletSettingRepository masterWalletSettingRepository,
-            CoinProviderRegistry coinProviderRegistry
+            CoinProviderRegistry coinProviderRegistry,
+            NotificationPublishService notificationPublishService,
+            GlobalTopicService globalTopicService
     ) {
         this.walletService = walletService;
         this.withdrawalRepository = withdrawalRepository;
         this.refundRepository = refundRepository;
         this.masterWalletSettingRepository = masterWalletSettingRepository;
         this.coinProviderRegistry = coinProviderRegistry;
+        this.notificationPublishService = notificationPublishService;
+        this.globalTopicService = globalTopicService;
     }
 
     @Transactional
@@ -75,6 +85,8 @@ public class WithdrawalService {
         String masterAddress = masterWalletSetting.getAddress();
         String masterPrivateKey = masterWalletSetting.getPrivateKey();
         if (masterAddress == null || masterPrivateKey == null) {
+            log.info("withdrawal rejected: master wallet has not been set");
+            notificationPublishService.createTopicNotification(globalTopicService.findOwners(), NotificationType.WITHDRAWAL_FAILED, new WithdrawalRepresentation(withdrawal));
             throw new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE);
         }
 
@@ -82,6 +94,8 @@ public class WithdrawalService {
 
         try {
             if (provider.getBalanceUsd(masterAddress).compareTo(toSend) < 0) {
+                log.info("withdrawal rejected: master wallet insufficient balance");
+                notificationPublishService.createTopicNotification(globalTopicService.findOwners(), NotificationType.WITHDRAWAL_FAILED, new WithdrawalRepresentation(withdrawal));
                 throw new ApiException(ErrorCode.MASTER_WALLET_DRAINED);
             }
 
@@ -93,6 +107,8 @@ public class WithdrawalService {
             withdrawal.setHash(hash);
         }
         catch (CryptoException e) {
+            log.warn("withdrawal failed", e);
+            notificationPublishService.createTopicNotification(globalTopicService.findOwners(), NotificationType.WITHDRAWAL_FAILED, new WithdrawalRepresentation(withdrawal));
             throw new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE);
         }
 
