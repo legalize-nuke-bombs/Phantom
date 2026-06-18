@@ -92,32 +92,26 @@ public class ChatService {
 
     public ChatRepresentation getChat(Long userId, Long chatId) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
-        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
-        validateMembership(userId, chatMembers);
+        validateMembership(userId, chat.getTopic().getId());
 
+        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
         return new ChatRepresentation(chat, chatMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
     }
 
     @Transactional
     public Void leave(Long userId, Long chatId) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
-        Topic chatTopic = chat.getTopic();
-        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
-        validateMembership(userId, chatMembers);
+        String topicId = chat.getTopic().getId();
+        validateMembership(userId, topicId);
 
-        if (chatMembers.size() == 1) {
+        if (topicMemberRepository.countByTopicId(topicId) == 1) {
             chatRepository.delete(chat);
-            topicRepository.delete(chatTopic);
-            log.info("user {} was the last chat member and they decided to leave the chat so the chat will be deleted", userId);
+            topicRepository.delete(chat.getTopic());
+            log.info("user {} was the last member and left, so the chat is deleted", userId);
         }
         else {
-            for (TopicMember tm : chatMembers) {
-                if (Objects.equals(tm.getUser().getId(), userId)) {
-                    topicMemberRepository.delete(tm);
-                    log.info("user {} left the chat", userId);
-                    break;
-                }
-            }
+            topicMemberRepository.deleteByTopicIdUserId(topicId, userId);
+            log.info("user {} left the chat", userId);
         }
 
         return null;
@@ -126,54 +120,46 @@ public class ChatService {
     @Transactional
     public void delete(Long userId, Long chatId) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
-        Topic chatTopic = chat.getTopic();
-        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
-        validateElderMembership(userId, chatMembers);
+        validateEldership(userId, chat.getTopic().getId());
 
         chatRepository.delete(chat);
-        topicRepository.delete(chatTopic);
+        topicRepository.delete(chat.getTopic());
         log.info("user {} deleted the chat", userId);
     }
 
     @Transactional
     public ChatRepresentation kick(Long userId, Long chatId, Long targetId) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
-        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
-        validateElderMembership(userId, chatMembers);
+        String topicId = chat.getTopic().getId();
+        validateEldership(userId, topicId);
 
         if (Objects.equals(userId, targetId)) {
             throw new ApiException(ErrorCode.CANT_SELF_KICK);
         }
 
-        for (TopicMember tm : chatMembers) {
-            if (Objects.equals(tm.getUser().getId(), targetId)) {
-                topicMemberRepository.delete(tm);
-                chatMembers.remove(tm);
-                log.info("user {} kicked another user", userId);
-                break;
-            }
-        }
+        topicMemberRepository.deleteByTopicIdUserId(topicId, targetId);
+        log.info("user {} kicked another user", userId);
 
+        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(topicId);
         return new ChatRepresentation(chat, chatMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
     }
 
     @Transactional
     public ChatRepresentation add(Long userId, Long chatId, Long targetId) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
-        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
-        validateElderMembership(userId, chatMembers);
-        User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+        String topicId = chat.getTopic().getId();
+        validateEldership(userId, topicId);
 
         if (Objects.equals(userId, targetId)) {
             throw new ApiException(ErrorCode.CANT_SELF_ADD);
         }
 
+        User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
         blacklistService.validateMessage(userId, targetId);
         rateLimitService.startAction(userId, RateLimitAction.INVITE_TO_CHAT, 1L);
 
-        TopicMember chatMember;
         try {
-            chatMember = new TopicMember();
+            TopicMember chatMember = new TopicMember();
             chatMember.setTimestamp(Instant.now().getEpochSecond());
             chatMember.setTopic(chat.getTopic());
             chatMember.setUser(target);
@@ -185,39 +171,20 @@ public class ChatService {
 
         log.info("user {} added another user", userId);
 
-        chatMembers.add(chatMember);
+        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(topicId);
         return new ChatRepresentation(chat, chatMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
     }
 
-    private void validateMembership(Long userId, List<TopicMember> chatMembers) {
-        if (!checkUserMembership(userId, chatMembers)) {
+    private void validateMembership(Long userId, String topicId) {
+        if (!topicMemberRepository.existsByTopicIdUserId(topicId, userId)) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
     }
 
-    private boolean checkUserMembership(Long userId, List<TopicMember> chatMembers) {
-        for (TopicMember tm : chatMembers) {
-            if (Objects.equals(tm.getUser().getId(), userId)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void validateElderMembership(Long userId, List<TopicMember> chatMembers) {
-        TopicMember currentMember = null;
-        TopicMember elderMember = null;
-        for (TopicMember tm : chatMembers) {
-            if (Objects.equals(tm.getUser().getId(), userId)) {
-                currentMember = tm;
-            }
-            if (elderMember == null || tm.getTimestamp() < elderMember.getTimestamp()) {
-                elderMember = tm;
-            }
-        }
-
-        if (currentMember == null || elderMember == null || !Objects.equals(currentMember.getUser().getId(), elderMember.getUser().getId())) {
-            log.info("access rejected: user {} is not an elder member", userId);
+    private void validateEldership(Long userId, String topicId) {
+        List<TopicMember> eldest = topicMemberRepository.findEldest(topicId, PageRequest.of(0, 1));
+        if (eldest.isEmpty() || !Objects.equals(eldest.get(0).getUser().getId(), userId)) {
+            log.info("access rejected: user {} is not the eldest member", userId);
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
     }
