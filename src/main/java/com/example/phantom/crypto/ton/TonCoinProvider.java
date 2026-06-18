@@ -42,7 +42,7 @@ public class TonCoinProvider implements CoinProvider {
     private static final BigDecimal WITHDRAWAL_MIN_AMOUNT = new BigDecimal("1");
     private static final BigDecimal WITHDRAWAL_USER_EDGE = new BigDecimal("0.99");
     private static final BigDecimal MIN_SWEEP_AMOUNT = new BigDecimal("0.1");
-    private static final long VALIDATION_DURATION = 10 * 60;
+    private static final long VALIDATION_DURATION = 8 * 3600;
     private static final int EXIT_CODE_OK = 0;
     private static final int EXIT_CODE_UNINITIALIZED = -13;
 
