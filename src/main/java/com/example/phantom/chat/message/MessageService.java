@@ -15,11 +15,11 @@ import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
 import com.example.phantom.notification.topic.TopicAccessService;
-import com.example.phantom.notification.topic.TopicRepository;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,6 +29,7 @@ import java.time.Instant;
 import java.util.*;
 
 @Service
+@Slf4j
 public class MessageService {
 
     private final UserRepository userRepository;
@@ -96,7 +97,10 @@ public class MessageService {
         message.setAttachment(attachment);
         message = messageRepository.save(message);
 
-        return new MessageRepresentation(message);
+        MessageRepresentation representation = new MessageRepresentation(message);
+        notificationPublishService.createTopicNotification(chat.getTopic(), NotificationType.MESSAGE_RECEIVED, representation);
+        log.info("sent message for user {}", userId);
+        return representation;
     }
 
     @Transactional
@@ -124,7 +128,10 @@ public class MessageService {
             }
         }
 
+        MessageRepresentation representation = new MessageRepresentation(message);
         messageRepository.delete(message);
+        notificationPublishService.createTopicNotification(message.getChat().getTopic(), NotificationType.MESSAGE_DELETED, representation);
+        log.info("message of user {} deleted for user {}", representation.getUser().getId(), userId);
     }
 
     private User getUser(Long userId) {

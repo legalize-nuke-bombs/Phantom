@@ -6,6 +6,8 @@ public enum NotificationType {
     BANNED,
     UNBANNED,
     YOUR_MESSAGE_DELETED,
+    MESSAGE_RECEIVED,
+    MESSAGE_DELETED,
 
     ROLE_CLAIMED,
 

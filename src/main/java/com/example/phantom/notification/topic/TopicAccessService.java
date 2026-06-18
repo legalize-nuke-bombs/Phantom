@@ -5,11 +5,13 @@ import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.WsDestinations;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@Slf4j
 public class TopicAccessService {
 
     private final UserRepository userRepository;
@@ -21,6 +23,15 @@ public class TopicAccessService {
     }
 
     public boolean canRead(Long userId, String destination) {
+        if (canReadQuiet(userId, destination)) {
+            log.info("access granted: user {} destination {}", userId, destination);
+            return true;
+        }
+        log.info("access rejected: user {} destination {}", userId, destination);
+        return false;
+    }
+
+    private boolean canReadQuiet(Long userId, String destination) {
         if (destination.startsWith(WsDestinations.USERS_PREFIX)) {
             return canReadUser(userId, destination);
         }
