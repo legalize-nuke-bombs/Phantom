@@ -4,6 +4,7 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
+import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.user.UserShortRepresentation;
 import lombok.extern.slf4j.Slf4j;
@@ -54,14 +55,16 @@ public class BlacklistService {
         }
 
         Blacklist blacklist = blacklistRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.INTERNAL_ERROR, "blacklist not found"));
+        User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         try {
             BlacklistMember blacklistMember = new BlacklistMember();
             blacklistMember.setBlacklist(blacklist);
-            blacklistMember.setUser(userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND)));
+            blacklistMember.setUser(target);
             blacklistMemberRepository.save(blacklistMember);
         }
         catch (DataIntegrityViolationException e) {
+            log.info("user {} tried to post duplicate to blacklist", userId);
             throw new ApiException(ErrorCode.ALREADY_BLOCKED);
         }
 
