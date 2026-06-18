@@ -32,6 +32,11 @@ public class ChatController {
         return chatService.getChat(userId, chatId);
     }
 
+    @PostMapping("/{chatId}/leave")
+    public Void leaveChat(@AuthenticationPrincipal Long userId, @PathVariable Long chatId) {
+        return chatService.leaveChat(userId, chatId);
+    }
+
     public ChatController(ChatService chatService) {
         this.chatService = chatService;
     }

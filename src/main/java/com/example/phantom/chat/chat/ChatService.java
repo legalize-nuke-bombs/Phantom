@@ -94,6 +94,31 @@ public class ChatService {
         return new ChatRepresentation(chat, topicMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
     }
 
+    @Transactional
+    public Void leaveChat(Long userId, Long chatId) {
+        Chat chat = getVisibleChat(userId, chatId);
+        Topic chatTopic = chat.getTopic();
+
+        List<TopicMember> topicMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
+
+        if (topicMembers.size() == 1) {
+            chatRepository.delete(chat);
+            topicRepository.delete(chatTopic);
+            log.info("user {} was the last chat member and they decided to leave the chat so the chat will be deleted", userId);
+        }
+        else {
+            for (TopicMember tm : topicMembers) {
+                if (Objects.equals(tm.getUser().getId(), userId)) {
+                    topicMemberRepository.delete(tm);
+                    log.info("user {} left chat", userId);
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private Chat getVisibleChat(Long userId, Long chatId) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
         if (!topicAccessService.canReadTopic(userId, chat.getTopic().getId())) {
