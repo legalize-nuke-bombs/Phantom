@@ -7,9 +7,10 @@ import com.example.phantom.notification.topic.TopicBuilderService;
 import com.example.phantom.notification.topic.TopicRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -17,10 +18,12 @@ public class GlobalTopicService {
 
     private final TopicRepository topicRepository;
     private final TopicBuilderService topicBuilderService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
-    public GlobalTopicService(TopicRepository topicRepository, TopicBuilderService topicBuilderService) {
+    public GlobalTopicService(TopicRepository topicRepository, TopicBuilderService topicBuilderService, ApplicationEventPublisher applicationEventPublisher) {
         this.topicRepository = topicRepository;
         this.topicBuilderService = topicBuilderService;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     public Topic findAuthorized() {
@@ -49,11 +52,17 @@ public class GlobalTopicService {
         createTopic("authorized", true, false, false);
         createTopic("chat-moderators", false, true, false);
         createTopic("owners", false, false, true);
+        applicationEventPublisher.publishEvent(new GlobalTopicsAreReadyEvent());
     }
 
     private void createTopic(String id, boolean allowAuthorized, boolean allowChatModerators, boolean allowOwners) {
-        Topic topic = topicBuilderService.build(id, allowAuthorized, allowChatModerators, allowOwners, false);
-        topicRepository.save(topic);
-        log.info("topic {} created", id);
+        if (topicRepository.findById(id).isEmpty()) {
+            Topic topic = topicBuilderService.build(id, allowAuthorized, allowChatModerators, allowOwners, false);
+            topicRepository.save(topic);
+            log.info("topic {} created", id);
+        }
+        else {
+            log.info("topic {} creation skipped : already exists", id);
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.phantom.chat.message;
 
+import com.example.phantom.chat.chat.Chat;
 import com.example.phantom.disk.File;
 import com.example.phantom.user.User;
 import jakarta.persistence.*;
@@ -10,7 +11,10 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
-@Table(name = "messages")
+@Table(name = "messages", indexes = {
+        @Index(name = "idx_messages_user_id", columnList = "user_id"),
+        @Index(name = "idx_messages_chat_id", columnList = "chat_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,6 +27,11 @@ public class Message {
     @JoinColumn(name = "user_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "chat_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private Chat chat;
 
     @Column(nullable = false)
     private Long timestamp;

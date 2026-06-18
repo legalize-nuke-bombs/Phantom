@@ -22,9 +22,10 @@ public class MessageController {
 
     @GetMapping
     public ResponseEntity<List<MessageRepresentation>> get(@AuthenticationPrincipal Long userId,
+                                                           @RequestParam(defaultValue = "1") Long chatId,
                                                            @RequestParam(defaultValue = "20") @Min(1) Integer limit,
                                                            @RequestParam(required = false) Long before) {
-        return ResponseEntity.ok(service.get(userId, limit, before));
+        return ResponseEntity.ok(service.get(userId, chatId, limit, before));
     }
 
     @PostMapping

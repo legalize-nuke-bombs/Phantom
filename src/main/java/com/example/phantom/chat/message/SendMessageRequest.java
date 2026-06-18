@@ -16,5 +16,8 @@ public class SendMessageRequest {
     @Size(max = MessageConstants.MAX_MESSAGE_CONTENT_LENGTH)
     private String content;
 
+    @NotNull
+    private Long chatId = 1L;
+
     private UUID attachmentId;
 }
