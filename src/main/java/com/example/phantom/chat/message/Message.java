@@ -1,4 +1,4 @@
-package com.example.phantom.chat;
+package com.example.phantom.chat.message;
 
 import com.example.phantom.disk.File;
 import com.example.phantom.user.User;
@@ -27,7 +27,7 @@ public class Message {
     @Column(nullable = false)
     private Long timestamp;
 
-    @Column(nullable = false, length = ChatConstants.MAX_MESSAGE_CONTENT_LENGTH)
+    @Column(nullable = false, length = MessageConstants.MAX_MESSAGE_CONTENT_LENGTH)
     private String content;
 
     @ManyToOne

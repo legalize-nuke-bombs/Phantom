@@ -1,4 +1,4 @@
-package com.example.phantom.chat;
+package com.example.phantom.chat.message;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -11,12 +11,12 @@ import java.util.List;
 
 @RestController
 @Validated
-@RequestMapping("/api/chat")
-public class ChatController {
+@RequestMapping("/api/chat/messages")
+public class MessageController {
 
-    private final ChatService service;
+    private final MessageService service;
 
-    public ChatController(ChatService service) {
+    public MessageController(MessageService service) {
         this.service = service;
     }
 

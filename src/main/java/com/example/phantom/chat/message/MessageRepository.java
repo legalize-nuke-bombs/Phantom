@@ -1,4 +1,4 @@
-package com.example.phantom.chat;
+package com.example.phantom.chat.message;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,4 +1,4 @@
-package com.example.phantom.chat;
+package com.example.phantom.chat.message;
 
 import com.example.phantom.disk.FileRepresentation;
 import com.example.phantom.user.UserShortRepresentation;

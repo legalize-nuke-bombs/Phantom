@@ -1,4 +1,4 @@
-package com.example.phantom.chat;
+package com.example.phantom.chat.message;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -13,7 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 public class SendMessageRequest {
     @NotNull
-    @Size(max = ChatConstants.MAX_MESSAGE_CONTENT_LENGTH)
+    @Size(max = MessageConstants.MAX_MESSAGE_CONTENT_LENGTH)
     private String content;
 
     private UUID attachmentId;

@@ -1,4 +1,4 @@
-package com.example.phantom.chat;
+package com.example.phantom.chat.message;
 
 import com.example.phantom.chat.banlist.Ban;
 import com.example.phantom.chat.banlist.BanRepository;
@@ -10,8 +10,6 @@ import com.example.phantom.disk.File;
 import com.example.phantom.disk.FileRepository;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.experience.LevelFeature;
-import com.example.phantom.experience.LevelFeatureService;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
 import com.example.phantom.ratelimit.RateLimitAction;
@@ -27,7 +25,7 @@ import java.time.Instant;
 import java.util.*;
 
 @Service
-public class ChatService {
+public class MessageService {
 
     private final UserRepository userRepository;
     private final MessageRepository messageRepository;
@@ -37,7 +35,7 @@ public class ChatService {
     private final RateLimitService rateLimitService;
     private final NotificationPublishService notificationPublishService;
 
-    public ChatService(UserRepository userRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimitService rateLimitService, FileRepository fileRepository, NotificationPublishService notificationPublishService) {
+    public MessageService(UserRepository userRepository, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimitService rateLimitService, FileRepository fileRepository, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.messageRepository = messageRepository;
         this.banRepository = banRepository;
