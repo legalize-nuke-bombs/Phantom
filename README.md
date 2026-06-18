@@ -10,6 +10,7 @@ REST API for a gambling platform.
 * Referral system
 * Stats & history
 * WebSocket & notifications
+* Broadcast
 * User privacy settings
 * Rate limit
 * Wallets
@@ -21,9 +22,10 @@ REST API for a gambling platform.
 * Sweep scheduling
 * Sweep history
 * Owner panel
-* Chat
-* Chat moderators
-* Chat moderator action history, can be read by everyone to prevent the role abuse
+* Global Chat
+* Global Chat moderators
+* Global Chat moderator action history, can be read by everyone to prevent the role abuse
+* Personal & group chats
 * Disk
 * Chat attachments
 * OpenAPI
