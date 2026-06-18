@@ -71,6 +71,7 @@ public class BlacklistService {
 
     @Transactional
     public void delete(Long userId, Long targetId) {
+        log.info("user {} requested deletion from blacklist", userId);
         blacklistMemberRepository.deleteByBlacklistIdUserId(userId, targetId);
     }
 }
