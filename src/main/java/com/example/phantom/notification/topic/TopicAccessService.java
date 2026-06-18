@@ -25,36 +25,24 @@ public class TopicAccessService {
         if (destination.startsWith(WsDestinations.TOPIC_PREFIX)) {
             return canReadTopic(userId, destination.substring(WsDestinations.TOPIC_PREFIX.length()));
         }
-        log.info("access rejected: user {} destination {} is unknown", userId, destination);
         return false;
     }
 
     public boolean canReadUser(Long userId, String destinationUserId) {
-        if (String.valueOf(userId).equals(destinationUserId)) {
-            log.info("access granted: user {} destination user {}", userId, destinationUserId);
-            return true;
-        }
-        log.info("access rejected: user {} destination user {}", userId, destinationUserId);
-        return false;
+        return String.valueOf(userId).equals(destinationUserId);
     }
 
     public boolean canReadTopic(Long userId, String destinationTopicId) {
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
-            log.info("access rejected: user {} not found", userId);
             return false;
         }
-        if (topicRepository.findAccessibleTopicIds(
+        return !topicRepository.findAccessibleTopicIds(
                 user.getRole().getChatModeratorAccess(),
                 user.getRole().getOwnerAccess(),
                 userId,
                 destinationTopicId,
                 null, null
-        ).isEmpty()) {
-            log.info("access rejected: user {} does not have permission to read topic {}", userId, destinationTopicId);
-            return false;
-        }
-        log.info("access granted: user {} topic {}", userId, destinationTopicId);
-        return true;
+        ).isEmpty();
     }
 }
