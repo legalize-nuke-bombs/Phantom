@@ -1,6 +1,6 @@
 package com.example.phantom.notification;
 
-import com.example.phantom.notification.topic.TopicAccessService;
+import com.example.phantom.notification.topic.TopicService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import org.springframework.data.domain.PageRequest;
@@ -12,18 +12,18 @@ import java.util.List;
 @Service
 public class NotificationService {
 
-    private final TopicAccessService topicAccessService;
+    private final TopicService topicService;
     private final NotificationRepository notificationRepository;
     private final RateLimitService rateLimitService;
 
-    public NotificationService(TopicAccessService topicAccessService, NotificationRepository notificationRepository, RateLimitService rateLimitService) {
-        this.topicAccessService = topicAccessService;
+    public NotificationService(TopicService topicService, NotificationRepository notificationRepository, RateLimitService rateLimitService) {
+        this.topicService = topicService;
         this.notificationRepository = notificationRepository;
         this.rateLimitService = rateLimitService;
     }
 
     public List<NotificationRepresentation> get(Long userId, Long before, Integer limit) {
-        List<String> accessibleTopicIds = topicAccessService.getAccessible(userId);
+        List<String> accessibleTopicIds = topicService.get(userId);
 
         rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
 
