@@ -105,7 +105,7 @@ public class MessageService {
         Message message = getMessage(messageId);
 
         if (!Objects.equals(user.getId(), message.getUser().getId())) {
-            if (user.getRole().getChatModeratorAccess() && !message.getUser().getRole().getChatModeratorAccess() && message.getChat().getId() != 1) {
+            if (user.getRole().getChatModeratorAccess() && !message.getUser().getRole().getChatModeratorAccess() && message.getChat().getId() == 1) {
                 ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
                 chatModeratorAction.setUser(user);
                 chatModeratorAction.setTimestamp(Instant.now().getEpochSecond());
