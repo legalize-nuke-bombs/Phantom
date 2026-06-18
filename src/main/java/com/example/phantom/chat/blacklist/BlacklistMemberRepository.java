@@ -18,5 +18,5 @@ public interface BlacklistMemberRepository extends JpaRepository<BlacklistMember
     void deleteByBlacklistIdUserId(Long blacklistId, Long userId);
 
     @Query("SELECT bm FROM BlacklistMember bm WHERE bm.blacklist.id = ?1 AND bm.user.id = ?2")
-    Optional<Blacklist> findByBlacklistIdUserId(Long blacklistId, Long userId);
+    Optional<BlacklistMember> findByBlacklistIdUserId(Long blacklistId, Long userId);
 }
