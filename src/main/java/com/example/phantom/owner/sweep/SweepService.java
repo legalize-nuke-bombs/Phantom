@@ -103,11 +103,13 @@ public class SweepService {
     }
 
     public void deleteSchedule(Long userId) {
-        getOwner(userId);
+        User user = getOwner(userId);
 
         SweepSetting setting = sweepSettingRepository.find().orElseThrow(() -> new ApiException(ErrorCode.SWEEP_SCHEDULE_NOT_FOUND));
         setting.setDelay(null);
         sweepSettingRepository.save(setting);
+
+        notificationPublishService.createTopicNotification(globalTopicService.findOwners(), NotificationType.SWEEP_SCHEDULE_SET, new UserShortRepresentation(user));
         log.info("sweep schedule deleted by user {}", userId);
     }
 
