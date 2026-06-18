@@ -63,7 +63,7 @@ public class ChatService {
         chatMember.setTimestamp(Instant.now().getEpochSecond());
         chatMember.setTopic(topic);
         chatMember.setUser(user);
-        topicMemberRepository.save(chatMember);
+        chatMember = topicMemberRepository.save(chatMember);
 
         Chat chat = new Chat();
         chat.setId(id);
@@ -71,7 +71,7 @@ public class ChatService {
         chatRepository.save(chat);
 
         log.info("user {} created the chat", userId);
-        return new ChatRepresentation(chat, List.of(new UserShortRepresentation(user)));
+        return new ChatRepresentation(chat, List.of(new TopicMemberRepresentation(chatMember)));
     }
 
     public List<ChatRepresentation> get(Long userId, Integer limit, Long beforeTimestamp, Long beforeId) {
@@ -86,13 +86,13 @@ public class ChatService {
         List<String> chatTopicIds = chats.stream().map(Chat::getTopic).map(Topic::getId).toList();
 
         List<TopicMember> globalChatMembers = topicMemberRepository.findByTopicIdsWithUsersTopics(chatTopicIds);
-        Map<String, List<UserShortRepresentation>> globalUsersMap = new HashMap<>();
+        Map<String, List<TopicMemberRepresentation>> globalChatMemberMap = new HashMap<>();
         for (TopicMember tm : globalChatMembers) {
-            globalUsersMap.putIfAbsent(tm.getTopic().getId(), new ArrayList<>());
-            globalUsersMap.get(tm.getTopic().getId()).add(new UserShortRepresentation(tm.getUser()));
+            globalChatMemberMap.putIfAbsent(tm.getTopic().getId(), new ArrayList<>());
+            globalChatMemberMap.get(tm.getTopic().getId()).add(new TopicMemberRepresentation(tm));
         }
 
-        return chats.stream().map(c -> new ChatRepresentation(c, globalUsersMap.get(c.getTopic().getId()))).toList();
+        return chats.stream().map(c -> new ChatRepresentation(c, globalChatMemberMap.get(c.getTopic().getId()))).toList();
     }
 
     public ChatRepresentation getChat(Long userId, Long chatId) {
@@ -100,7 +100,7 @@ public class ChatService {
         validateMembership(userId, chat.getTopic().getId());
 
         List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
-        return new ChatRepresentation(chat, chatMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
+        return new ChatRepresentation(chat, chatMembers.stream().map(TopicMemberRepresentation::new).toList());
     }
 
     @Transactional
@@ -146,7 +146,7 @@ public class ChatService {
         log.info("user {} kicked another user", userId);
 
         List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(topicId);
-        return new ChatRepresentation(chat, chatMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
+        return new ChatRepresentation(chat, chatMembers.stream().map(TopicMemberRepresentation::new).toList());
     }
 
     @Transactional
@@ -175,7 +175,7 @@ public class ChatService {
         }
 
         List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(topicId);
-        ChatRepresentation representation = new ChatRepresentation(chat, chatMembers.stream().map(TopicMember::getUser).map(UserShortRepresentation::new).toList());
+        ChatRepresentation representation = new ChatRepresentation(chat, chatMembers.stream().map(TopicMemberRepresentation::new).toList());
         log.info("user {} added another user", userId);
         notificationPublishService.createUserNotification(target, NotificationType.NEW_CHAT, representation);
         return representation;
