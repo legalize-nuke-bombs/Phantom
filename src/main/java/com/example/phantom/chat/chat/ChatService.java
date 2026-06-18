@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,7 +74,7 @@ public class ChatService {
         return new ChatRepresentation(chat, List.of(new UserShortRepresentation(user)));
     }
 
-    public List<ChatRepresentation> get(Long userId, Integer limit, Long before) {
+    public List<ChatRepresentation> get(Long userId, Integer limit, Long beforeTimestamp, Long beforeId) {
         rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
@@ -81,7 +82,7 @@ public class ChatService {
         List<TopicMember> chatMembers = topicMemberRepository.findByUserIdWithTopics(userId);
         List<String> chatMemberTopicIds = chatMembers.stream().map(TopicMember::getTopic).map(Topic::getId).toList();
 
-        List<Chat> chats = chatRepository.findByTopicIdsWithTopics(chatMemberTopicIds, before, pageable);
+        List<Chat> chats = chatRepository.findByTopicIdsWithTopics(chatMemberTopicIds, beforeTimestamp, beforeId, pageable);
         List<String> chatTopicIds = chats.stream().map(Chat::getTopic).map(Topic::getId).toList();
 
         List<TopicMember> globalChatMembers = topicMemberRepository.findByTopicIdsWithUsersTopics(chatTopicIds);
@@ -95,7 +96,7 @@ public class ChatService {
     }
 
     public ChatRepresentation getChat(Long userId, Long chatId) {
-        Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        Chat chat = getChat(chatId);
         validateMembership(userId, chat.getTopic().getId());
 
         List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
@@ -104,7 +105,7 @@ public class ChatService {
 
     @Transactional
     public Void leave(Long userId, Long chatId) {
-        Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        Chat chat = getChat(chatId);
         String topicId = chat.getTopic().getId();
         validateMembership(userId, topicId);
 
@@ -123,7 +124,7 @@ public class ChatService {
 
     @Transactional
     public void delete(Long userId, Long chatId) {
-        Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        Chat chat = getChat(chatId);
         validateEldership(userId, chat.getTopic().getId());
 
         chatRepository.delete(chat);
@@ -133,7 +134,7 @@ public class ChatService {
 
     @Transactional
     public ChatRepresentation kick(Long userId, Long chatId, Long targetId) {
-        Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        Chat chat = getChat(chatId);
         String topicId = chat.getTopic().getId();
         validateEldership(userId, topicId);
 
@@ -150,7 +151,7 @@ public class ChatService {
 
     @Transactional
     public ChatRepresentation add(Long userId, Long chatId, Long targetId) {
-        Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        Chat chat = getChat(chatId);
         String topicId = chat.getTopic().getId();
         validateEldership(userId, topicId);
 
@@ -180,6 +181,14 @@ public class ChatService {
         return representation;
     }
 
+    private Chat getChat(Long chatId) {
+        Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        if (!chat.getTopic().getAllowCustomMembers()) {
+            throw new ApiException(ErrorCode.NO_PERMISSION);
+        }
+        return chat;
+    }
+
     private void validateMembership(Long userId, String topicId) {
         if (!topicMemberRepository.existsByTopicIdUserId(topicId, userId)) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
@@ -192,5 +201,39 @@ public class ChatService {
             log.info("access rejected: user {} is not the eldest member", userId);
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
+    }
+
+    @Scheduled(fixedDelay = 8L * 3600 * 1000)
+    public void clean() {
+        cleanEmptyChats();
+        cleanAbandonedChatTopics();
+    }
+
+    private void cleanEmptyChats() {
+        log.info("starting cleaning empty chats...");
+        long total = 0;
+        while (true) {
+            List<String> topicIds = chatRepository.findEmptyChatTopicIds(PageRequest.of(0, 100));
+            if (topicIds.isEmpty()) {
+                break;
+            }
+            topicRepository.deleteAllById(topicIds);
+            total += topicIds.size();
+        }
+        log.info("empty chats cleaning finished, deleted {}", total);
+    }
+
+    private void cleanAbandonedChatTopics() {
+        log.info("starting cleaning abandoned chat topics...");
+        long total = 0;
+        while (true) {
+            List<String> topicIds = chatRepository.findAbandonedChatTopicIds(PageRequest.of(0, 100));
+            if (topicIds.isEmpty()) {
+                break;
+            }
+            topicRepository.deleteAllById(topicIds);
+            total += topicIds.size();
+        }
+        log.info("abandoned chat topics cleaning finished, deleted {}", total);
     }
 }

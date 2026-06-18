@@ -23,8 +23,9 @@ public class ChatController {
     public List<ChatRepresentation> get(
             @AuthenticationPrincipal Long userId,
             @RequestParam(defaultValue = "20") @Min(1) Integer limit,
-            @RequestParam(required = false) Long before) {
-        return chatService.get(userId, limit, before);
+            @RequestParam(required = false) Long beforeTimestamp,
+            @RequestParam(required = false) Long beforeId) {
+        return chatService.get(userId, limit, beforeTimestamp, beforeId);
     }
 
     @GetMapping("/{chatId}")
