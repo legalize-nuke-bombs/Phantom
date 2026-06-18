@@ -62,7 +62,7 @@ public class MessageService {
 
         Pageable pageable = PageRequest.of(0, limit);
 
-        List<Message> messages = messageRepository.findByChatIdWithAttachmentsAndUsersPageable(chat.getId(), before, pageable);
+        List<Message> messages = messageRepository.findByChatIdWithAttachmentsAndUsersAndChatsPageable(chat.getId(), before, pageable);
 
         return messages.stream().map(MessageRepresentation::new).toList();
     }
