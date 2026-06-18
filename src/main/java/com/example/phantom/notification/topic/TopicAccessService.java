@@ -1,7 +1,6 @@
-package com.example.phantom.notification;
+package com.example.phantom.notification.topic;
 
-import com.example.phantom.notification.topic.Topic;
-import com.example.phantom.notification.topic.TopicRepository;
+import com.example.phantom.notification.WsDestinations;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import org.springframework.stereotype.Service;

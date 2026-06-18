@@ -1,6 +1,7 @@
 package com.example.phantom.notification;
 
 import com.example.phantom.jwt.JwtTokenProvider;
+import com.example.phantom.notification.topic.TopicAccessService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
