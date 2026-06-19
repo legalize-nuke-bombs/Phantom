@@ -44,4 +44,7 @@ ORDER BY n.id DESC
             @Param("before") Long before,
             Pageable pageable
     );
+
+    @Query("SELECT n FROM Notification n ORDER BY n.id ASC")
+    List<Notification> findOldest(Pageable pageable);
 }
