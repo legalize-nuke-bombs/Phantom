@@ -10,7 +10,6 @@ import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
-import com.example.phantom.user.UserShortRepresentation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
@@ -24,7 +23,7 @@ import java.util.*;
 
 @Service
 @Slf4j
-public class ChatService {
+public class PersonalChatService {
 
     private final UserRepository userRepository;
     private final ChatRepository chatRepository;
@@ -36,7 +35,7 @@ public class ChatService {
     private final BlacklistService blacklistService;
     private final NotificationPublishService notificationPublishService;
 
-    public ChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BlacklistService blacklistService, NotificationPublishService notificationPublishService) {
+    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BlacklistService blacklistService, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
         this.topicRepository = topicRepository;
@@ -56,7 +55,7 @@ public class ChatService {
 
         Long id = chatIdsGenerator.nextLong();
 
-        Topic topic = topicBuilderService.build(ChatConstants.PERSONAL_CHAT_PREFIX + id, false, false, false, true);
+        Topic topic = topicBuilderService.build(PersonalChatConstants.TOPIC_PREFIX + id, false, false, false, true);
         topicRepository.save(topic);
 
         TopicMember chatMember = new TopicMember();
@@ -105,7 +104,7 @@ public class ChatService {
 
     @Transactional
     public Void leave(Long userId, Long chatId) {
-        Chat chat = getChat(chatId);
+        Chat chat = lockChat(chatId);
         String topicId = chat.getTopic().getId();
         validateMembership(userId, topicId);
 
@@ -132,7 +131,7 @@ public class ChatService {
 
     @Transactional
     public ChatRepresentation kick(Long userId, Long chatId, Long targetId) {
-        Chat chat = getChat(chatId);
+        Chat chat = lockChat(chatId);
         String topicId = chat.getTopic().getId();
         validateEldership(userId, topicId);
 
@@ -149,12 +148,16 @@ public class ChatService {
 
     @Transactional
     public ChatRepresentation add(Long userId, Long chatId, Long targetId) {
-        Chat chat = getChat(chatId);
+        Chat chat = lockChat(chatId);
         String topicId = chat.getTopic().getId();
         validateEldership(userId, topicId);
 
         if (Objects.equals(userId, targetId)) {
             throw new ApiException(ErrorCode.CANT_SELF_ADD);
+        }
+
+        if (topicMemberRepository.countByTopicId(chat.getTopic().getId()) >= PersonalChatConstants.MAX_MEMBERS) {
+            throw new ApiException(ErrorCode.TOO_MANY_MEMBERS);
         }
 
         User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
@@ -180,11 +183,17 @@ public class ChatService {
     }
 
     private Chat getChat(Long chatId) {
-        Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
-        if (!chat.getTopic().getAllowCustomMembers()) {
+        if (chatId == GlobalChatConstants.ID) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
-        return chat;
+        return chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+    }
+
+    private Chat lockChat(Long chatId) {
+        if (chatId == GlobalChatConstants.ID) {
+            throw new ApiException(ErrorCode.NO_PERMISSION);
+        }
+        return chatRepository.findByIdForPessimisticWrite(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
     }
 
     private void validateMembership(Long userId, String topicId) {

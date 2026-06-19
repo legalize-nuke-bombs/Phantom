@@ -10,13 +10,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/chat/chats")
 @Validated
-public class ChatController {
+public class PersonalChatController {
 
-    private final ChatService chatService;
+    private final PersonalChatService personalChatService;
 
     @PostMapping
     public ChatRepresentation post(@AuthenticationPrincipal Long userId) {
-        return chatService.post(userId);
+        return personalChatService.post(userId);
     }
 
     @GetMapping
@@ -25,36 +25,36 @@ public class ChatController {
             @RequestParam(defaultValue = "20") @Min(1) Integer limit,
             @RequestParam(required = false) Long beforeTimestamp,
             @RequestParam(required = false) Long beforeId) {
-        return chatService.get(userId, limit, beforeTimestamp, beforeId);
+        return personalChatService.get(userId, limit, beforeTimestamp, beforeId);
     }
 
     @GetMapping("/{chatId}")
     public ChatRepresentation getChat(@AuthenticationPrincipal Long userId, @PathVariable Long chatId) {
-        return chatService.getChat(userId, chatId);
+        return personalChatService.getChat(userId, chatId);
     }
 
     @PostMapping("/{chatId}/leave")
     public Void leave(@AuthenticationPrincipal Long userId, @PathVariable Long chatId) {
-        return chatService.leave(userId, chatId);
+        return personalChatService.leave(userId, chatId);
     }
 
     @DeleteMapping("/{chatId}")
     public void delete(@AuthenticationPrincipal Long userId, @PathVariable Long chatId) {
-        chatService.delete(userId, chatId);
+        personalChatService.delete(userId, chatId);
     }
 
     @PostMapping("/{chatId}/kick/{targetId}")
     public ChatRepresentation kick(@AuthenticationPrincipal Long userId, @PathVariable Long chatId, @PathVariable Long targetId) {
-        return chatService.kick(userId, chatId, targetId);
+        return personalChatService.kick(userId, chatId, targetId);
     }
 
     @PostMapping("/{chatId}/add/{targetId}")
     public ChatRepresentation add(@AuthenticationPrincipal Long userId, @PathVariable Long chatId, @PathVariable Long targetId) {
-        return chatService.add(userId, chatId, targetId);
+        return personalChatService.add(userId, chatId, targetId);
     }
 
 
-    public ChatController(ChatService chatService) {
-        this.chatService = chatService;
+    public PersonalChatController(PersonalChatService personalChatService) {
+        this.personalChatService = personalChatService;
     }
 }

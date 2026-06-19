@@ -3,6 +3,7 @@ package com.example.phantom.chat.chat;
 import com.example.phantom.notification.topic.TopicMemberRepresentation;
 import lombok.Getter;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Getter
@@ -16,6 +17,6 @@ public class ChatRepresentation {
         this.id = String.valueOf(chat.getId());
         this.topicId = chat.getTopic().getId();
         this.timestamp = chat.getTopic().getTimestamp();
-        this.members = members;
+        this.members = members.stream().sorted(Comparator.comparing(TopicMemberRepresentation::getTimestamp).thenComparing(TopicMemberRepresentation::getId)).toList();
     }
 }
