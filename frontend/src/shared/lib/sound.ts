@@ -193,22 +193,20 @@ function lose(): void {
   });
 }
 
-/** Modest win — a short, bright two-note ding. For low payouts ("немного"). */
+// The win cues are deliberately SHORT (a single quick chime each): they double as
+// the per-pattern sounds in Фрукты, played several times ~0.5s apart, so anything
+// longer would smear into mush.
+
+/** Modest win — one short bright ding. For low payouts ("немного"). */
 function smallWin(): void {
-  withAudio((c, t) => {
-    blip(c, t, { freq: 659.25, dur: 0.12, type: 'triangle', gain: 0.14 }); // E5
-    blip(c, t + 0.1, { freq: 987.77, dur: 0.2, type: 'triangle', gain: 0.13 }); // B5
-  });
+  withAudio((c, t) => blip(c, t, { freq: 784, dur: 0.13, type: 'triangle', gain: 0.15 })); // G5
 }
 
-/** Big win — a celebratory ascending arpeggio with a shimmer tail ("дохуя"). */
+/** Big win — one short, brighter chime with a faint sparkle ("дохуя"). */
 function bigWin(): void {
   withAudio((c, t) => {
-    const notes = [523.25, 659.25, 783.99, 1046.5, 1318.51]; // C5 E5 G5 C6 E6
-    notes.forEach((f, i) =>
-      blip(c, t + i * 0.08, { freq: f, dur: 0.26, type: 'triangle', gain: 0.16 }),
-    );
-    blip(c, t + notes.length * 0.08, { freq: 1567.98, dur: 0.42, type: 'sine', gain: 0.1 }); // G6 shimmer
+    blip(c, t, { freq: 1046.5, dur: 0.16, type: 'triangle', gain: 0.16 }); // C6
+    blip(c, t + 0.02, { freq: 1568, dur: 0.18, type: 'sine', gain: 0.08 }); // sparkle
   });
 }
 

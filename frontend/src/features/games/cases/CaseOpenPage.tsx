@@ -53,7 +53,6 @@ function OpenInner({ caseView }: { caseView: CaseView }) {
     // there's no dead intermediate screen needing a second click.
     round.reset();
     setPhase('spinning');
-    sfx.click();
     spinSound.current = sfx.startSpin();
     try {
       await round.play({ caseName: caseView.name });

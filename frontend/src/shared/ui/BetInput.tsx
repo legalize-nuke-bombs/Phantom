@@ -98,7 +98,6 @@ export default function BetInput({
             if (next === '' || /^\d*\.?\d*$/.test(next)) onChange(next);
           }}
           disabled={disabled}
-          placeholder="0.00"
           aria-label="Ставка"
           aria-invalid={shownError ? true : undefined}
           className={clsx(

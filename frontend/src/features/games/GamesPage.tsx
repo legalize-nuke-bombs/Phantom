@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Gamepad2 } from 'lucide-react';
-import { api } from '@/shared/api/client';
-import { GAME_META, LOTTERY_META } from '@/shared/lib/games';
-import Amount from '@/shared/ui/Amount';
+import { GAME_META } from '@/shared/lib/games';
 import CoinGlyph from '@/shared/ui/CoinGlyph';
-import { useQuery } from '@tanstack/react-query';
+import LotteryStatusCard from '@/features/lottery/LotteryStatusCard';
 
 /**
  * A lobby tile: a game's emoji + Russian name (from the shared presentation
@@ -35,70 +32,6 @@ const TILES: ReadonlyArray<LobbyTile> = [
   },
   { to: '/games/upgrader', ...GAME_META.UPGRADER, tagline: 'Рискни и приумножь' },
 ];
-
-/* ── lottery live status ──────────────────────────────────────────────────
-   The lottery tile shows the *current* round's pot and a short countdown to the
-   draw instead of a static tagline, so the lobby hints at live action. Only the
-   essentials from CurrentLotteryRepresentation are typed here. */
-interface CurrentLotteryLite {
-  timestampEnd: number; // epoch SECONDS — when the draw fires
-  costTotal: string; // USD decimal string — the whole pot
-}
-
-const LOTTERY_TAGLINE = 'Билеты и общий банк';
-
-/** Compact "до розыгрыша Xм" / "Xс" countdown from seconds-remaining. */
-function shortCountdown(secondsRemaining: number): string {
-  const s = Math.max(0, Math.floor(secondsRemaining));
-  if (s <= 0) return 'розыгрыш…';
-  const hours = Math.floor(s / 3600);
-  const minutes = Math.floor((s % 3600) / 60);
-  const seconds = s % 60;
-  if (hours > 0) return `до розыгрыша ${hours}ч ${minutes}м`;
-  if (minutes > 0) return `до розыгрыша ${minutes}м ${seconds}с`;
-  return `до розыгрыша ${seconds}с`;
-}
-
-/** Epoch-seconds "now", ticking once a second while mounted. */
-function useNowSeconds(): number {
-  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-  return now;
-}
-
-/**
- * Live secondary line for the lottery tile: current pot + countdown to the draw.
- * Falls back to the static tagline while loading or whenever there is no active
- * round (404 between rounds, or any fetch error) so the tile never looks broken.
- */
-function LotteryStatus() {
-  const now = useNowSeconds();
-  const { data } = useQuery<CurrentLotteryLite>({
-    queryKey: ['lottery', 'current'],
-    queryFn: () => api.get<CurrentLotteryLite>('/lottery/current'),
-    refetchInterval: 15000,
-    retry: false, // 404 mid-rotation is expected — don't hammer it
-  });
-
-  if (!data) {
-    return <span className="truncate text-sm text-muted">{LOTTERY_TAGLINE}</span>;
-  }
-
-  return (
-    <span className="flex min-w-0 items-center gap-1.5 truncate text-sm text-muted">
-      <span className="shrink-0">
-        Банк <Amount value={data.costTotal} className="font-semibold" />
-      </span>
-      <span aria-hidden className="text-edge">
-        ·
-      </span>
-      <span className="truncate text-ton">{shortCountdown(data.timestampEnd - now)}</span>
-    </span>
-  );
-}
 
 /** The visual shell shared by every tile (icon, title, secondary line, arrow). */
 function TileShell({
@@ -152,14 +85,6 @@ function GameTile({ tile }: { tile: LobbyTile }) {
   );
 }
 
-function LotteryTile() {
-  return (
-    <TileShell to="/games/lottery" icon={LOTTERY_META.emoji} name={LOTTERY_META.name}>
-      <LotteryStatus />
-    </TileShell>
-  );
-}
-
 export default function GamesPage() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
@@ -179,8 +104,9 @@ export default function GamesPage() {
         {TILES.map((tile) => (
           <GameTile key={tile.to} tile={tile} />
         ))}
-        <LotteryTile />
       </div>
+
+      <LotteryStatusCard />
     </div>
   );
 }

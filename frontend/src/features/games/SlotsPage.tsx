@@ -1,28 +1,26 @@
 // SlotsPage — the FRUITS game ("Фрукты"): a full-width 3×5 reel slot machine
 // with reels that genuinely spin.
 //
-// Verified against the backend source (com.example.phantom.game.fruits.*,
+// Verified against the backend (com.example.phantom.game.fruits.*,
 // com.example.phantom.game.util.slot.*):
-//
-//   • GET  /api/games/fruits → FruitSettings { minBet (= 1), slots }.
-//   • init data is just { bet } (string), bet ≥ minBet, no max.
+//   • GET  /api/games/fruits → { minBet, slots: { data: { slots, patterns } } }
+//       patterns[name] = { name, k, data: number[3][5] } — the cell mask, straight
+//       from the API (no client-side guessing).
 //   • run → GameResult whose data map is:
 //       { data: string[3][5] (row-major, data[y][x]), patternMatches: PatternMatch[] }
-//     each PatternMatch = { patternName, slotName, patternK, slotK, k } (k = patternK·slotK).
-//     result = bet·Σk.
+//     each PatternMatch = { patternName, slotName, patternK, slotK, k = patternK·slotK }.
+//     patternMatches arrive ordered by value — i.e. the order to reveal them in.
 //
-// The reels are real: each of the 5 columns is a vertical strip of symbol art that
-// scrolls upward and decelerates (ease-out, RAF) onto the returned grid, stopping
-// staggered left→right. No instant substitution. After the reels rest the final
-// grid simply stays shown — no cell glow, no jackpot flash, no "matches" panel.
-//
-// Sound is strictly per-pattern: one short start cue (sfx.startSpin) and nothing
-// during the spin. On settle we walk the matched patterns in turn — sfx.bigWin()
-// for a rich pattern (payout k ≥ RICH_PATTERN_K), sfx.smallWin() otherwise — and
-// sfx.lose() when nothing matched.
+// The reels are real: each column is a vertical strip of symbol art that scrolls
+// up and decelerates (ease-out, RAF) onto the returned grid, stopping staggered
+// L→R. After they rest the final grid stays shown — then we WALK the winning
+// patterns one by one (~0.5s apart): each lights up its own cells (from the API
+// mask) and plays one SHORT cue — bigWin for a rich line, smallWin for a cheap one,
+// or a single lose if nothing matched. No permanent glow, no jackpot flash.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RotateCw } from 'lucide-react';
+import clsx from 'clsx';
 
 import BetInput from '@/shared/ui/BetInput';
 import Button from '@/shared/ui/Button';
@@ -49,7 +47,7 @@ import {
   easeOutQuint,
 } from './slots/reel';
 
-// ── Result shape (the run() data map) ───────────────────────────────────────
+// ── Backend shapes ───────────────────────────────────────────────────────────
 interface PatternMatch {
   patternName: string;
   slotName: string;
@@ -57,6 +55,11 @@ interface PatternMatch {
   slotK: number | string;
   /** This line's payout multiplier (patternK·slotK). */
   k: number | string;
+}
+
+interface FruitSettings {
+  minBet: number;
+  slots: { data: { patterns: Record<string, { name: string; k: number | string; data: number[][] }> } };
 }
 
 interface SpinPayload {
@@ -79,17 +82,16 @@ function readSpin(result: GameResult): SpinPayload | null {
   return { grid: grid as string[][], matches };
 }
 
-// ── Sound tuning ─────────────────────────────────────────────────────────────
+// ── Tuning ─────────────────────────────────────────────────────────────────
 /**
- * A pattern is "rich" (bigWin) at or above this payout multiplier, otherwise it
- * is a cheap line (smallWin). The cheap families pay k≤0.1 (columns/rows ·
- * common slots); the expensive families (arrows ·2, eye ·20, triangles ·25,
- * jackpot ·500, or any line carrying the seven/wild ·10 slot) clear 1. Threshold
- * sits above the cheap ceiling.
+ * A pattern is "rich" (bigWin) at or above this payout multiplier, else a cheap
+ * line (smallWin). Cheap families pay k≤0.1 (columns/rows on common slots); the
+ * pricier ones (arrows ·2, eye ·20, triangles ·25, jackpot ·500, or any line on
+ * the seven/wild ·10 slot) clear 1.
  */
 const RICH_PATTERN_K = 1;
-/** Gap between successive per-pattern sounds during the walk. */
-const PATTERN_SOUND_GAP_MS = 280;
+/** Gap between successive pattern reveals (light-up + short sound). */
+const PATTERN_STEP_MS = 520;
 
 // ── Reel column ─────────────────────────────────────────────────────────────
 interface ReelColumnProps {
@@ -99,31 +101,45 @@ interface ReelColumnProps {
   offset: number;
   /** Measured square cell size in px. 0 until first layout. */
   cellPx: number;
+  /** Per-row light-up for this column's 3 result cells (null = none). */
+  highlight: boolean[] | null;
 }
 
-function ReelColumn({ strip, offset, cellPx }: ReelColumnProps) {
+function ReelColumn({ strip, offset, cellPx, highlight }: ReelColumnProps) {
+  const finalStart = strip.length - ROWS; // first index of the result window
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden rounded-lg bg-ink/40">
       {/* Square window: ROWS cells tall, full column wide. */}
       <div style={{ height: cellPx * ROWS }}>
         <div
           className="flex flex-col will-change-transform"
           style={{ transform: `translate3d(0, ${offset}px, 0)` }}
         >
-          {strip.map((art, i) => (
-            <div
-              key={i}
-              className="grid shrink-0 place-items-center p-[6%]"
-              style={{ height: cellPx, width: cellPx }}
-            >
-              <img
-                src={art}
-                alt=""
-                draggable={false}
-                className="size-[78%] select-none object-contain"
-              />
-            </div>
-          ))}
+          {strip.map((art, i) => {
+            const fy = i - finalStart; // 0..ROWS-1 for the result cells, <0 for filler
+            const lit = fy >= 0 && !!highlight?.[fy];
+            return (
+              <div
+                key={i}
+                className="grid w-full shrink-0 place-items-center p-[6%]"
+                style={{ height: cellPx }}
+              >
+                <div
+                  className={clsx(
+                    'grid size-full place-items-center rounded-md transition-colors duration-150',
+                    lit && 'bg-ton/15 ring-2 ring-ton',
+                  )}
+                >
+                  <img
+                    src={art}
+                    alt=""
+                    draggable={false}
+                    className="size-[80%] select-none object-contain"
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -147,13 +163,23 @@ export default function SlotsPage() {
   const [bet, setBet] = useState('');
   const [betValid, setBetValid] = useState(false);
 
-  // Min bet from settings (defaults to 1 — matches FruitSettings; run validates too).
+  // Settings: min bet + the pattern masks (name → 3×5 grid), from the API.
   const [minBet, setMinBet] = useState(1);
+  const patternsRef = useRef<Record<string, number[][]>>({});
   useEffect(() => {
     let alive = true;
-    getGameSettings<{ minBet: number }>('FRUITS')
+    getGameSettings<FruitSettings>('FRUITS')
       .then((s) => {
-        if (alive && typeof s.minBet === 'number') setMinBet(s.minBet);
+        if (!alive) return;
+        if (typeof s.minBet === 'number') setMinBet(s.minBet);
+        const pats = s.slots?.data?.patterns;
+        if (pats) {
+          const masks: Record<string, number[][]> = {};
+          for (const [name, p] of Object.entries(pats)) {
+            if (Array.isArray(p?.data)) masks[name] = p.data;
+          }
+          patternsRef.current = masks;
+        }
       })
       .catch(() => {});
     return () => {
@@ -161,8 +187,7 @@ export default function SlotsPage() {
     };
   }, []);
 
-  // Per-column strips (art) + live vertical offsets (px). Offsets are driven by a
-  // single RAF loop; strips change only when a new spin is launched.
+  // Per-column strips (art) + live vertical offsets (px).
   const [strips, setStrips] = useState<string[][]>(() =>
     Array.from({ length: COLS }, (_, x) => buildStrip(column(IDLE_GRID, x))),
   );
@@ -170,12 +195,15 @@ export default function SlotsPage() {
     Array.from({ length: COLS }, () => 0),
   );
 
+  // Light-up of the winning cells during the per-pattern walk (null = none).
+  const [highlight, setHighlight] = useState<boolean[][] | null>(null);
+
   // The round we're presenting (drives the payout + provably-fair reveal).
   const [shown, setShown] = useState<GameResult | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
 
-  // Measured square cell size, so the cabinet fills the width but the px-based
-  // strip translate stays exact.
+  // Measured square cell size (= true column width, gap-aware) so the cabinet fills
+  // the width while the px-based strip translate stays exact and cells stay square.
   const reelsRef = useRef<HTMLDivElement>(null);
   const [cellPx, setCellPx] = useState(0);
   const cellPxRef = useRef(0);
@@ -183,7 +211,8 @@ export default function SlotsPage() {
     const el = reelsRef.current;
     if (!el) return;
     const measure = () => {
-      const px = el.clientWidth / COLS;
+      const gap = parseFloat(getComputedStyle(el).columnGap || '0') || 0;
+      const px = (el.clientWidth - (COLS - 1) * gap) / COLS;
       cellPxRef.current = px;
       setCellPx(px);
     };
@@ -202,7 +231,6 @@ export default function SlotsPage() {
   // ── Animation + cleanup machinery ──────────────────────────────────────────
   const rafRef = useRef<number | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const spinHandle = useRef<ReturnType<typeof sfx.startSpin> | null>(null);
 
   const clearAll = useCallback(() => {
     if (rafRef.current !== null) {
@@ -211,75 +239,81 @@ export default function SlotsPage() {
     }
     timers.current.forEach(clearTimeout);
     timers.current = [];
-    spinHandle.current?.stop();
-    spinHandle.current = null;
   }, []);
   useEffect(() => clearAll, [clearAll]);
 
-  // Walk the matched patterns in the server's order, playing one sound each —
-  // bigWin for a rich line, smallWin for a cheap one — or a single lose if empty.
-  const playOutcomeSounds = useCallback((matches: PatternMatch[]) => {
-    if (matches.length === 0) {
-      sfx.lose();
-      return;
-    }
-    matches.forEach((m, i) => {
-      const rich = Number(m.k) >= RICH_PATTERN_K;
-      timers.current.push(
-        setTimeout(() => {
-          if (rich) sfx.bigWin();
-          else sfx.smallWin();
-        }, i * PATTERN_SOUND_GAP_MS),
-      );
-    });
+  /** Boolean mask for a pattern name (from the API), or null if unknown. */
+  const maskOf = useCallback((name: string): boolean[][] | null => {
+    const m = patternsRef.current[name];
+    return m ? m.map((row) => row.map((v) => v === 1)) : null;
   }, []);
 
-  // Drive all 5 columns from one RAF loop. Each column scrolls from a deep filler
-  // offset up to its rest point, easing out, finishing at staggered times.
+  // Walk the matched patterns in the server's (value) order: light each one's cells
+  // and play one short cue, ~0.5s apart. A single lose if nothing matched.
+  const walkOutcome = useCallback(
+    (matches: PatternMatch[]) => {
+      if (matches.length === 0) {
+        sfx.lose();
+        return;
+      }
+      matches.forEach((m, i) => {
+        timers.current.push(
+          setTimeout(() => {
+            setHighlight(maskOf(m.patternName));
+            if (Number(m.k) >= RICH_PATTERN_K) sfx.bigWin();
+            else sfx.smallWin();
+          }, i * PATTERN_STEP_MS),
+        );
+      });
+      // After the last reveal, clear the light-up — the plain final grid stays.
+      timers.current.push(
+        setTimeout(() => setHighlight(null), matches.length * PATTERN_STEP_MS + 500),
+      );
+    },
+    [maskOf],
+  );
+
+  // Drive all 5 columns from one RAF loop; each eases from a deep filler offset up
+  // to its rest point, finishing at staggered times.
   const animate = useCallback(
     (finalStrips: string[][], result: GameResult) => {
       const start = performance.now();
-      // Start each column scrolled to the very top of its strip (filler showing),
-      // travelling down to the rest offset (final 3 in view).
-      const starts = finalStrips.map(() => 0);
       const rests = finalStrips.map((s) => restOffset(s.length));
       const durations = finalStrips.map((_, x) => columnSpinMs(x));
 
       const tick = (now: number) => {
         const elapsed = now - start;
-        const next = finalStrips.map((_, x) => {
-          const t = Math.min(1, elapsed / durations[x]);
-          const eased = easeOutQuint(t);
-          return starts[x] + (rests[x] - starts[x]) * eased;
-        });
-        setOffsets(next);
+        setOffsets(
+          finalStrips.map((_, x) => {
+            const t = Math.min(1, elapsed / durations[x]);
+            return rests[x] * easeOutQuint(t); // from 0 (filler) → rest
+          }),
+        );
 
         if (elapsed < settleMs()) {
           rafRef.current = requestAnimationFrame(tick);
         } else {
           rafRef.current = null;
-          // Snap exactly to rest, end the spin, fire per-pattern sounds.
           setOffsets(finalStrips.map((s) => restOffset(s.length)));
           const parsed = readSpin(result);
           setPhase('done');
-          playOutcomeSounds(parsed ? parsed.matches : []);
+          walkOutcome(parsed ? parsed.matches : []);
         }
       };
-
       rafRef.current = requestAnimationFrame(tick);
     },
-    [restOffset, playOutcomeSounds],
+    [restOffset, walkOutcome],
   );
 
   const spin = useCallback(async () => {
     if (round.busy || phase === 'spinning' || !betValid) return;
 
-    // One click resets everything — no stale loop/timer can fire.
+    // One click resets everything — no stale loop/timer/highlight can fire.
     clearAll();
+    setHighlight(null);
     setShown(null);
     setPhase('spinning');
-    sfx.click();
-    spinHandle.current = sfx.startSpin();
+    sfx.startSpin();
 
     let result: GameResult;
     try {
@@ -298,8 +332,7 @@ export default function SlotsPage() {
 
     setStrips(finalStrips);
     setShown(result);
-    // Render the fresh strips (offset 0 = filler showing) before animating.
-    setOffsets(Array.from({ length: COLS }, () => 0));
+    setOffsets(Array.from({ length: COLS }, () => 0)); // filler showing, pre-animate
     animate(finalStrips, result);
   }, [round, phase, betValid, bet, clearAll, animate]);
 
@@ -341,6 +374,7 @@ export default function SlotsPage() {
                 strip={strips[x]}
                 offset={offsets[x]}
                 cellPx={cellPx}
+                highlight={highlight ? column(highlight, x) : null}
               />
             ))}
           </div>

@@ -13,7 +13,6 @@
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/shared/api/errors';
 import { GAME_META } from '@/shared/lib/games';
-import { sfx } from '@/shared/lib/sound';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
 import Spinner from '@/shared/ui/Spinner';
@@ -26,7 +25,6 @@ function CaseCard({ caseView }: { caseView: CaseView }) {
   const navigate = useNavigate();
 
   const onOpen = () => {
-    sfx.click();
     navigate(`/games/cases/${encodeURIComponent(caseView.name)}`);
   };
 

@@ -274,7 +274,6 @@ export default function CoinflipPage() {
     if (phase === 'result') dispatch({ type: 'reset' });
     if (!betValid) return;
 
-    sfx.click();
     dispatch({ type: 'startFlip' });
     spinRef.current = sfx.startSpin();
 
@@ -393,10 +392,7 @@ export default function CoinflipPage() {
             <button
               key={s}
               type="button"
-              onClick={() => {
-                sfx.click();
-                dispatch({ type: 'setSide', side: s });
-              }}
+              onClick={() => dispatch({ type: 'setSide', side: s })}
               disabled={flipping || round.busy}
               aria-pressed={active}
               className={clsx(

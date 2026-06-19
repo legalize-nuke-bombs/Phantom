@@ -86,15 +86,16 @@ const C = 2 * Math.PI * R; // circumference
 const CENTER = SIZE / 2;
 const CURSOR_R = 9; // cursor radius
 
-const SPIN_MS = 3000;
+const SPIN_MS = 4600;
 const LAPS = 4; // full turns before easing to the target
 
 /** Payout multiplier at/above which a win is "big" (bigWin cue) vs. "small". */
 const BIG_WIN_MULT = 3;
 
-/** easeOutQuint — quick launch, long gentle settle (slower stop than quart). */
-function easeOutQuint(t: number): number {
-  return 1 - Math.pow(1 - t, 5);
+/** easeOutSextic — quick launch, very long gentle settle so the cursor glides
+ *  almost to a halt before it actually stops (softer tail than quint). */
+function easeOutSextic(t: number): number {
+  return 1 - Math.pow(1 - t, 6);
 }
 
 /**
@@ -158,7 +159,7 @@ function Ring({
     // plays at launch (in `play`); the outcome cue plays on reveal.
     const tick = (now: number) => {
       const p = Math.min((now - t0) / SPIN_MS, 1);
-      const next = start + total * easeOutQuint(p);
+      const next = start + total * easeOutSextic(p);
       setAngle(next);
       if (p < 1) raf.current = requestAnimationFrame(tick);
     };
@@ -281,10 +282,7 @@ function PercentPicker({
           <button
             key={o.percent}
             type="button"
-            onClick={() => {
-              sfx.click();
-              onChange(o.percent);
-            }}
+            onClick={() => onChange(o.percent)}
             disabled={disabled}
             aria-pressed={active}
             className={clsx(
@@ -357,7 +355,6 @@ export default function UpgraderPage() {
   // intermediate screen needing a second tap.
   const play = useCallback(async () => {
     if (selected == null || !betValid || spinning) return;
-    sfx.click();
     // Reset any previous result/animation before launching the new round.
     if (spinTimer.current != null) clearTimeout(spinTimer.current);
     setRevealed(false);
@@ -445,7 +442,7 @@ export default function UpgraderPage() {
                 Шанс и множитель
               </p>
               <p className="text-xs text-muted">
-                Выигрыш:{' '}
+                Выигрыш при победе:{' '}
                 <span className="font-medium text-ice">
                   {betValid ? formatUsd(target) : '—'}
                 </span>
