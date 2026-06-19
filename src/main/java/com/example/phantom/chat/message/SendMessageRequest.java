@@ -17,7 +17,7 @@ public class SendMessageRequest {
     private String content;
 
     @NotNull
-    private Long chatId = 1L;
+    private Long chatId;
 
     private UUID attachmentId;
 }

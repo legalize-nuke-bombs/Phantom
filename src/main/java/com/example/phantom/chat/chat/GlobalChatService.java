@@ -23,7 +23,7 @@ public class GlobalChatService {
     }
 
     public Chat find() {
-        Chat chat = chatRepository.findById(1L).orElse(null);
+        Chat chat = chatRepository.findById(GlobalChatConstants.ID).orElse(null);
         if (chat == null) {
             log.error("failed to find chat");
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
@@ -33,7 +33,7 @@ public class GlobalChatService {
 
     @EventListener(GlobalTopicsAreReadyEvent.class)
     public void create() {
-        if (chatRepository.findById(1L).isEmpty()) {
+        if (chatRepository.findById(GlobalChatConstants.ID).isEmpty()) {
             Chat chat = new Chat();
             chat.setId(1L);
             chat.setTopic(globalTopicService.findAuthorized());
