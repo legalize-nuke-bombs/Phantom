@@ -15,6 +15,12 @@ const WalletPage = lazy(() => import('@/features/wallet/WalletPage'));
 const NotificationsPage = lazy(
   () => import('@/features/notifications/NotificationsPage'),
 );
+const GamesPage = lazy(() => import('@/features/games/GamesPage'));
+const CommunicationPage = lazy(
+  () => import('@/features/communication/CommunicationPage'),
+);
+const SettingsPage = lazy(() => import('@/features/profile/SettingsPage'));
+const ReferralPage = lazy(() => import('@/features/referral/ReferralPage'));
 
 function PageSuspense({ children }: { children: ReactNode }) {
   return (
@@ -94,10 +100,42 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'profile/settings',
+        element: (
+          <PageSuspense>
+            <SettingsPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'profile/referrals',
+        element: (
+          <PageSuspense>
+            <ReferralPage />
+          </PageSuspense>
+        ),
+      },
+      {
         path: 'wallet',
         element: (
           <PageSuspense>
             <WalletPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'games',
+        element: (
+          <PageSuspense>
+            <GamesPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'chat',
+        element: (
+          <PageSuspense>
+            <CommunicationPage />
           </PageSuspense>
         ),
       },

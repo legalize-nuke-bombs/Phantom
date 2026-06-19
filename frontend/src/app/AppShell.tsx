@@ -1,24 +1,21 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import {
   Home as HomeIcon,
   User as UserIcon,
   Wallet as WalletIcon,
   Gamepad2,
-  MessageCircle,
+  MessagesSquare,
   Bell,
   type LucideIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { api } from '@/shared/api/client';
+import { useWallet } from '@/shared/lib/wallet';
 import { formatUsd } from '@/shared/lib/money';
-import type { Wallet } from '@/shared/types';
 
 interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
-  disabled?: boolean;
   /** Render the live wallet balance inline next to the label. */
   showBalance?: boolean;
 }
@@ -28,8 +25,8 @@ const NAV: NavItem[] = [
   { to: '/', label: 'Главная', icon: HomeIcon },
   { to: '/profile', label: 'Профиль', icon: UserIcon },
   { to: '/wallet', label: 'Кошелёк', icon: WalletIcon, showBalance: true },
-  { to: '/games', label: 'Игры', icon: Gamepad2, disabled: true },
-  { to: '/chat', label: 'Чат', icon: MessageCircle, disabled: true },
+  { to: '/games', label: 'Игры', icon: Gamepad2 },
+  { to: '/chat', label: 'Общение', icon: MessagesSquare },
   { to: '/notifications', label: 'Уведомления', icon: Bell },
 ];
 
@@ -40,11 +37,6 @@ const TABS: NavItem[] = [
   NAV[5], // Уведомления
   NAV[1], // Профиль
 ];
-
-/** Plain balance text (no tier colour) shared by both nav surfaces. */
-function balanceText(balance: string | undefined): string {
-  return balance == null ? '—' : formatUsd(Number(balance));
-}
 
 function Wordmark() {
   return (
@@ -57,14 +49,6 @@ function Wordmark() {
   );
 }
 
-function useWallet() {
-  return useQuery({
-    queryKey: ['wallet', 'me'],
-    queryFn: () => api.get<Wallet>('/wallets/me'),
-    staleTime: 30_000,
-  });
-}
-
 /* ── Sidebar (md+) ─────────────────────────────────────────────────────── */
 
 function SidebarLink({
@@ -75,18 +59,6 @@ function SidebarLink({
   balance: string | undefined;
 }) {
   const Icon = item.icon;
-
-  if (item.disabled) {
-    return (
-      <div className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-muted/60">
-        <Icon size={20} />
-        <span className="text-sm">{item.label}</span>
-        <span className="ml-auto rounded-md bg-panel-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
-          скоро
-        </span>
-      </div>
-    );
-  }
 
   return (
     <NavLink
@@ -104,8 +76,8 @@ function SidebarLink({
       <Icon size={20} />
       <span>{item.label}</span>
       {item.showBalance ? (
-        <span className="ml-auto text-sm font-medium text-fg">
-          {balanceText(balance)}
+        <span className="ml-auto text-sm font-medium text-ton">
+          {formatUsd(balance)}
         </span>
       ) : null}
     </NavLink>
@@ -151,7 +123,7 @@ function BottomTabLink({
     >
       <Icon size={20} />
       <span className="text-[10px] leading-tight">
-        {item.showBalance ? balanceText(balance) : item.label}
+        {item.showBalance ? formatUsd(balance) : item.label}
       </span>
     </NavLink>
   );

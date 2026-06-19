@@ -5,12 +5,12 @@ import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { coinName } from '@/shared/lib/coin';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
+import { GAME_META, LOTTERY_META, gameMeta } from '@/shared/lib/games';
 import { formatTime } from '@/shared/lib/time';
 import type {
   UserStats,
   PlatformGameStats,
   GameHistoryEntry,
-  GameType,
   LevelName,
 } from '@/shared/types';
 import Amount from '@/shared/ui/Amount';
@@ -84,7 +84,7 @@ function StatCard({
       <p className="mt-2 truncate text-2xl font-semibold tracking-tight text-fg">
         {value}
       </p>
-      {sub ? <p className="mt-0.5 text-xs text-ice">{sub}</p> : null}
+      {sub ? <p className="mt-0.5 text-xs text-win">{sub}</p> : null}
     </Card>
   );
 }
@@ -156,17 +156,6 @@ function PlatformStats() {
 
 /* ── Recent games feed ─────────────────────────────────────────────────── */
 
-const GAME_LABELS: Record<GameType, string> = {
-  CASES: '🎁 Кейсы',
-  FRUITS: '🎰 Слоты',
-  COINFLIP: '🪙 Коинфлип',
-  UPGRADER: '📈 Апгрейдер',
-};
-
-function gameLabel(type: GameType): string {
-  return GAME_LABELS[type] ?? type;
-}
-
 function GameRow({
   entry,
   level,
@@ -174,15 +163,18 @@ function GameRow({
   entry: GameHistoryEntry;
   level: LevelName | null;
 }) {
+  const meta = gameMeta(entry.gameType);
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-3">
       <div className="min-w-0 space-y-0.5">
         <UserChip user={entry.user} level={level} className="text-sm font-medium" />
         <p className="text-xs text-muted">
-          {gameLabel(entry.gameType)} · {formatTime(entry.timestamp, 'relative')}
+          {meta.emoji} {meta.name} · {formatTime(entry.timestamp, 'relative')}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-1.5 text-sm font-medium">
+      {/* Fixed, right-aligned column so the bet→result amounts never shift
+          horizontally between rows of differing magnitudes. */}
+      <div className="flex w-28 shrink-0 items-center justify-end gap-1.5 text-right text-sm font-medium tabular-nums sm:w-36">
         <Amount value={entry.bet} className="text-muted" />
         <span aria-hidden className="text-muted">→</span>
         <Amount value={entry.result} className="font-semibold" />
@@ -244,13 +236,9 @@ function RecentGames() {
 
 /* ── Games grid ────────────────────────────────────────────────────────── */
 
-const GAMES: ReadonlyArray<{ emoji: string; name: string }> = [
-  { emoji: '🎁', name: 'Кейсы' },
-  { emoji: '🎰', name: 'Слоты' },
-  { emoji: '🪙', name: 'Коинфлип' },
-  { emoji: '📈', name: 'Апгрейдер' },
-  { emoji: '🎟️', name: 'Лотерея' },
-];
+// The platform's games + the lottery, drawn from the shared presentation source so
+// emoji/labels stay consistent app-wide (Кейсы → 📦, never 🎁).
+const GAMES = [...Object.values(GAME_META), LOTTERY_META];
 
 function GamesGrid() {
   return (
