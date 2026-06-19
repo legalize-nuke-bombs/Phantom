@@ -17,21 +17,25 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("""
 SELECT n
 FROM Notification n
+LEFT JOIN ReadNotification rn ON rn.notificationId = n.id AND rn.userId = :userId
 WHERE (
-(n.destinationType = :destinationTypeUser AND
-n.destinationUser IS NOT NULL AND
-n.destinationUser.id = :userId)
-OR
-(n.destinationType = :destinationTypeTopic AND
-n.destinationTopic IS NOT NULL AND
-n.destinationTopic.id IN :accessibleTopicIds))
-AND
-(:before IS NULL OR n.id < :before)
+    (n.destinationType = :destinationTypeUser AND
+     n.destinationUser IS NOT NULL AND
+     n.destinationUser.id = :userId)
+    OR
+    (n.destinationType = :destinationTypeTopic AND
+     n.destinationTopic IS NOT NULL AND
+     n.destinationTopic.id IN :accessibleTopicIds)
+)
+AND (:before IS NULL OR n.id < :before)
+AND (:notReadOnly = false OR rn.id IS NULL)
 ORDER BY n.id DESC
 """)
     List<Notification> findRelevant(
             @Param("destinationTypeUser") NotificationDestinationType destinationTypeUser,
             @Param("destinationTypeTopic") NotificationDestinationType destinationTypeTopic,
+
+            @Param("notReadOnly") Boolean notReadOnly,
 
             @Param("userId") Long userId,
 
