@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Phantom design tokens — dark "spectral" theme keyed to TON/GRAM blue.
+   Tailwind v4 maps each --color-* into utilities: bg-ink, text-ton, border-edge…
+   Retune the whole palette here (e.g. to exact GRAM brand hexes) in one place.
+   ────────────────────────────────────────────────────────────────────────── */
+@theme {
+  /* surfaces */
+  --color-ink: #0b0f14;      /* page background      → bg-ink */
+  --color-panel: #121822;    /* cards / surfaces     → bg-panel */
+  --color-panel-2: #1a2230;  /* raised / hover       → bg-panel-2 */
+  --color-edge: #243042;     /* borders / dividers   → border-edge */
+
+  /* brand — TON / GRAM crystal blue */
+  --color-ton: #2aabee;      /* primary              → text-ton / bg-ton */
+  --color-ton-deep: #0098ea; /* primary deep         → bg-ton-deep */
+  --color-ice: #7fd8ff;      /* highlight / glow     → text-ice */
+
+  /* text */
+  --color-fg: #e8edf2;       /* primary text         → text-fg */
+  --color-muted: #8b97a7;    /* secondary text       → text-muted */
+
+  /* status (red ONLY for loss/error) */
+  --color-win: #34d399;
+  --color-lose: #f5566c;
+  --color-warn: #f5b73d;
+
+  /* type */
+  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", Consolas, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink);
+  /* subtle spectral glow from the top — the "phantom" mood */
+  background-image: radial-gradient(
+    1200px 600px at 50% -15%,
+    rgba(0, 152, 234, 0.1),
+    transparent 60%
+  );
+  background-attachment: fixed;
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
