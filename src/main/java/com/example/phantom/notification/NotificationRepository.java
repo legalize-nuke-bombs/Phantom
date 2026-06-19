@@ -17,7 +17,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("""
 SELECT n
 FROM Notification n
-LEFT JOIN ReadNotification rn ON rn.notificationId = n.id AND rn.userId = :userId
+LEFT JOIN ReadNotification rn ON rn.notification = n AND rn.user.id = :userId
 WHERE (
     (n.destinationType = :destinationTypeUser AND
      n.destinationUser IS NOT NULL AND
