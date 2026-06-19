@@ -1,4 +1,5 @@
 import { ArrowDownToLine, ArrowUpFromLine, Wallet as WalletIcon } from 'lucide-react';
+import { coinName, coinTicker } from '@/shared/lib/coin';
 import Card from '@/shared/ui/Card';
 
 export default function WalletPage() {
@@ -25,7 +26,7 @@ export default function WalletPage() {
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           Раздел кошелька пока в разработке. Совсем скоро здесь появятся
-          пополнение и вывод средств через сеть TON.
+          пополнение и вывод средств в {coinName()}.
         </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -35,7 +36,7 @@ export default function WalletPage() {
             </span>
             <div>
               <p className="text-sm font-medium text-fg">Пополнение</p>
-              <p className="text-xs text-muted">Депозит TON — скоро</p>
+              <p className="text-xs text-muted">Депозит {coinTicker()} — скоро</p>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-edge bg-panel-2 p-3 opacity-70">
@@ -44,7 +45,7 @@ export default function WalletPage() {
             </span>
             <div>
               <p className="text-sm font-medium text-fg">Вывод</p>
-              <p className="text-xs text-muted">Вывод TON — скоро</p>
+              <p className="text-xs text-muted">Вывод {coinTicker()} — скоро</p>
             </div>
           </div>
         </div>

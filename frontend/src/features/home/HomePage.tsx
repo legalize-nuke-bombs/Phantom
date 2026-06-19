@@ -3,16 +3,20 @@ import { Users, Gamepad2, Trophy, Flame, ShieldCheck, Sparkles } from 'lucide-re
 import { api } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
-import { formatUsd } from '@/shared/lib/money';
+import { coinName } from '@/shared/lib/coin';
+import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { formatTime } from '@/shared/lib/time';
 import type {
   UserStats,
   PlatformGameStats,
   GameHistoryEntry,
   GameType,
+  LevelName,
 } from '@/shared/types';
+import Amount from '@/shared/ui/Amount';
 import Card from '@/shared/ui/Card';
 import Spinner from '@/shared/ui/Spinner';
+import UserChip from '@/shared/ui/UserChip';
 
 const ru = (n: number): string => n.toLocaleString('ru-RU');
 
@@ -39,13 +43,14 @@ function Hero() {
 
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
           Честное крипто-казино с прозрачными результатами и мгновенными
-          депозитами в TON. Каждая игра проверяема — исход нельзя подделать.
+          депозитами в {coinName()}. Каждая игра проверяема — исход нельзя
+          подделать.
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2 text-xs text-muted">
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-edge bg-panel-2 px-2.5 py-1">
             <Sparkles size={13} className="text-ton" />
-            Депозиты в TON
+            Депозиты в {coinName()}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-edge bg-panel-2 px-2.5 py-1">
             <ShieldCheck size={13} className="text-ton" />
@@ -67,7 +72,7 @@ function StatCard({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string;
+  value: React.ReactNode;
   sub?: string;
 }) {
   return (
@@ -132,12 +137,16 @@ function PlatformStats() {
           <StatCard
             icon={<Trophy size={16} />}
             label="Крупнейший выигрыш"
-            value={formatUsd(games.data?.maxWin)}
+            value={
+              <Amount value={games.data?.maxWin} />
+            }
           />
           <StatCard
             icon={<Flame size={16} />}
             label="Лучший за 24ч"
-            value={formatUsd(games.data?.maxWin24h)}
+            value={
+              <Amount value={games.data?.maxWin24h} />
+            }
           />
         </div>
       )}
@@ -158,27 +167,25 @@ function gameLabel(type: GameType): string {
   return GAME_LABELS[type] ?? type;
 }
 
-function GameRow({ entry }: { entry: GameHistoryEntry }) {
-  const win = Number(entry.result) >= Number(entry.bet);
+function GameRow({
+  entry,
+  level,
+}: {
+  entry: GameHistoryEntry;
+  level: LevelName | null;
+}) {
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-fg">
-          {entry.user.displayName}
-        </p>
-        <p className="mt-0.5 text-xs text-muted">
+      <div className="min-w-0 space-y-0.5">
+        <UserChip user={entry.user} level={level} className="text-sm font-medium" />
+        <p className="text-xs text-muted">
           {gameLabel(entry.gameType)} · {formatTime(entry.timestamp, 'relative')}
         </p>
       </div>
-      <div className="shrink-0 text-right">
-        <p
-          className={`text-sm font-semibold ${win ? 'text-win' : 'text-lose'}`}
-        >
-          {formatUsd(entry.result)}
-        </p>
-        <p className="mt-0.5 text-xs text-muted">
-          ставка {formatUsd(entry.bet)}
-        </p>
+      <div className="flex shrink-0 items-center gap-1.5 text-sm font-medium">
+        <Amount value={entry.bet} className="text-muted" />
+        <span aria-hidden className="text-muted">→</span>
+        <Amount value={entry.result} className="font-semibold" />
       </div>
     </li>
   );
@@ -193,6 +200,10 @@ function RecentGames() {
     enabled: user != null,
     staleTime: 15_000,
   });
+
+  // Batch-load ranks for every player in the feed in a single request.
+  const ids = history.data?.map((entry) => entry.user.id) ?? [];
+  const { data: levels } = useExperienceBatch(ids);
 
   return (
     <section className="space-y-3">
@@ -218,7 +229,11 @@ function RecentGames() {
         <Card className="divide-y divide-edge overflow-hidden p-0">
           <ul>
             {history.data.map((entry) => (
-              <GameRow key={entry.id} entry={entry} />
+              <GameRow
+                key={entry.id}
+                entry={entry}
+                level={levelFor(levels, entry.user.id)}
+              />
             ))}
           </ul>
         </Card>

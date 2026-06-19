@@ -10,7 +10,11 @@ const RegisterPage = lazy(() => import('@/features/auth/RegisterPage'));
 const RecoverPage = lazy(() => import('@/features/auth/RecoverPage'));
 const HomePage = lazy(() => import('@/features/home/HomePage'));
 const ProfilePage = lazy(() => import('@/features/profile/ProfilePage'));
+const UserProfilePage = lazy(() => import('@/features/profile/UserProfilePage'));
 const WalletPage = lazy(() => import('@/features/wallet/WalletPage'));
+const NotificationsPage = lazy(
+  () => import('@/features/notifications/NotificationsPage'),
+);
 
 function PageSuspense({ children }: { children: ReactNode }) {
   return (
@@ -94,6 +98,22 @@ export const router = createBrowserRouter([
         element: (
           <PageSuspense>
             <WalletPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'u/:userId',
+        element: (
+          <PageSuspense>
+            <UserProfilePage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'notifications',
+        element: (
+          <PageSuspense>
+            <NotificationsPage />
           </PageSuspense>
         ),
       },

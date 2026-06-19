@@ -22,18 +22,40 @@ const PORTRAITS: Record<LevelName, string> = {
 };
 
 interface RankBadgeProps {
-  rank: LevelName;
+  /**
+   * The user's rank. A known LevelName shows its portrait; null/undefined (the
+   * level is unknown — e.g. the user hid their experience) shows a fallback glyph.
+   */
+  level: LevelName | null | undefined;
   /** Pixel diameter of the avatar. Defaults to 32. */
   size?: number;
   className?: string;
 }
 
-export default function RankBadge({ rank, size = 32, className }: RankBadgeProps) {
+export default function RankBadge({ level, size = 32, className }: RankBadgeProps) {
+  if (level == null) {
+    // Unknown rank — hidden experience or no record. Neutral hollow-diamond chip.
+    return (
+      <span
+        title="Ранг скрыт"
+        aria-label="Ранг скрыт"
+        style={{ width: size, height: size, fontSize: Math.round(size * 0.5) }}
+        className={clsx(
+          'inline-grid shrink-0 place-items-center rounded-full bg-panel-2',
+          'border border-edge ring-1 ring-ton/30 text-muted leading-none',
+          className,
+        )}
+      >
+        ◇
+      </span>
+    );
+  }
+
   return (
     <img
-      src={PORTRAITS[rank]}
-      alt={rank}
-      title={rank}
+      src={PORTRAITS[level]}
+      alt={level}
+      title={level}
       width={size}
       height={size}
       style={{ width: size, height: size }}

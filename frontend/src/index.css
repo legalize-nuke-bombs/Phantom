@@ -26,6 +26,15 @@
   --color-lose: #f5566c;
   --color-warn: #f5b73d;
 
+  /* finance tiers — amount-size colouring (see shared/lib/financeColors.ts).
+     Drives text-tier-grey … text-tier-gold for coloured money via <Amount>. */
+  --color-tier-grey: #8b97a7;
+  --color-tier-blue: #4aa3ff;
+  --color-tier-purple: #a855f7;
+  --color-tier-pink: #ec4899;
+  --color-tier-red: #ef4444;
+  --color-tier-gold: #f5b73d;
+
   /* type */
   --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "JetBrains Mono", Consolas, monospace;

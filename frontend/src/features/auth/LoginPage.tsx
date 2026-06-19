@@ -90,7 +90,7 @@ export default function LoginPage() {
 
           <p className="mt-4 text-center text-sm text-muted">
             <Link to="/recover" className="text-ton transition-colors hover:text-ice">
-              Забыли доступ? Восстановить
+              Восстановить доступ
             </Link>
           </p>
         </Card>
