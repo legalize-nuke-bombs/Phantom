@@ -193,6 +193,25 @@ function lose(): void {
   });
 }
 
+/** Modest win — a short, bright two-note ding. For low payouts ("немного"). */
+function smallWin(): void {
+  withAudio((c, t) => {
+    blip(c, t, { freq: 659.25, dur: 0.12, type: 'triangle', gain: 0.14 }); // E5
+    blip(c, t + 0.1, { freq: 987.77, dur: 0.2, type: 'triangle', gain: 0.13 }); // B5
+  });
+}
+
+/** Big win — a celebratory ascending arpeggio with a shimmer tail ("дохуя"). */
+function bigWin(): void {
+  withAudio((c, t) => {
+    const notes = [523.25, 659.25, 783.99, 1046.5, 1318.51]; // C5 E5 G5 C6 E6
+    notes.forEach((f, i) =>
+      blip(c, t + i * 0.08, { freq: f, dur: 0.26, type: 'triangle', gain: 0.16 }),
+    );
+    blip(c, t + notes.length * 0.08, { freq: 1567.98, dur: 0.42, type: 'sine', gain: 0.1 }); // G6 shimmer
+  });
+}
+
 /* ── spin loop ──────────────────────────────────────────────────────────── */
 
 export interface SpinHandle {
@@ -224,6 +243,8 @@ export const sfx = {
   reveal,
   win,
   lose,
+  smallWin,
+  bigWin,
   startSpin,
 } as const;
 

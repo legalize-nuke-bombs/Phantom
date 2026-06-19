@@ -295,8 +295,7 @@ export default function CoinflipPage() {
         won: isWin,
         payout: isWin ? result.result : null,
       });
-      sfx.reveal();
-      if (isWin) sfx.win();
+      if (isWin) sfx.smallWin();
       else sfx.lose();
     } catch {
       // round.error carries the localized message; unwind the animation + sound and
@@ -354,9 +353,8 @@ export default function CoinflipPage() {
         </span>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">
-            Коинфлип
+            Монетка
           </h1>
-          <p className="text-sm text-muted">Угадай сторону — выигрыш ×{multiplier}</p>
         </div>
       </div>
 

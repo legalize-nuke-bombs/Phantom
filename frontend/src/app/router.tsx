@@ -17,6 +17,7 @@ const NotificationsPage = lazy(
 );
 const GamesPage = lazy(() => import('@/features/games/GamesPage'));
 const CasesPage = lazy(() => import('@/features/games/CasesPage'));
+const CaseOpenPage = lazy(() => import('@/features/games/cases/CaseOpenPage'));
 const CoinflipPage = lazy(() => import('@/features/games/CoinflipPage'));
 const UpgraderPage = lazy(() => import('@/features/games/UpgraderPage'));
 const SlotsPage = lazy(() => import('@/features/games/SlotsPage'));
@@ -149,6 +150,14 @@ export const router = createBrowserRouter([
         element: (
           <PageSuspense>
             <CasesPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'games/cases/:caseName',
+        element: (
+          <PageSuspense>
+            <CaseOpenPage />
           </PageSuspense>
         ),
       },

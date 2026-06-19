@@ -19,9 +19,9 @@ export interface GameMeta {
  * separate backend feature, and a gift glyph here would conflate the two.
  */
 export const GAME_META: Record<GameType, GameMeta> = {
-  CASES: { emoji: '📦', name: 'Кейсы' },
-  FRUITS: { emoji: '🎰', name: 'Слоты' },
-  COINFLIP: { emoji: '🪙', name: 'Коинфлип' },
+  CASES: { emoji: '📦', name: 'Ящики' },
+  FRUITS: { emoji: '🍇', name: 'Фрукты' },
+  COINFLIP: { emoji: '🪙', name: 'Монетка' },
   UPGRADER: { emoji: '📈', name: 'Upgrader' },
 };
 

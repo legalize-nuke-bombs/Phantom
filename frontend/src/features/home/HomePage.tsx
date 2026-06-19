@@ -1,6 +1,18 @@
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Users, Gamepad2, Trophy, Flame, ShieldCheck, Sparkles } from 'lucide-react';
-import { api } from '@/shared/api/client';
+import {
+  ArrowUpRight,
+  Users,
+  Gamepad2,
+  Trophy,
+  Flame,
+  ShieldCheck,
+  Sparkles,
+  Ticket,
+} from 'lucide-react';
+import { api, ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { coinName } from '@/shared/lib/coin';
@@ -15,6 +27,7 @@ import type {
 } from '@/shared/types';
 import Amount from '@/shared/ui/Amount';
 import Card from '@/shared/ui/Card';
+import CoinGlyph from '@/shared/ui/CoinGlyph';
 import Spinner from '@/shared/ui/Spinner';
 import UserChip from '@/shared/ui/UserChip';
 
@@ -236,34 +249,211 @@ function RecentGames() {
 
 /* ── Games grid ────────────────────────────────────────────────────────── */
 
-// The platform's games + the lottery, drawn from the shared presentation source so
-// emoji/labels stay consistent app-wide (Кейсы → 📦, never 🎁).
-const GAMES = [...Object.values(GAME_META), LOTTERY_META];
+// Real games + the lottery, with their routes. Emoji/labels come from the shared
+// presentation source so they stay consistent app-wide (Ящики → 📦, never 🎁); the
+// `to` targets must match the lazy child routes registered in app/router.tsx.
+// Coinflip overrides the emoji with the blue brand coin (CoinGlyph).
+interface GameLink {
+  to: string;
+  emoji: string;
+  name: string;
+  /** Optional custom icon node — overrides the emoji (e.g. the blue coinflip coin). */
+  icon?: ReactNode;
+}
+
+const GAMES: ReadonlyArray<GameLink> = [
+  { to: '/games/cases', ...GAME_META.CASES },
+  { to: '/games/slots', ...GAME_META.FRUITS },
+  { to: '/games/coinflip', ...GAME_META.COINFLIP, icon: <CoinGlyph size={26} /> },
+  { to: '/games/upgrader', ...GAME_META.UPGRADER },
+  { to: '/games/lottery', ...LOTTERY_META },
+];
+
+function GameTile({ game }: { game: GameLink }) {
+  return (
+    <Link
+      to={game.to}
+      className="group flex flex-col items-center gap-2 rounded-xl border border-edge bg-panel p-4 text-center transition-colors hover:border-ton/50 hover:bg-panel-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ton/60"
+    >
+      <span
+        aria-hidden
+        className="grid size-12 place-items-center rounded-xl border border-edge bg-panel-2 text-2xl transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105"
+      >
+        {game.icon ?? game.emoji}
+      </span>
+      <span className="text-sm font-medium text-fg">{game.name}</span>
+    </Link>
+  );
+}
 
 function GamesGrid() {
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-medium text-muted">Игры</h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-muted">Игры</h2>
+        <Link
+          to="/games"
+          className="inline-flex items-center gap-0.5 text-xs text-muted transition-colors hover:text-fg"
+        >
+          Все игры
+          <ArrowUpRight size={13} aria-hidden />
+        </Link>
+      </div>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
         {GAMES.map((game) => (
-          <Card
-            key={game.name}
-            aria-disabled="true"
-            className="flex cursor-not-allowed flex-col items-center gap-2 p-5 text-center opacity-70"
-          >
-            <span
-              aria-hidden
-              className="grid h-12 w-12 place-items-center rounded-xl border border-edge bg-panel-2 text-2xl"
-            >
-              {game.emoji}
-            </span>
-            <span className="text-sm font-medium text-fg">{game.name}</span>
-            <span className="rounded-md bg-panel-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
-              скоро
-            </span>
-          </Card>
+          <GameTile key={game.to} game={game} />
         ))}
       </div>
+    </section>
+  );
+}
+
+/* ── Live lottery ──────────────────────────────────────────────────────────
+   A compact, live snapshot of the global lottery round linking to /games/lottery.
+   Mirrors the lottery page's contract: epoch-SECONDS timestamps, costTotal as the
+   pot, and a 404 (LOTTERY_NOT_FOUND) in the brief window between rounds. */
+
+interface CurrentLottery {
+  id: number;
+  timestampBlock: number;
+  timestampEnd: number;
+  ticketCost: string;
+  ticketsAmountTotal: number;
+  costTotal: string;
+}
+
+/** Seconds → "mm:ss" (or "h:mm:ss" past an hour). Never negative. */
+function formatCountdown(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(s / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  const seconds = s % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(seconds)}`
+    : `${pad(minutes)}:${pad(seconds)}`;
+}
+
+function useNowSeconds(): number {
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
+
+function LotteryCardInner({ lottery }: { lottery: CurrentLottery }) {
+  const now = useNowSeconds();
+  const drawn = lottery.timestampEnd - now <= 0; // round is being settled
+  const salesClosed = lottery.timestampBlock - now <= 0; // no more buy/refund
+
+  const status: ReactNode = drawn ? (
+    <span className="font-mono text-base font-semibold tabular-nums text-muted">
+      Розыгрыш…
+    </span>
+  ) : salesClosed ? (
+    <span className="text-sm font-medium text-warn">Продажи закрыты</span>
+  ) : (
+    <span className="font-mono text-base font-semibold tabular-nums text-ice">
+      {formatCountdown(lottery.timestampEnd - now)}
+    </span>
+  );
+
+  return (
+    <Link
+      to="/games/lottery"
+      className="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-edge bg-panel p-4 transition-colors hover:border-ton/50 hover:bg-panel-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ton/60"
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-ton/10 opacity-60 blur-2xl transition-opacity duration-300 group-hover:opacity-100"
+      />
+      <span
+        aria-hidden
+        className="relative grid size-12 shrink-0 place-items-center rounded-xl border border-edge bg-panel-2 text-2xl"
+      >
+        {LOTTERY_META.emoji}
+      </span>
+      <div className="relative min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted">
+          <Trophy size={12} strokeWidth={2} />
+          Банк лотереи
+        </p>
+        <p className="mt-0.5 truncate text-xl font-bold tracking-tight">
+          <Amount value={lottery.costTotal} />
+        </p>
+        <p className="mt-0.5 truncate text-xs text-muted">
+          {lottery.ticketsAmountTotal}{' '}
+          {lottery.ticketsAmountTotal === 1 ? 'билет' : 'билетов'} продано
+        </p>
+      </div>
+      <div className="relative shrink-0 text-right">
+        <p className="text-[10px] uppercase tracking-wide text-muted">
+          {drawn ? 'Статус' : salesClosed ? 'Розыгрыш' : 'До розыгрыша'}
+        </p>
+        <p className="mt-0.5">{status}</p>
+      </div>
+    </Link>
+  );
+}
+
+function LotteryCard() {
+  const query = useQuery<CurrentLottery>({
+    queryKey: ['lottery', 'current'],
+    queryFn: () => api.get<CurrentLottery>('/lottery/current'),
+    refetchInterval: 15_000,
+    // 404 LOTTERY_NOT_FOUND can occur between rounds — don't hammer; the interval
+    // picks the next round up shortly.
+    retry: false,
+  });
+
+  let body: ReactNode;
+  if (query.isPending) {
+    body = (
+      <Card className="flex items-center gap-3 p-4 text-sm text-muted">
+        <Spinner size={20} />
+        Загружаем лотерею…
+      </Card>
+    );
+  } else if (query.isError) {
+    // Mid-rotation 404 is expected and harmless — invite a look later instead of
+    // surfacing it as an error.
+    const notFound = query.error instanceof ApiError && query.error.status === 404;
+    body = (
+      <Link
+        to="/games/lottery"
+        className="group flex items-center gap-3 rounded-xl border border-edge bg-panel p-4 transition-colors hover:border-ton/50 hover:bg-panel-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ton/60"
+      >
+        <span
+          aria-hidden
+          className="grid size-10 shrink-0 place-items-center rounded-xl border border-edge bg-panel-2 text-xl"
+        >
+          {LOTTERY_META.emoji}
+        </span>
+        <span className="min-w-0 flex-1 text-sm text-muted">
+          {notFound
+            ? 'Новый раунд лотереи готовится — загляните через мгновение'
+            : errorMessage(query.error, 'Не удалось загрузить лотерею')}
+        </span>
+        <ArrowUpRight
+          size={16}
+          aria-hidden
+          className="shrink-0 text-muted transition-colors group-hover:text-ton"
+        />
+      </Link>
+    );
+  } else {
+    body = <LotteryCardInner lottery={query.data} />;
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted">
+        <Ticket size={14} strokeWidth={2} />
+        Лотерея
+      </h2>
+      {body}
     </section>
   );
 }
@@ -276,6 +466,7 @@ export default function HomePage() {
       <Hero />
       <PlatformStats />
       <GamesGrid />
+      <LotteryCard />
       <RecentGames />
     </div>
   );

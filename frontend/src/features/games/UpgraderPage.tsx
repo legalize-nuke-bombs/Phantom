@@ -89,6 +89,9 @@ const CURSOR_R = 9; // cursor radius
 const SPIN_MS = 3000;
 const LAPS = 4; // full turns before easing to the target
 
+/** Payout multiplier at/above which a win is "big" (bigWin cue) vs. "small". */
+const BIG_WIN_MULT = 3;
+
 /** easeOutQuint — quick launch, long gentle settle (slower stop than quart). */
 function easeOutQuint(t: number): number {
   return 1 - Math.pow(1 - t, 5);
@@ -133,7 +136,6 @@ function Ring({
   // Cursor angle in degrees (clockwise from the top). Driven by RAF on each spin.
   const [angle, setAngle] = useState(0);
   const raf = useRef<number | null>(null);
-  const lastTick = useRef(0);
 
   useEffect(() => {
     if (phase.nonce === 0) return; // idle, no spin yet
@@ -151,18 +153,13 @@ function Ring({
     const base = (((target - start) % 360) + 360) % 360;
     const total = base + 360 * LAPS;
     const t0 = performance.now();
-    lastTick.current = start;
 
+    // The cursor travels in silence — no per-frame ticks. The single start cue
+    // plays at launch (in `play`); the outcome cue plays on reveal.
     const tick = (now: number) => {
       const p = Math.min((now - t0) / SPIN_MS, 1);
       const next = start + total * easeOutQuint(p);
       setAngle(next);
-      // A soft tick every ~36° of travel — denser early, naturally thinning as the
-      // cursor slows, which reinforces the deceleration.
-      if (next - lastTick.current >= 36) {
-        lastTick.current += 36;
-        sfx.tick();
-      }
       if (p < 1) raf.current = requestAnimationFrame(tick);
     };
     raf.current = requestAnimationFrame(tick);
@@ -371,13 +368,17 @@ export default function UpgraderPage() {
         percent: String(selected.percent),
       });
       const win = Number(res.result) > 0;
-      // Launch the cursor; reveal the verdict (and play win/lose) only after it lands.
+      // One short start cue; the cursor then travels in silence (no-op handle).
+      sfx.startSpin();
+      // Launch the cursor; reveal the verdict (and play the outcome cue) only after
+      // it lands.
       setPhase({ nonce: Date.now(), win });
       if (spinTimer.current != null) clearTimeout(spinTimer.current);
       spinTimer.current = window.setTimeout(() => {
         setRevealed(true);
-        if (win) sfx.win();
-        else sfx.lose();
+        if (!win) sfx.lose();
+        else if (selected.mult >= BIG_WIN_MULT) sfx.bigWin();
+        else sfx.smallWin();
       }, SPIN_MS);
     } catch {
       // round.error carries the localized message; nothing to do here.

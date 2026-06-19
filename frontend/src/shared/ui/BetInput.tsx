@@ -9,7 +9,7 @@
 // user type "1." or "" mid-edit without the field fighting them; validity is
 // computed from it.
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import clsx from 'clsx';
 import { formatUsd } from '@/shared/lib/money';
 import { useWallet } from '@/shared/lib/wallet';
@@ -62,10 +62,17 @@ export default function BetInput({
     return { valid: true, reason: '' };
   }, [parsed, min, max, balance]);
 
-  // Notify the parent on every validity change (and on mount).
+  // Notify the parent whenever validity flips. We hold the latest callback in a ref
+  // and depend ONLY on `valid` — so an unstable inline callback (a new function each
+  // render, e.g. from a parent useReducer that yields a fresh state object) can't
+  // retrigger this effect every render and spin into an infinite update loop.
+  const onValidityChangeRef = useRef(onValidityChange);
   useEffect(() => {
-    onValidityChange?.(valid);
-  }, [valid, onValidityChange]);
+    onValidityChangeRef.current = onValidityChange;
+  });
+  useEffect(() => {
+    onValidityChangeRef.current?.(valid);
+  }, [valid]);
 
   const shownError = error ?? reason;
 

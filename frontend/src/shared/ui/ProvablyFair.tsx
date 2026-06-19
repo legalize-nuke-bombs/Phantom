@@ -115,8 +115,8 @@ export default function ProvablyFair({
         ? selfVerified.ok
         : null;
 
-  if (!serverHash && !revealed) return null;
-
+  // Always render (stable position): the trigger is present from the first frame and
+  // its content just fills in — collapsed line → committed hash → revealed seeds.
   return (
     <div className={clsx('text-[11px]', className)}>
       <button
@@ -158,6 +158,9 @@ export default function ProvablyFair({
           )}
           {revealed && serverSeed && <SeedRow label="Сид сервера" value={serverSeed} />}
           {revealed && clientSeed && <SeedRow label="Сид клиента" value={clientSeed} />}
+          {!serverHash && !revealed && (
+            <span className="text-muted">Хеш сервера зафиксируется в начале игры.</span>
+          )}
         </div>
       )}
     </div>

@@ -1,27 +1,28 @@
-// SlotsPage — the FRUITS game ("Слоты"): a full-width 3×5 reel slot machine.
+// SlotsPage — the FRUITS game ("Фрукты"): a full-width 3×5 reel slot machine
+// with reels that genuinely spin.
 //
 // Verified against the backend source (com.example.phantom.game.fruits.*,
 // com.example.phantom.game.util.slot.*):
 //
-//   • GET  /api/games/fruits        → FruitSettings { minBet (= 1), slots }.
-//       The reel / symbol / pattern model is fixed and mirrored below (3×5 grid,
-//       PATTERNS) so we can light up exactly the cells the server scored — never
-//       trusting any generated docs. Only the symbols plum/grape/seven/wild land
-//       (FruitSlots registers exactly those); strawberry is decorative spin-fodder.
+//   • GET  /api/games/fruits → FruitSettings { minBet (= 1), slots }.
 //   • init data is just { bet } (string), bet ≥ minBet, no max.
-//   • run → GameRepresentation whose data map is:
+//   • run → GameResult whose data map is:
 //       { data: string[3][5] (row-major, data[y][x]), patternMatches: PatternMatch[] }
 //     each PatternMatch = { patternName, slotName, patternK, slotK, k } (k = patternK·slotK).
-//     result = bet·Σk. We reveal the lines cheapest → most expensive, sorting by k.
+//     result = bet·Σk.
 //
-// The whole round goes through useGameRound.play({ bet }) — one provably-fair
-// handshake, balance refreshed inside the hook. We spin a CSS reel that decelerates
-// onto the returned grid, then flash each winning pattern in turn (cheapest first)
-// with a tick, and finally show the total "Ваш выигрыш" (0 if none — never a minus).
+// The reels are real: each of the 5 columns is a vertical strip of symbol art that
+// scrolls upward and decelerates (ease-out, RAF) onto the returned grid, stopping
+// staggered left→right. No instant substitution. After the reels rest the final
+// grid simply stays shown — no cell glow, no jackpot flash, no "matches" panel.
+//
+// Sound is strictly per-pattern: one short start cue (sfx.startSpin) and nothing
+// during the spin. On settle we walk the matched patterns in turn — sfx.bigWin()
+// for a rich pattern (payout k ≥ RICH_PATTERN_K), sfx.smallWin() otherwise — and
+// sfx.lose() when nothing matched.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RotateCw } from 'lucide-react';
-import clsx from 'clsx';
 
 import BetInput from '@/shared/ui/BetInput';
 import Button from '@/shared/ui/Button';
@@ -35,64 +36,32 @@ import type { GameResult } from '@/shared/lib/gameApi';
 import { GAME_META } from '@/shared/lib/games';
 import { sfx } from '@/shared/lib/sound';
 
-import grape from '@/assets/symbols/grape.png';
-import plum from '@/assets/symbols/plum.png';
-import seven from '@/assets/symbols/seven.png';
-import strawberry from '@/assets/symbols/strawberry.png';
-import wild from '@/assets/symbols/wild.png';
-
-// ── Reel model (mirrors FruitSlots / SimpleSlots) ───────────────────────────
-const ROWS = 3;
-const COLS = 5;
-
-/** Slot art by backend slot name. WILD substitutes for any symbol. */
-const SYMBOL_ART: Record<string, string> = { plum, grape, seven, wild };
-
-/**
- * Symbols shown while a reel blurs past, in rough order of how often the server
- * rolls them (plum/grape common, seven/wild rare). strawberry never lands (the
- * backend has no such slot) — it is decorative spin-fodder so the blur looks
- * richer than four repeating frames.
- */
-const SPIN_POOL = [plum, grape, plum, grape, strawberry, seven, plum, grape, wild, strawberry];
-
-/**
- * Scoring pattern masks, mirrored from FruitSlots.registerPattern(...). 3×5; a `1`
- * marks a cell belonging to the pattern. Used ONLY to highlight a matched pattern's
- * exact cells — payouts always come from the server, never recomputed here. Order
- * here is irrelevant: we flash in the order the server returns matches.
- */
-type Mask = ReadonlyArray<ReadonlyArray<0 | 1>>;
-const PATTERNS: Record<string, Mask> = {
-  column1: [[1, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 0, 0, 0, 0]],
-  column2: [[0, 1, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0]],
-  column3: [[0, 0, 1, 0, 0], [0, 0, 1, 0, 0], [0, 0, 1, 0, 0]],
-  column4: [[0, 0, 0, 1, 0], [0, 0, 0, 1, 0], [0, 0, 0, 1, 0]],
-  column5: [[0, 0, 0, 0, 1], [0, 0, 0, 0, 1], [0, 0, 0, 0, 1]],
-  row1: [[1, 1, 1, 1, 1], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]],
-  row2: [[0, 0, 0, 0, 0], [1, 1, 1, 1, 1], [0, 0, 0, 0, 0]],
-  row3: [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [1, 1, 1, 1, 1]],
-  arrowUp: [[0, 0, 1, 0, 0], [0, 1, 0, 1, 0], [1, 0, 0, 0, 1]],
-  arrowDown: [[1, 0, 0, 0, 1], [0, 1, 0, 1, 0], [0, 0, 1, 0, 0]],
-  eye: [[0, 1, 1, 1, 0], [1, 0, 0, 0, 1], [0, 1, 1, 1, 0]],
-  triangleUp: [[0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [1, 1, 1, 1, 1]],
-  triangleDown: [[1, 1, 1, 1, 1], [0, 1, 1, 1, 0], [0, 0, 1, 0, 0]],
-  jackpot: [[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]],
-};
+import {
+  ROWS,
+  COLS,
+  artOf,
+  randomFiller,
+  column,
+  IDLE_GRID,
+  FILLER_LEN,
+  columnSpinMs,
+  settleMs,
+  easeOutQuint,
+} from './slots/reel';
 
 // ── Result shape (the run() data map) ───────────────────────────────────────
 interface PatternMatch {
   patternName: string;
   slotName: string;
-  patternK: number;
-  slotK: number;
-  k: number;
+  patternK: number | string;
+  slotK: number | string;
+  /** This line's payout multiplier (patternK·slotK). */
+  k: number | string;
 }
 
 interface SpinPayload {
   /** Row-major grid: grid[y][x]. */
   grid: string[][];
-  /** Matches in the server's order (ascending k = cheapest → most expensive). */
   matches: PatternMatch[];
 }
 
@@ -110,133 +79,51 @@ function readSpin(result: GameResult): SpinPayload | null {
   return { grid: grid as string[][], matches };
 }
 
-/** A ROWS×COLS boolean mask of the cells in ONE pattern — the cells to glow. */
-function patternCells(patternName: string): boolean[][] {
-  const mask = PATTERNS[patternName];
-  return Array.from({ length: ROWS }, (_, y) =>
-    Array.from({ length: COLS }, (_, x) => Boolean(mask?.[y]?.[x])),
-  );
-}
-
-const NO_CELLS: boolean[][] = Array.from({ length: ROWS }, () =>
-  Array.from({ length: COLS }, () => false),
-);
-
-/** Pleasant resting face before the first spin. */
-const IDLE_GRID: string[][] = Array.from({ length: ROWS }, () => [
-  'plum',
-  'grape',
-  'seven',
-  'grape',
-  'plum',
-]);
-
-/** Pull column `x` (top→bottom) out of a row-major grid. */
-function column<T>(grid: T[][], x: number): T[] {
-  return grid.map((row) => row[x]);
-}
-
-// ── Reel animation tuning ───────────────────────────────────────────────────
-const LEAD_IN = 16; // blur frames above the settling symbols
-const BASE_DELAY = 0.1; // s — first column's stop delay
-const STAGGER = 0.14; // s — extra delay per column (clatter L→R)
-const BASE_DURATION = 0.75; // s — first column's glide
-const DURATION_STEP = 0.16; // s — extra glide per column
-const FLASH_MS = 560; // per-pattern highlight duration during the reveal
-
-/** When the LAST column has come to rest (ms from spin start). */
-function settleMs(): number {
-  const lastDelay = BASE_DELAY + (COLS - 1) * STAGGER;
-  const lastDuration = BASE_DURATION + (COLS - 1) * DURATION_STEP;
-  return (lastDelay + lastDuration) * 1000 + 60;
-}
-
-/** Fresh blur frames per column — one new set per spin so no two look identical. */
-function randomLeadIns(): string[][] {
-  return Array.from({ length: COLS }, () =>
-    Array.from(
-      { length: LEAD_IN },
-      () => SPIN_POOL[Math.floor(Math.random() * SPIN_POOL.length)],
-    ),
-  );
-}
-
-const STILL_LEAD_INS: string[][] = Array.from({ length: COLS }, () =>
-  Array.from({ length: LEAD_IN }, () => strawberry),
-);
+// ── Sound tuning ─────────────────────────────────────────────────────────────
+/**
+ * A pattern is "rich" (bigWin) at or above this payout multiplier, otherwise it
+ * is a cheap line (smallWin). The cheap families pay k≤0.1 (columns/rows ·
+ * common slots); the expensive families (arrows ·2, eye ·20, triangles ·25,
+ * jackpot ·500, or any line carrying the seven/wild ·10 slot) clear 1. Threshold
+ * sits above the cheap ceiling.
+ */
+const RICH_PATTERN_K = 1;
+/** Gap between successive per-pattern sounds during the walk. */
+const PATTERN_SOUND_GAP_MS = 280;
 
 // ── Reel column ─────────────────────────────────────────────────────────────
 interface ReelColumnProps {
-  /** The 3 final symbol names for this column (top→bottom). */
-  finalColumn: string[];
-  /** Which of the 3 visible cells are lit right now (top→bottom). */
-  litColumn: boolean[];
-  /** Blur frames (art urls) shown above the settling symbols this spin. */
-  leadIn: string[];
-  /** Column index — drives the staggered stop. */
-  index: number;
-  /** Measured cell size in px (square). 0 until first layout. */
+  /** Full strip of art for this column: [...filler, top, mid, bottom]. */
+  strip: string[];
+  /** Current vertical offset in px (negative = scrolled up). */
+  offset: number;
+  /** Measured square cell size in px. 0 until first layout. */
   cellPx: number;
-  /** true mid-spin (animated glide), false when settled (snap, no transition). */
-  spinning: boolean;
 }
 
-function ReelColumn({
-  finalColumn,
-  litColumn,
-  leadIn,
-  index,
-  cellPx,
-  spinning,
-}: ReelColumnProps) {
-  const finalArt = finalColumn.map((name) => SYMBOL_ART[name] ?? strawberry);
-  const strip = [...leadIn, ...finalArt];
-  // Slide the strip up so its last ROWS frames sit in the visible window.
-  const settleOffset = -(strip.length - ROWS) * cellPx;
-  const delay = BASE_DELAY + index * STAGGER;
-  const duration = BASE_DURATION + index * DURATION_STEP;
-
+function ReelColumn({ strip, offset, cellPx }: ReelColumnProps) {
   return (
     <div className="relative overflow-hidden">
       {/* Square window: ROWS cells tall, full column wide. */}
       <div style={{ height: cellPx * ROWS }}>
         <div
           className="flex flex-col will-change-transform"
-          style={{
-            transform: `translateY(${settleOffset}px)`,
-            transition: spinning
-              ? `transform ${duration}s cubic-bezier(0.16, 0.86, 0.22, 1) ${delay}s`
-              : 'none',
-          }}
+          style={{ transform: `translate3d(0, ${offset}px, 0)` }}
         >
-          {strip.map((art, i) => {
-            const settleRow = i - (strip.length - ROWS);
-            const isSettle = settleRow >= 0;
-            const lit = isSettle && !spinning && litColumn[settleRow];
-            return (
-              <div
-                key={i}
-                className="grid shrink-0 place-items-center p-[6%]"
-                style={{ height: cellPx, width: cellPx }}
-              >
-                <span
-                  className={clsx(
-                    'grid size-full place-items-center rounded-lg transition-all duration-200',
-                    lit
-                      ? 'scale-105 bg-ton/20 ring-2 ring-ton shadow-[0_0_22px_-2px_var(--color-ton)]'
-                      : 'ring-0',
-                  )}
-                >
-                  <img
-                    src={art}
-                    alt=""
-                    draggable={false}
-                    className="size-[78%] select-none object-contain"
-                  />
-                </span>
-              </div>
-            );
-          })}
+          {strip.map((art, i) => (
+            <div
+              key={i}
+              className="grid shrink-0 place-items-center p-[6%]"
+              style={{ height: cellPx, width: cellPx }}
+            >
+              <img
+                src={art}
+                alt=""
+                draggable={false}
+                className="size-[78%] select-none object-contain"
+              />
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -246,7 +133,12 @@ function ReelColumn({
 // ── Page ────────────────────────────────────────────────────────────────────
 const META = GAME_META.FRUITS;
 
-type Phase = 'idle' | 'spinning' | 'revealing' | 'done';
+type Phase = 'idle' | 'spinning' | 'done';
+
+/** Build a column strip from its final 3 symbol names (top→bottom). */
+function buildStrip(finalColumn: string[]): string[] {
+  return [...randomFiller(FILLER_LEN), ...finalColumn.map(artOf)];
+}
 
 export default function SlotsPage() {
   const round = useGameRound('FRUITS');
@@ -269,34 +161,54 @@ export default function SlotsPage() {
     };
   }, []);
 
-  // What the reels show + which cells glow right now.
-  const [grid, setGrid] = useState<string[][]>(IDLE_GRID);
-  const [lit, setLit] = useState<boolean[][]>(NO_CELLS);
-  const [leadIns, setLeadIns] = useState<string[][]>(STILL_LEAD_INS);
+  // Per-column strips (art) + live vertical offsets (px). Offsets are driven by a
+  // single RAF loop; strips change only when a new spin is launched.
+  const [strips, setStrips] = useState<string[][]>(() =>
+    Array.from({ length: COLS }, (_, x) => buildStrip(column(IDLE_GRID, x))),
+  );
+  const [offsets, setOffsets] = useState<number[]>(() =>
+    Array.from({ length: COLS }, () => 0),
+  );
 
   // The round we're presenting (drives the payout + provably-fair reveal).
   const [shown, setShown] = useState<GameResult | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
 
-  // Measured square cell size, so the cabinet fills the available width but the
-  // px-based strip translate stays exact.
+  // Measured square cell size, so the cabinet fills the width but the px-based
+  // strip translate stays exact.
   const reelsRef = useRef<HTMLDivElement>(null);
   const [cellPx, setCellPx] = useState(0);
+  const cellPxRef = useRef(0);
   useEffect(() => {
     const el = reelsRef.current;
     if (!el) return;
-    const measure = () => setCellPx(el.clientWidth / COLS);
+    const measure = () => {
+      const px = el.clientWidth / COLS;
+      cellPxRef.current = px;
+      setCellPx(px);
+    };
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     measure();
     return () => ro.disconnect();
   }, []);
 
-  // Every pending timer/loop for the current round, so a fresh spin (one click,
-  // any time) tears them all down — this is what kills the double-click dead-screen.
+  // The rest offset puts the last ROWS frames of a strip in the visible window.
+  const restOffset = useCallback(
+    (stripLen: number) => -(stripLen - ROWS) * cellPxRef.current,
+    [],
+  );
+
+  // ── Animation + cleanup machinery ──────────────────────────────────────────
+  const rafRef = useRef<number | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const spinHandle = useRef<ReturnType<typeof sfx.startSpin> | null>(null);
+
   const clearAll = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
     timers.current.forEach(clearTimeout);
     timers.current = [];
     spinHandle.current?.stop();
@@ -304,57 +216,67 @@ export default function SlotsPage() {
   }, []);
   useEffect(() => clearAll, [clearAll]);
 
-  const payout = shown ? Number(shown.result) : 0;
-  const isWin = phase === 'done' && payout > 0;
-
-  // Flash each winning pattern in the server's order (cheapest → most expensive):
-  // light its cells + tick, fade, next. Then settle to the total and the win chord.
-  const runReveal = useCallback(
-    (result: GameResult) => {
-      const spin = readSpin(result);
-      // Reveal cheapest → most expensive by each line's actual payout (k). The
-      // server already sorts ascending, but we sort by k explicitly so the order
-      // is exactly "cheapest first" regardless of the server's compound ordering.
-      const matches = spin
-        ? [...spin.matches].sort((a, b) => Number(a.k) - Number(b.k))
-        : [];
-
-      if (matches.length === 0) {
-        setLit(NO_CELLS);
-        setPhase('done');
-        sfx.lose();
-        return;
-      }
-
-      setPhase('revealing');
-      matches.forEach((m, i) => {
-        timers.current.push(
-          setTimeout(() => {
-            setLit(patternCells(m.patternName));
-            sfx.tick();
-          }, i * FLASH_MS),
-        );
-      });
-      // After the last flash: union-glow everything that won, total, win chord.
+  // Walk the matched patterns in the server's order, playing one sound each —
+  // bigWin for a rich line, smallWin for a cheap one — or a single lose if empty.
+  const playOutcomeSounds = useCallback((matches: PatternMatch[]) => {
+    if (matches.length === 0) {
+      sfx.lose();
+      return;
+    }
+    matches.forEach((m, i) => {
+      const rich = Number(m.k) >= RICH_PATTERN_K;
       timers.current.push(
         setTimeout(() => {
-          setLit(unionCells(matches));
-          setPhase('done');
-          sfx.win();
-        }, matches.length * FLASH_MS),
+          if (rich) sfx.bigWin();
+          else sfx.smallWin();
+        }, i * PATTERN_SOUND_GAP_MS),
       );
+    });
+  }, []);
+
+  // Drive all 5 columns from one RAF loop. Each column scrolls from a deep filler
+  // offset up to its rest point, easing out, finishing at staggered times.
+  const animate = useCallback(
+    (finalStrips: string[][], result: GameResult) => {
+      const start = performance.now();
+      // Start each column scrolled to the very top of its strip (filler showing),
+      // travelling down to the rest offset (final 3 in view).
+      const starts = finalStrips.map(() => 0);
+      const rests = finalStrips.map((s) => restOffset(s.length));
+      const durations = finalStrips.map((_, x) => columnSpinMs(x));
+
+      const tick = (now: number) => {
+        const elapsed = now - start;
+        const next = finalStrips.map((_, x) => {
+          const t = Math.min(1, elapsed / durations[x]);
+          const eased = easeOutQuint(t);
+          return starts[x] + (rests[x] - starts[x]) * eased;
+        });
+        setOffsets(next);
+
+        if (elapsed < settleMs()) {
+          rafRef.current = requestAnimationFrame(tick);
+        } else {
+          rafRef.current = null;
+          // Snap exactly to rest, end the spin, fire per-pattern sounds.
+          setOffsets(finalStrips.map((s) => restOffset(s.length)));
+          const parsed = readSpin(result);
+          setPhase('done');
+          playOutcomeSounds(parsed ? parsed.matches : []);
+        }
+      };
+
+      rafRef.current = requestAnimationFrame(tick);
     },
-    [],
+    [restOffset, playOutcomeSounds],
   );
 
   const spin = useCallback(async () => {
     if (round.busy || phase === 'spinning' || !betValid) return;
 
-    // One click resets everything and starts fresh — no stale reveal can fire.
+    // One click resets everything — no stale loop/timer can fire.
     clearAll();
     setShown(null);
-    setLit(NO_CELLS);
-    setLeadIns(randomLeadIns());
     setPhase('spinning');
     sfx.click();
     spinHandle.current = sfx.startSpin();
@@ -363,7 +285,6 @@ export default function SlotsPage() {
     try {
       result = await round.play({ bet });
     } catch {
-      // useGameRound surfaced the error into round.error; stop the reels.
       clearAll();
       setPhase('idle');
       return;
@@ -371,20 +292,16 @@ export default function SlotsPage() {
 
     const parsed = readSpin(result);
     const finalGrid = parsed ? parsed.grid : IDLE_GRID;
-
-    // Lock the settling symbols in and let the strips glide to rest; once the last
-    // column stops, cut the whirr and start the sequential pattern reveal.
-    setGrid(finalGrid);
-    setShown(result);
-
-    timers.current.push(
-      setTimeout(() => {
-        spinHandle.current?.stop();
-        spinHandle.current = null;
-        runReveal(result);
-      }, settleMs()),
+    const finalStrips = Array.from({ length: COLS }, (_, x) =>
+      buildStrip(column(finalGrid, x)),
     );
-  }, [round, phase, betValid, bet, clearAll, runReveal]);
+
+    setStrips(finalStrips);
+    setShown(result);
+    // Render the fresh strips (offset 0 = filler showing) before animating.
+    setOffsets(Array.from({ length: COLS }, () => 0));
+    animate(finalStrips, result);
+  }, [round, phase, betValid, bet, clearAll, animate]);
 
   const spinning = phase === 'spinning';
   const busy = round.busy || spinning;
@@ -415,23 +332,15 @@ export default function SlotsPage() {
 
       {/* The cabinet — the centerpiece, fills the width */}
       <Card className="overflow-hidden p-3 sm:p-4">
-        <div
-          className={clsx(
-            'rounded-2xl border border-edge bg-gradient-to-b from-panel-2 to-ink p-2.5 transition-shadow duration-300 sm:p-3',
-            isWin && 'shadow-[0_0_48px_-12px_var(--color-ton)]',
-          )}
-        >
+        <div className="rounded-2xl border border-edge bg-gradient-to-b from-panel-2 to-ink p-2.5 sm:p-3">
           {/* Reels — a 5-column grid of square cells spanning the full width. */}
           <div ref={reelsRef} className="grid grid-cols-5 gap-1.5 sm:gap-2">
             {Array.from({ length: COLS }, (_, x) => (
               <ReelColumn
                 key={x}
-                index={x}
-                finalColumn={column(grid, x)}
-                litColumn={column(lit, x)}
-                leadIn={leadIns[x]}
+                strip={strips[x]}
+                offset={offsets[x]}
                 cellPx={cellPx}
-                spinning={spinning}
               />
             ))}
           </div>
@@ -444,13 +353,8 @@ export default function SlotsPage() {
               <span className="text-xs uppercase tracking-wide text-muted">
                 Ваш выигрыш
               </span>
-              <Amount
-                value={shown?.result ?? 0}
-                className={clsx('text-2xl font-bold', isWin && 'animate-[slotPop_360ms_ease-out]')}
-              />
+              <Amount value={shown?.result ?? 0} className="text-2xl font-bold" />
             </div>
-          ) : phase === 'revealing' ? (
-            <span className="text-sm text-muted">Считаем линии…</span>
           ) : spinning ? (
             <span className="text-sm text-muted">Крутим…</span>
           ) : (
@@ -482,34 +386,14 @@ export default function SlotsPage() {
         </div>
       </Card>
 
-      {/* Provably fair — tiny service link; reveals seeds once the round resolves. */}
-      {(round.serverHash || shown) && (
-        <ProvablyFair
-          className="mt-4"
-          serverHash={round.serverHash}
-          serverSeed={phase === 'done' ? shown?.serverSeed : null}
-          clientSeed={phase === 'done' ? shown?.clientSeed : null}
-          verified={phase === 'done' ? round.verified : null}
-        />
-      )}
-
-      {/* Scoped win-pop keyframe — no global CSS edits. */}
-      <style>{`@keyframes slotPop{0%{transform:scale(.8);opacity:.5}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}`}</style>
+      {/* Provably fair — always rendered; reveals seeds once the round resolves. */}
+      <ProvablyFair
+        className="mt-4"
+        serverHash={round.serverHash}
+        serverSeed={phase === 'done' ? shown?.serverSeed : null}
+        clientSeed={phase === 'done' ? shown?.clientSeed : null}
+        verified={phase === 'done' ? round.verified : null}
+      />
     </div>
   );
-}
-
-/** Union of every matched pattern's cells — the final all-wins glow. */
-function unionCells(matches: PatternMatch[]): boolean[][] {
-  const lit = NO_CELLS.map((row) => row.slice());
-  for (const m of matches) {
-    const mask = PATTERNS[m.patternName];
-    if (!mask) continue;
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        if (mask[y][x]) lit[y][x] = true;
-      }
-    }
-  }
-  return lit;
 }
