@@ -11,7 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -24,6 +26,8 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final ReadNotificationRepository readNotificationRepository;
     private final RateLimitService rateLimitService;
+
+    private static final int MAX_NOTIFICATIONS = 50000;
 
     public NotificationService(UserRepository userRepository, TopicService topicService, NotificationRepository notificationRepository, ReadNotificationRepository readNotificationRepository, RateLimitService rateLimitService) {
         this.userRepository = userRepository;
@@ -73,5 +77,23 @@ public class NotificationService {
 
         log.info("user {} requested to mark {} notifications as read, skipped {}, marked {}", userId, notifications.size(), skipped, ok);
         return null;
+    }
+
+    @Scheduled(fixedDelay = 10L * 60 * 1000)
+    @Transactional
+    public void cleaningOld() {
+        log.info("cleaning old notifications, max notifications set as {}...", MAX_NOTIFICATIONS);
+
+        long count = notificationRepository.count();
+        log.info("found {} notifications", count);
+
+        if (count >= MAX_NOTIFICATIONS) {
+            List<Notification> oldest = notificationRepository.findOldest(PageRequest.of(0, MAX_NOTIFICATIONS / 2));
+            log.info("{} notifications will be deleted", oldest.size());
+            notificationRepository.deleteAll(oldest);
+            log.info("deletion done");
+        }
+
+        log.info("cleaning old notifications done");
     }
 }
