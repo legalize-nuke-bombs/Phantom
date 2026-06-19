@@ -109,17 +109,15 @@ function Sidebar({ balance }: { balance: string | undefined }) {
         {NAV.map((item) => (
           <SidebarLink key={item.to} item={item} balance={balance} />
         ))}
-      </nav>
-      <div className="p-3">
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-lose transition-colors hover:bg-panel-2"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:bg-panel-2 hover:text-lose"
         >
           <LogOut size={20} />
-          <span>Выйти из аккаунта</span>
+          <span>Выйти</span>
         </button>
-      </div>
+      </nav>
     </aside>
   );
 }
