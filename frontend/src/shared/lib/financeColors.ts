@@ -95,9 +95,12 @@ export function useFinanceColors() {
   return useQuery({
     queryKey: ['finances', 'colors'],
     queryFn: fetchThresholds,
-    staleTime: Infinity,
+    // Seed for instant paint but stamp it ancient: initialData + staleTime:Infinity
+    // would never fetch (it only "worked" because the defaults matched the server).
+    staleTime: 1000 * 60 * 60, // 1h — thresholds change rarely
     gcTime: Infinity,
     initialData: () => readCache() ?? DEFAULT_THRESHOLDS,
+    initialDataUpdatedAt: 0,
   });
 }
 

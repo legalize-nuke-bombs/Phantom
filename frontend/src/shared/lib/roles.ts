@@ -82,9 +82,13 @@ export function useRoles() {
   return useQuery({
     queryKey: ['users', 'roles'],
     queryFn: fetchRoles,
-    staleTime: Infinity,
+    // NB: initialData + staleTime:Infinity would mark the seed "fresh forever" and
+    // never fetch — leaving roles as the empty [] seed (no capabilities ever). We
+    // seed for instant gating but stamp it ancient so the query fetches once.
+    staleTime: 1000 * 60 * 60, // 1h — roles change rarely
     gcTime: Infinity,
     initialData: () => readCache() ?? [],
+    initialDataUpdatedAt: 0,
   });
 }
 
