@@ -1,27 +1,43 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Check, Copy, LogOut, ShieldCheck, Sparkles, Wallet as WalletIcon } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  Copy,
+  Eye,
+  EyeOff,
+  KeyRound,
+  LogOut,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  UserCog,
+} from 'lucide-react';
 import clsx from 'clsx';
 
-import { api, ApiError } from '@/shared/api/client';
+import { api } from '@/shared/api/client';
+import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
-import type { Experience, Level, LevelName, Role, User, Wallet } from '@/shared/types';
+import { formatTime } from '@/shared/lib/time';
+import { RANKS_ASC } from '@/shared/types';
+import type { Experience, Level, LevelName, PrivacySetting, Role, User } from '@/shared/types';
 import RankBadge from '@/shared/ui/RankBadge';
 import Button from '@/shared/ui/Button';
+import Input from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
 
-/** Ranks low → high. Kept locally so the progress bar is independent of API ordering. */
-const RANK_ORDER: LevelName[] = [
-  'Whisper',
-  'Echo',
-  'Shade',
-  'Wisp',
-  'Spectre',
-  'Phantom',
-  'Revenant',
-  'Reaper',
-];
+/* ── constraints (mirrored from the backend for inline hints) ───────────── */
+const USERNAME_MIN = 4;
+const USERNAME_MAX = 20;
+const DISPLAY_NAME_MIN = 1;
+const DISPLAY_NAME_MAX = 40;
+const PASSWORD_MIN = 8;
+const PASSWORD_MAX = 40;
+const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
 
 const ROLE_LABELS: Record<Role, string> = {
   USER: 'Игрок',
@@ -29,36 +45,35 @@ const ROLE_LABELS: Record<Role, string> = {
   OWNER: 'Владелец',
 };
 
-/** Жётко форматируем десятичный баланс (строка) до 2 знаков, с разделителями. */
-function formatBalance(raw: string | undefined): string {
-  if (!raw) return '0.00';
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return raw;
-  return n.toLocaleString('ru-RU', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+const PRIVACY_FIELDS: ReadonlyArray<{
+  key: 'gameHistoryPrivacySetting' | 'gameStatsPrivacySetting' | 'experiencePrivacySetting' | 'lotteryPrivacySetting';
+  label: string;
+}> = [
+  { key: 'gameHistoryPrivacySetting', label: 'История игр' },
+  { key: 'gameStatsPrivacySetting', label: 'Статистика игр' },
+  { key: 'experiencePrivacySetting', label: 'Опыт и ранг' },
+  { key: 'lotteryPrivacySetting', label: 'Участие в лотерее' },
+];
 
 function formatXp(n: number): string {
   return n.toLocaleString('ru-RU');
 }
 
-/** Имя ранга может прийти как строка-enum или как объект Level — нормализуем. */
-function levelNameOf(level: Experience['level']): LevelName | null {
-  if (!level) return null;
-  if (typeof level === 'string') return level as LevelName;
-  return level.name;
+/* ── XP / rank progress (level is a STRING; RANKS_ASC gives the order) ──── */
+interface Progress {
+  rank: LevelName;
+  nextRank: LevelName | null;
+  pct: number;
+  current: number;
+  floor: number;
+  ceil: number | null;
 }
 
-/** Текущий ранг по количеству XP (надёжнее, чем доверять сериализации enum). */
-function resolveRank(
-  experience: Experience | undefined,
-  levels: Level[] | undefined,
-): LevelName {
-  const fromApi = levelNameOf(experience?.level ?? null);
-  if (fromApi && RANK_ORDER.includes(fromApi)) return fromApi;
+function resolveRank(experience: Experience | undefined, levels: Level[] | undefined): LevelName {
+  const fromApi = experience?.level ?? null;
+  if (fromApi && RANKS_ASC.includes(fromApi)) return fromApi;
 
+  // Fallback: derive from XP against the level thresholds.
   const amount = experience?.amount ?? 0;
   if (levels && levels.length > 0) {
     const sorted = [...levels].sort((a, b) => a.amount - b.amount);
@@ -69,31 +84,17 @@ function resolveRank(
     }
     return current;
   }
-  return RANK_ORDER[0];
+  return RANKS_ASC[0];
 }
 
-interface Progress {
-  rank: LevelName;
-  nextRank: LevelName | null;
-  pct: number;
-  current: number;
-  floor: number;
-  ceil: number | null;
-}
-
-function computeProgress(
-  experience: Experience | undefined,
-  levels: Level[] | undefined,
-): Progress {
+function computeProgress(experience: Experience | undefined, levels: Level[] | undefined): Progress {
   const rank = resolveRank(experience, levels);
   const amount = experience?.amount ?? 0;
-  const idx = RANK_ORDER.indexOf(rank);
-  const nextRank = idx >= 0 && idx < RANK_ORDER.length - 1 ? RANK_ORDER[idx + 1] : null;
+  const idx = RANKS_ASC.indexOf(rank);
+  const nextRank = idx >= 0 && idx < RANKS_ASC.length - 1 ? RANKS_ASC[idx + 1] : null;
 
-  // Порог текущего ранга.
   const sorted = levels ? [...levels].sort((a, b) => a.amount - b.amount) : [];
   const floor = sorted.find((l) => l.name === rank)?.amount ?? 0;
-  // Порог следующего ранга: из experience.next, иначе из списка уровней.
   const ceil =
     experience?.next ?? (nextRank ? sorted.find((l) => l.name === nextRank)?.amount ?? null : null);
 
@@ -105,15 +106,79 @@ function computeProgress(
   return { rank, nextRank, pct, current: amount, floor, ceil };
 }
 
-function SectionError({ message }: { message: string }) {
+/* ── small shared bits ─────────────────────────────────────────────────── */
+function FieldError({ message }: { message: string }) {
   return <p className="text-sm text-lose">{message}</p>;
 }
 
-function errMessage(e: unknown, fallback: string): string {
-  return e instanceof ApiError ? e.message : fallback;
+function FieldSuccess({ message }: { message: string }) {
+  return (
+    <p className="inline-flex items-center gap-1.5 text-sm text-win">
+      <Check size={14} strokeWidth={2.5} />
+      {message}
+    </p>
+  );
 }
 
-function CopyField({ label, value }: { label: string; value: string }) {
+function Section({
+  icon,
+  title,
+  children,
+  className,
+}: {
+  icon: ReactNode;
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={clsx('bg-panel border border-edge rounded-xl p-5 sm:p-6', className)}>
+      <div className="mb-4 flex items-center gap-2 text-muted">
+        {icon}
+        <h2 className="text-sm font-medium">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** Collapsible settings block — keeps the page short on mobile. */
+function Accordion({
+  icon,
+  title,
+  danger,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  danger?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="bg-panel border border-edge rounded-xl">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={clsx(
+          'flex w-full items-center gap-2.5 rounded-xl px-5 py-4 text-left transition-colors hover:bg-panel-2',
+          danger ? 'text-lose' : 'text-fg',
+        )}
+      >
+        <span className={danger ? 'text-lose' : 'text-muted'}>{icon}</span>
+        <span className="flex-1 text-sm font-medium">{title}</span>
+        <ChevronDown
+          size={18}
+          className={clsx('shrink-0 text-muted transition-transform', open && 'rotate-180')}
+        />
+      </button>
+      {open && <div className="border-t border-edge px-5 pb-5 pt-4">{children}</div>}
+    </div>
+  );
+}
+
+function CopyButton({ value, className }: { value: string; className?: string }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -138,31 +203,58 @@ function CopyField({ label, value }: { label: string; value: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-sm text-muted">{label}</span>
-      <div className="flex items-stretch gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-xl bg-panel-2 border border-edge px-3 py-2.5 font-mono text-sm text-fg">
-          {value}
-        </code>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={copy}
-          aria-label="Скопировать"
-          className="shrink-0 px-3"
-        >
-          {copied ? (
-            <Check size={16} className="text-win" />
-          ) : (
-            <Copy size={16} />
-          )}
-          <span className="hidden sm:inline">{copied ? 'Скопировано' : 'Копировать'}</span>
-        </Button>
-      </div>
+    <Button
+      type="button"
+      variant="ghost"
+      onClick={copy}
+      aria-label="Скопировать"
+      className={clsx('shrink-0 px-3', className)}
+    >
+      {copied ? <Check size={16} className="text-win" /> : <Copy size={16} />}
+      <span className="hidden sm:inline">{copied ? 'Скопировано' : 'Копировать'}</span>
+    </Button>
+  );
+}
+
+/** Password input with a show/hide toggle, built on the shared Input. */
+function PasswordInput({
+  label,
+  value,
+  onChange,
+  autoComplete,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete?: string;
+  placeholder?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        label={label}
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        className="pr-11"
+      />
+      <button
+        type="button"
+        onClick={() => setShow((v) => !v)}
+        aria-label={show ? 'Скрыть пароль' : 'Показать пароль'}
+        className="absolute bottom-0 right-0 grid h-11 w-11 place-items-center text-muted hover:text-fg"
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
     </div>
   );
 }
 
+/* ── header ────────────────────────────────────────────────────────────── */
 function ProfileHeader({ user, rank }: { user: User; rank: LevelName }) {
   return (
     <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
@@ -182,11 +274,18 @@ function ProfileHeader({ user, rank }: { user: User; rank: LevelName }) {
             {ROLE_LABELS[user.role]}
           </span>
         </div>
+        <p
+          className="mt-2 text-xs text-muted"
+          title={`Зарегистрирован ${formatTime(user.registeredAt, 'relative')}`}
+        >
+          На платформе с {formatTime(user.registeredAt, 'date')}
+        </p>
       </div>
     </div>
   );
 }
 
+/* ── XP card ───────────────────────────────────────────────────────────── */
 function XpCard({
   progress,
   loading,
@@ -197,14 +296,13 @@ function XpCard({
   error: unknown;
 }) {
   return (
-    <section className="bg-panel border border-edge rounded-xl p-5 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted">Опыт и ранг</h2>
-        {loading && <Spinner size={16} />}
-      </div>
-
-      {error ? (
-        <SectionError message={errMessage(error, 'Не удалось загрузить опыт')} />
+    <Section icon={<Sparkles size={16} strokeWidth={2} />} title="Опыт и ранг">
+      {loading && !error ? (
+        <div className="flex justify-center py-2">
+          <Spinner size={20} />
+        </div>
+      ) : error ? (
+        <FieldError message={errorMessage(error, 'Не удалось загрузить опыт')} />
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex items-end justify-between gap-3">
@@ -247,77 +345,373 @@ function XpCard({
                 </span>{' '}
                 XP
               </span>
-            ) : (
-              <span className="font-mono text-fg">{formatXp(progress.current)} XP</span>
-            )}
+            ) : null}
           </div>
         </div>
       )}
-    </section>
+    </Section>
   );
 }
 
-function BalanceCard({
-  wallet,
-  loading,
-  error,
-}: {
-  wallet: Wallet | undefined;
-  loading: boolean;
-  error: unknown;
-}) {
+/* ── settings: profile (display name + privacy) ────────────────────────── */
+function ProfileSettingsForm({ user }: { user: User }) {
+  const qc = useQueryClient();
+  const [displayName, setDisplayName] = useState(user.displayName);
+  const [privacy, setPrivacy] = useState<Record<string, PrivacySetting>>({
+    gameHistoryPrivacySetting: user.gameHistoryPrivacySetting,
+    gameStatsPrivacySetting: user.gameStatsPrivacySetting,
+    experiencePrivacySetting: user.experiencePrivacySetting,
+    lotteryPrivacySetting: user.lotteryPrivacySetting,
+  });
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.patch<{ message: string }>('/users/me', {
+        displayName: displayName.trim(),
+        ...privacy,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users', 'me'] });
+      qc.invalidateQueries({ queryKey: ['experience', user.id] });
+    },
+  });
+
+  const trimmed = displayName.trim();
+  const nameInvalid =
+    trimmed.length < DISPLAY_NAME_MIN || trimmed.length > DISPLAY_NAME_MAX;
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (nameInvalid || mutation.isPending) return;
+    mutation.mutate();
+  }
+
   return (
-    <section className="bg-panel border border-edge rounded-xl p-5 sm:p-6">
-      <div className="mb-3 flex items-center gap-2 text-muted">
-        <WalletIcon size={16} strokeWidth={2} />
-        <h2 className="text-sm font-medium">Баланс</h2>
-        {loading && <Spinner size={16} className="ml-auto" />}
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <Input
+        label="Отображаемое имя"
+        value={displayName}
+        onChange={(e) => {
+          setDisplayName(e.target.value);
+          mutation.reset();
+        }}
+        maxLength={DISPLAY_NAME_MAX}
+        autoComplete="nickname"
+        error={
+          nameInvalid && trimmed.length === 0
+            ? 'Имя не может быть пустым'
+            : nameInvalid
+              ? `Не длиннее ${DISPLAY_NAME_MAX} символов`
+              : undefined
+        }
+      />
+
+      <div className="flex flex-col gap-3">
+        <span className="text-sm text-muted">Кто видит мой профиль</span>
+        {PRIVACY_FIELDS.map(({ key, label }) => {
+          const everyone = privacy[key] === 'EVERYONE';
+          return (
+            <div
+              key={key}
+              className="flex items-center justify-between gap-3 rounded-xl bg-panel-2 border border-edge px-3 py-2.5"
+            >
+              <span className="text-sm text-fg">{label}</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={everyone}
+                aria-label={`${label}: ${everyone ? 'все' : 'только я'}`}
+                onClick={() => {
+                  setPrivacy((p) => ({ ...p, [key]: everyone ? 'ONLY_YOU' : 'EVERYONE' }));
+                  mutation.reset();
+                }}
+                className="inline-flex items-center gap-2"
+              >
+                <span className={clsx('text-xs', everyone ? 'text-ton' : 'text-muted')}>
+                  {everyone ? 'Все' : 'Только я'}
+                </span>
+                <span
+                  className={clsx(
+                    'relative h-6 w-11 shrink-0 rounded-full transition-colors',
+                    everyone ? 'bg-ton-deep' : 'bg-panel border border-edge',
+                  )}
+                >
+                  <span
+                    className={clsx(
+                      'absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform',
+                      everyone ? 'translate-x-[1.375rem]' : 'translate-x-0.5',
+                    )}
+                  />
+                </span>
+              </button>
+            </div>
+          );
+        })}
       </div>
-      {error ? (
-        <SectionError message={errMessage(error, 'Не удалось загрузить баланс')} />
-      ) : (
-        <p className="flex items-baseline gap-2">
-          <span className="font-mono text-3xl font-semibold text-fg">
-            {formatBalance(wallet?.balance)}
-          </span>
-          <span className="text-sm font-medium text-ton">TON</span>
-        </p>
+
+      {mutation.isError && (
+        <FieldError message={errorMessage(mutation.error, 'Не удалось сохранить')} />
       )}
-    </section>
+      {mutation.isSuccess && <FieldSuccess message="Профиль сохранён" />}
+
+      <Button type="submit" loading={mutation.isPending} disabled={nameInvalid} className="self-start">
+        Сохранить
+      </Button>
+    </form>
   );
 }
 
-function ReferralCard({
-  userId,
-  refError,
-}: {
-  userId: number;
-  refError: unknown;
-}) {
-  const link = useMemo(() => {
-    const origin =
-      typeof window !== 'undefined' && window.location ? window.location.origin : '';
-    return `${origin}/register?refId=${userId}`;
-  }, [userId]);
+/* ── settings: security (username / password) ──────────────────────────── */
+function SecuritySettingsForm() {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      const body: { currentPassword: string; username?: string; password?: string } = {
+        currentPassword,
+      };
+      if (username.trim()) body.username = username.trim();
+      if (password) body.password = password;
+      return api.patch<{ message: string }>('/users/me/secure', body);
+    },
+    onSuccess: () => {
+      setCurrentPassword('');
+      setUsername('');
+      setPassword('');
+    },
+  });
+
+  const u = username.trim();
+  const usernameInvalid =
+    u.length > 0 && (u.length < USERNAME_MIN || u.length > USERNAME_MAX || !USERNAME_RE.test(u));
+  const passwordTooShort = password.length > 0 && password.length < PASSWORD_MIN;
+  const nothingToChange = u.length === 0 && password.length === 0;
+  const blocked =
+    !currentPassword || nothingToChange || usernameInvalid || passwordTooShort || mutation.isPending;
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (blocked) return;
+    mutation.mutate();
+  }
 
   return (
-    <section className="bg-panel border border-edge rounded-xl p-5 sm:p-6">
-      <h2 className="mb-4 text-sm font-medium text-muted">Реферальная программа</h2>
-      <div className="flex flex-col gap-4">
-        <CopyField label="Ваш реферальный код" value={String(userId)} />
-        <CopyField label="Ссылка для приглашения" value={link} />
-        {refError ? (
-          <SectionError message={errMessage(refError, 'Не удалось загрузить реферальные данные')} />
-        ) : (
-          <p className="text-xs text-muted">
-            Делитесь ссылкой — получайте вознаграждение за приглашённых игроков.
-          </p>
-        )}
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <p className="text-xs text-muted">
+        Измените имя пользователя и/или пароль. Текущий пароль обязателен.
+      </p>
+
+      <Input
+        label="Новое имя пользователя"
+        value={username}
+        onChange={(e) => {
+          setUsername(e.target.value);
+          mutation.reset();
+        }}
+        autoComplete="username"
+        placeholder="необязательно"
+        maxLength={USERNAME_MAX}
+        error={usernameInvalid ? `${USERNAME_MIN}–${USERNAME_MAX}, латиница, цифры, _` : undefined}
+      />
+
+      <PasswordInput
+        label="Новый пароль"
+        value={password}
+        onChange={(v) => {
+          setPassword(v);
+          mutation.reset();
+        }}
+        autoComplete="new-password"
+        placeholder="необязательно"
+      />
+      {passwordTooShort ? (
+        <p className="-mt-2 text-xs text-lose">Минимум {PASSWORD_MIN} символов</p>
+      ) : password.length > 0 ? (
+        <p className="-mt-2 text-xs text-muted">
+          {PASSWORD_MIN}–{PASSWORD_MAX} символов: заглавная, строчная и цифра
+        </p>
+      ) : null}
+
+      <div className="border-t border-edge pt-4">
+        <PasswordInput
+          label="Текущий пароль"
+          value={currentPassword}
+          onChange={(v) => {
+            setCurrentPassword(v);
+            mutation.reset();
+          }}
+          autoComplete="current-password"
+        />
       </div>
-    </section>
+
+      {mutation.isError && (
+        <FieldError message={errorMessage(mutation.error, 'Не удалось обновить данные')} />
+      )}
+      {mutation.isSuccess && <FieldSuccess message="Данные обновлены" />}
+
+      <Button type="submit" loading={mutation.isPending} disabled={blocked} className="self-start">
+        Обновить
+      </Button>
+    </form>
   );
 }
 
+/* ── settings: new recovery key ────────────────────────────────────────── */
+function RecoveryKeyForm() {
+  const [password, setPassword] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.post<{ recoveryKey: string }>('/users/me/new-recovery-key', { password }),
+    onSuccess: () => setPassword(''),
+  });
+
+  const key = mutation.data?.recoveryKey;
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!password || mutation.isPending) return;
+    mutation.mutate();
+  }
+
+  if (key) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start gap-2 rounded-xl bg-warn/10 border border-warn/40 px-3 py-2.5 text-warn">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" strokeWidth={2} />
+          <p className="text-xs leading-relaxed">
+            Сохраните ключ — он показывается <span className="font-semibold">один раз</span>. Старый
+            ключ восстановления больше не действует.
+          </p>
+        </div>
+        <div className="flex items-stretch gap-2">
+          <code className="min-w-0 flex-1 break-all rounded-xl bg-panel-2 border border-edge px-3 py-2.5 font-mono text-sm text-fg">
+            {key}
+          </code>
+          <CopyButton value={key} />
+        </div>
+        <Button type="button" variant="ghost" onClick={() => mutation.reset()} className="self-start">
+          Готово
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <p className="text-xs text-muted">
+        Сгенерируйте новый ключ восстановления. Подтвердите паролем — прежний ключ перестанет
+        работать.
+      </p>
+      <PasswordInput
+        label="Текущий пароль"
+        value={password}
+        onChange={(v) => {
+          setPassword(v);
+          mutation.reset();
+        }}
+        autoComplete="current-password"
+      />
+      {mutation.isError && (
+        <FieldError message={errorMessage(mutation.error, 'Не удалось создать ключ')} />
+      )}
+      <Button type="submit" loading={mutation.isPending} disabled={!password} className="self-start">
+        Сгенерировать ключ
+      </Button>
+    </form>
+  );
+}
+
+/* ── settings: delete account ──────────────────────────────────────────── */
+function DeleteAccountForm() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const [password, setPassword] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => api.del<void>('/users/me', { password }),
+    onSuccess: async () => {
+      await logout();
+      navigate('/login');
+    },
+  });
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!password || mutation.isPending) return;
+    mutation.mutate();
+  }
+
+  if (!confirming) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-xs text-muted">
+          Аккаунт и весь прогресс будут удалены безвозвратно. Это действие нельзя отменить.
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setConfirming(true)}
+          className="self-start text-lose hover:bg-lose/10 hover:border-lose/50"
+        >
+          <Trash2 size={16} strokeWidth={2} />
+          Удалить аккаунт
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <div className="flex items-start gap-2 rounded-xl bg-lose/10 border border-lose/40 px-3 py-2.5 text-lose">
+        <AlertTriangle size={16} className="mt-0.5 shrink-0" strokeWidth={2} />
+        <p className="text-xs leading-relaxed">
+          Подтвердите удаление паролем. Восстановить аккаунт после этого будет невозможно.
+        </p>
+      </div>
+      <PasswordInput
+        label="Пароль для подтверждения"
+        value={password}
+        onChange={(v) => {
+          setPassword(v);
+          mutation.reset();
+        }}
+        autoComplete="current-password"
+      />
+      {mutation.isError && (
+        <FieldError message={errorMessage(mutation.error, 'Не удалось удалить аккаунт')} />
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="submit"
+          loading={mutation.isPending}
+          disabled={!password}
+          className="bg-lose text-white hover:bg-lose/90 active:bg-lose"
+        >
+          <Trash2 size={16} strokeWidth={2} />
+          Удалить навсегда
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            setConfirming(false);
+            setPassword('');
+            mutation.reset();
+          }}
+          disabled={mutation.isPending}
+        >
+          Отмена
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/* ── page ──────────────────────────────────────────────────────────────── */
 export default function ProfilePage() {
   const { user: authUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -344,17 +738,6 @@ export default function ProfilePage() {
     enabled: userId != null,
   });
 
-  const walletQuery = useQuery({
-    queryKey: ['wallets', 'me'],
-    queryFn: () => api.get<Wallet>('/wallets/me'),
-  });
-
-  // Реферальные данные грузим, чтобы убедиться в наличии хранилища; ошибку показываем мягко.
-  const refQuery = useQuery({
-    queryKey: ['ref'],
-    queryFn: () => api.get<{ id: number; amount: string; total: string }>('/ref'),
-  });
-
   async function handleLogout() {
     setLoggingOut(true);
     try {
@@ -364,9 +747,6 @@ export default function ProfilePage() {
     }
   }
 
-  const progress = computeProgress(experienceQuery.data, levelsQuery.data);
-
-  // Первичная загрузка профиля: без пользователя показать нечего.
   if (meQuery.isLoading && !user) {
     return (
       <main className="grid min-h-[60vh] place-items-center px-4">
@@ -380,7 +760,7 @@ export default function ProfilePage() {
       <main className="grid min-h-[60vh] place-items-center px-4 text-center">
         <div className="max-w-sm">
           <p className="text-sm text-lose">
-            {errMessage(meQuery.error, 'Не удалось загрузить профиль')}
+            {errorMessage(meQuery.error, 'Не удалось загрузить профиль')}
           </p>
           <Button variant="ghost" className="mt-4" onClick={() => meQuery.refetch()}>
             Повторить
@@ -389,6 +769,8 @@ export default function ProfilePage() {
       </main>
     );
   }
+
+  const progress = computeProgress(experienceQuery.data, levelsQuery.data);
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-10">
@@ -403,13 +785,28 @@ export default function ProfilePage() {
           error={experienceQuery.error ?? levelsQuery.error}
         />
 
-        <BalanceCard
-          wallet={walletQuery.data}
-          loading={walletQuery.isLoading}
-          error={walletQuery.error}
-        />
+        <div className="flex items-center gap-2 px-1 pt-1 text-muted">
+          <Settings size={16} strokeWidth={2} />
+          <h2 className="text-sm font-medium">Настройки</h2>
+        </div>
 
-        <ReferralCard userId={user.id} refError={refQuery.error} />
+        <div className="flex flex-col gap-3">
+          <Accordion icon={<UserCog size={18} strokeWidth={2} />} title="Профиль">
+            <ProfileSettingsForm user={user} />
+          </Accordion>
+
+          <Accordion icon={<ShieldCheck size={18} strokeWidth={2} />} title="Безопасность">
+            <SecuritySettingsForm />
+          </Accordion>
+
+          <Accordion icon={<KeyRound size={18} strokeWidth={2} />} title="Ключ восстановления">
+            <RecoveryKeyForm />
+          </Accordion>
+
+          <Accordion icon={<Trash2 size={18} strokeWidth={2} />} title="Удаление аккаунта" danger>
+            <DeleteAccountForm />
+          </Accordion>
+        </div>
 
         <Button
           variant="ghost"

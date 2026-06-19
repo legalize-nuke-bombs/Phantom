@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Home as HomeIcon,
@@ -11,6 +11,7 @@ import {
 import clsx from 'clsx';
 import { api } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthContext';
+import { formatUsd } from '@/shared/lib/money';
 import type { Experience, Wallet, LevelName } from '@/shared/types';
 import RankBadge from '@/shared/ui/RankBadge';
 
@@ -25,26 +26,19 @@ const NAV: NavItem[] = [
   { to: '/', label: 'Главная', icon: HomeIcon },
   { to: '/profile', label: 'Профиль', icon: UserIcon },
   { to: '/games', label: 'Игры', icon: Gamepad2, disabled: true },
-  { to: '/wallet', label: 'Кошелёк', icon: WalletIcon, disabled: true },
+  { to: '/wallet', label: 'Кошелёк', icon: WalletIcon },
   { to: '/chat', label: 'Чат', icon: MessageCircle, disabled: true },
 ];
 
 function Wordmark() {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-2xl leading-none">👻</span>
+      <span className="text-2xl leading-none">💎</span>
       <span className="text-lg font-semibold tracking-wide text-fg">
         Phantom
       </span>
     </div>
   );
-}
-
-function formatBalance(balance: string | undefined): string {
-  if (balance == null) return '—';
-  const n = Number(balance);
-  if (Number.isNaN(n)) return balance;
-  return n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 }
 
 function useShellData() {
@@ -58,21 +52,42 @@ function useShellData() {
 
 function BalancePill({ balance }: { balance: string | undefined }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-xl bg-panel-2 border border-edge px-3 py-1.5">
-      <span className="text-sm font-medium text-ton">{formatBalance(balance)}</span>
-      <span className="text-xs text-muted">TON</span>
-    </div>
+    <Link
+      to="/wallet"
+      aria-label="Кошелёк"
+      className="flex items-center gap-1.5 rounded-xl border border-edge bg-panel-2 px-3 py-1.5 transition-colors hover:border-ton/40"
+    >
+      <span className="text-sm font-medium text-ton">
+        {balance == null ? '—' : formatUsd(Number(balance))}
+      </span>
+    </Link>
+  );
+}
+
+function RankAvatar({ rank }: { rank: LevelName | null }) {
+  return (
+    <Link
+      to="/profile"
+      aria-label="Профиль"
+      className="grid place-items-center rounded-full ring-2 ring-transparent transition-shadow hover:ring-ton/40"
+    >
+      {rank ? (
+        <RankBadge rank={rank} size={32} />
+      ) : (
+        <span className="grid h-8 w-8 place-items-center rounded-full border border-edge bg-panel-2 text-muted">
+          <UserIcon size={18} />
+        </span>
+      )}
+    </Link>
   );
 }
 
 function TopBar({
   rank,
   balance,
-  displayName,
 }: {
   rank: LevelName | null;
   balance: string | undefined;
-  displayName: string;
 }) {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-edge bg-ink/80 px-4 backdrop-blur md:px-6">
@@ -88,12 +103,7 @@ function TopBar({
         >
           <Bell size={18} />
         </button>
-        <div className="flex items-center gap-2">
-          {rank && <RankBadge rank={rank} size={32} />}
-          <span className="hidden max-w-[10rem] truncate text-sm text-fg sm:inline">
-            {displayName}
-          </span>
-        </div>
+        <RankAvatar rank={rank} />
       </div>
     </header>
   );
@@ -194,14 +204,13 @@ export default function AppShell() {
     staleTime: 30_000,
   });
 
-  const rank: LevelName | null = experience.data?.level?.name ?? null;
-  const displayName = user?.displayName ?? '';
+  const rank: LevelName | null = experience.data?.level ?? null;
 
   return (
     <div className="flex min-h-screen">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar rank={rank} balance={wallet.data?.balance} displayName={displayName} />
+        <TopBar rank={rank} balance={wallet.data?.balance} />
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-4 md:px-6 md:pb-8">
           <Outlet />
         </main>

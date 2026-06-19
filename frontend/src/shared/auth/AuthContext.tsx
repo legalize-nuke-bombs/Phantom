@@ -15,19 +15,33 @@ export interface RegisterArgs {
   username: string;
   displayName: string;
   password: string;
-  /** Optional referral id appended as ?refId=. */
+  /** Optional referral id appended as ?refId=. Omit when there is no referrer. */
   refId?: number;
   /** Owner-only fields; omit for normal sign-up. */
   ownerKey?: string;
   role?: Role;
 }
 
+export interface RecoverArgs {
+  recoveryKey: string;
+  newUsername?: string;
+  newPassword?: string;
+}
+
 interface AuthState {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  /** Returns the one-time recovery key the backend mints on registration. */
+  /**
+   * Creates the account and returns the ONE-TIME recovery key the backend mints.
+   * Does NOT start a session — surface the key, then call login().
+   */
   register: (args: RegisterArgs) => Promise<string>;
+  /**
+   * Recover access with a recovery key (rotating username and/or password).
+   * Does NOT start a session — send the user to login afterwards.
+   */
+  recover: (args: RecoverArgs) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -69,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (username: string, password: string) => {
+      // Sets the httpOnly `token` cookie; we then hydrate the user via /users/me.
       await api.post<{ token: string }>('/auth/login', { username, password });
       await refresh();
     },
@@ -82,9 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.recoveryKey;
   }, []);
 
+  const recover = useCallback(async (args: RecoverArgs) => {
+    await api.post<{ message: string }>('/auth/recover', args);
+  }, []);
+
   const logout = useCallback(async () => {
-    // No logout endpoint exists on the backend yet; clearing local state is
-    // the source of truth. Best-effort call kept for forward compatibility.
+    // No logout endpoint exists on the backend yet; clearing local state is the
+    // source of truth. Best-effort call kept for forward compatibility.
     try {
       await api.post('/auth/logout');
     } catch {
@@ -94,8 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, register, logout, refresh }),
-    [user, loading, login, register, logout, refresh],
+    () => ({ user, loading, login, register, recover, logout, refresh }),
+    [user, loading, login, register, recover, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

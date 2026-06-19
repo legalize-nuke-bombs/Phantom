@@ -7,8 +7,10 @@ import Spinner from '@/shared/ui/Spinner';
 
 const LoginPage = lazy(() => import('@/features/auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/features/auth/RegisterPage'));
+const RecoverPage = lazy(() => import('@/features/auth/RecoverPage'));
 const HomePage = lazy(() => import('@/features/home/HomePage'));
 const ProfilePage = lazy(() => import('@/features/profile/ProfilePage'));
+const WalletPage = lazy(() => import('@/features/wallet/WalletPage'));
 
 function PageSuspense({ children }: { children: ReactNode }) {
   return (
@@ -61,6 +63,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/recover',
+    element: (
+      <PageSuspense>
+        <RecoverPage />
+      </PageSuspense>
+    ),
+  },
+  {
     element: <ProtectedRoute />,
     children: [
       {
@@ -76,6 +86,14 @@ export const router = createBrowserRouter([
         element: (
           <PageSuspense>
             <ProfilePage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'wallet',
+        element: (
+          <PageSuspense>
+            <WalletPage />
           </PageSuspense>
         ),
       },

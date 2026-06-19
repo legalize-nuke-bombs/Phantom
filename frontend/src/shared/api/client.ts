@@ -1,13 +1,14 @@
 // Typed fetch wrapper for the Phantom backend.
-// Same-origin via the dev proxy: base path /api. Always sends the auth cookie
-// (credentials:'include'); also accepts/returns JSON. Backend errors arrive as
-// Spring ProblemDetail ({ detail, code, status }) — we normalise those into ApiError.
+// Same-origin via the dev proxy: base path /api. Always sends the httpOnly auth
+// cookie (credentials:'include'). Backend errors are Spring ProblemDetail with an
+// extra `code` property carrying the ErrorCode enum name — we surface both
+// `status` and `code` so the UI can map them to friendly messages (see errors.ts).
 
 const BASE = '/api';
 
 export class ApiError extends Error {
   readonly status: number;
-  /** Backend ErrorCode name when present (e.g. "NOT_AUTHENTICATED"). */
+  /** Backend ErrorCode enum name, e.g. "INVALID_PASSWORD" (when present). */
   readonly code?: string;
 
   constructor(status: number, message: string, code?: string) {
@@ -35,7 +36,7 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, 'Сеть недоступна');
+    throw new ApiError(0, 'Нет соединения с сервером');
   }
 
   // 204 / empty body: nothing to parse.
@@ -44,7 +45,7 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
   }
 
   const text = await res.text();
-  let data: unknown = undefined;
+  let data: unknown;
   if (text) {
     try {
       data = JSON.parse(text);
@@ -55,14 +56,14 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
 
   if (!res.ok) {
     const obj = (data ?? {}) as Record<string, unknown>;
-    const message =
-      (typeof obj.detail === 'string' && obj.detail) ||
-      (typeof obj.error === 'string' && obj.error) ||
-      (typeof obj.message === 'string' && obj.message) ||
-      res.statusText ||
-      'Ошибка запроса';
     const code = typeof obj.code === 'string' ? obj.code : undefined;
-    throw new ApiError(res.status, message, code);
+    // ProblemDetail carries human text in `detail`; many ApiExceptions ship only
+    // a code (no detail) — those resolve to a friendly message via the code map.
+    const detail =
+      (typeof obj.detail === 'string' && obj.detail) ||
+      (typeof obj.message === 'string' && obj.message) ||
+      undefined;
+    throw new ApiError(res.status, detail ?? res.statusText ?? 'Ошибка запроса', code);
   }
 
   return data as T;

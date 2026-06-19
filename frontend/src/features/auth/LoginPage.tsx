@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Ghost } from 'lucide-react';
 import { useAuth } from '@/shared/auth/AuthContext';
-import { ApiError } from '@/shared/api/client';
+import { errorMessage } from '@/shared/api/errors';
 import Card from '@/shared/ui/Card';
 import Input from '@/shared/ui/Input';
 import Button from '@/shared/ui/Button';
@@ -11,8 +10,8 @@ import Button from '@/shared/ui/Button';
 function Wordmark() {
   return (
     <div className="flex flex-col items-center gap-3 text-center">
-      <span className="grid h-14 w-14 place-items-center rounded-xl bg-panel-2 border border-edge text-ice">
-        <Ghost size={28} strokeWidth={1.75} />
+      <span className="grid h-14 w-14 place-items-center rounded-xl border border-edge bg-panel-2 text-3xl leading-none">
+        💎
       </span>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-fg">Phantom</h1>
@@ -43,13 +42,7 @@ export default function LoginPage() {
       await login(username.trim(), password);
       navigate('/');
     } catch (err) {
-      const message =
-        err instanceof ApiError && err.status === 401
-          ? 'Неверный логин или пароль'
-          : err instanceof ApiError
-            ? err.message
-            : 'Не удалось войти. Попробуйте ещё раз';
-      setError(message);
+      setError(errorMessage(err, 'Не удалось войти. Попробуйте ещё раз'));
       setPending(false);
     }
   }
@@ -94,6 +87,12 @@ export default function LoginPage() {
               Войти
             </Button>
           </form>
+
+          <p className="mt-4 text-center text-sm text-muted">
+            <Link to="/recover" className="text-ton transition-colors hover:text-ice">
+              Забыли доступ? Восстановить
+            </Link>
+          </p>
         </Card>
 
         <p className="mt-6 text-center text-sm text-muted">
