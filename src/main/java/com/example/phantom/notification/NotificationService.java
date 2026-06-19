@@ -68,11 +68,11 @@ public class NotificationService {
                 readNotification.setNotification(notification);
                 readNotification.setUser(user);
                 readNotificationRepository.save(readNotification);
+                ok++;
             }
             catch (DataIntegrityViolationException e) {
                 skipped++;
             }
-            ok++;
         }
 
         log.info("user {} requested to mark {} notifications as read, skipped {}, marked {}", userId, notifications.size(), skipped, ok);
