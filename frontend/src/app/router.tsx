@@ -16,6 +16,11 @@ const NotificationsPage = lazy(
   () => import('@/features/notifications/NotificationsPage'),
 );
 const GamesPage = lazy(() => import('@/features/games/GamesPage'));
+const CasesPage = lazy(() => import('@/features/games/CasesPage'));
+const CoinflipPage = lazy(() => import('@/features/games/CoinflipPage'));
+const UpgraderPage = lazy(() => import('@/features/games/UpgraderPage'));
+const SlotsPage = lazy(() => import('@/features/games/SlotsPage'));
+const LotteryPage = lazy(() => import('@/features/lottery/LotteryPage'));
 const GlobalChatPage = lazy(
   () => import('@/features/communication/GlobalChatPage'),
 );
@@ -136,6 +141,46 @@ export const router = createBrowserRouter([
         element: (
           <PageSuspense>
             <GamesPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'games/cases',
+        element: (
+          <PageSuspense>
+            <CasesPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'games/coinflip',
+        element: (
+          <PageSuspense>
+            <CoinflipPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'games/upgrader',
+        element: (
+          <PageSuspense>
+            <UpgraderPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'games/slots',
+        element: (
+          <PageSuspense>
+            <SlotsPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'games/lottery',
+        element: (
+          <PageSuspense>
+            <LotteryPage />
           </PageSuspense>
         ),
       },
