@@ -1,11 +1,14 @@
 // Wallet + Gifts (route: /wallet). Four sections behind a tab bar:
 //
 //   • Баланс    — the plain USD balance (the ONE place money is shown uncoloured).
-//   • Пополнение — the on-chain deposit address for GRAM (CoinType TON) with copy +
-//                  a "Проверить депозиты" action that scans the chain and refreshes
-//                  the balance.
+//   • Пополнение — the on-chain deposit address for GRAM (CoinType TON), shown with a
+//                  locally-generated QR code (qrcode lib — the address never leaves the
+//                  device) + copy + a "Проверить депозиты" action that scans the chain
+//                  and refreshes the balance.
 //   • Вывод      — { address, amount } → withdraw, then refresh; shows the resulting
-//                  withdrawal status.
+//                  withdrawal status. Also a prominent "Проверить статус выводов" action
+//                  that re-checks pending withdrawals server-side, refunds any that
+//                  failed, refreshes the balance and summarises the outcome.
 //   • Подарки    — send a present (gated by SEND_PRESENT) and the inbox of received
 //                  presents with per-item claim + claim-all.
 //
@@ -14,6 +17,7 @@
 //   GET  /api/wallets/me/crypto/{coin}          → { coin, address }
 //   POST /api/wallets/me/crypto/{coin}/check-deposits → DepositRepresentation[]
 //   POST /api/wallets/me/crypto/{coin}/withdraw → WithdrawalRepresentation
+//   POST /api/wallets/me/crypto/check-pending-withdrawals → WithdrawalRepresentation[]
 //   GET  /api/presents?claimed&limit&before     → PresentRepresentation[]
 //   GET  /api/presents/count?claimed            → { result }
 //   POST /api/presents/send  { receiverId, amount, anonymous, description? } → 200
@@ -36,10 +40,13 @@ import {
   CheckCheck,
   Copy,
   Gift,
+  Hourglass,
   RefreshCw,
   Send,
+  ShieldCheck,
   Wallet as WalletIcon,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 
 import { api, ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
@@ -240,6 +247,50 @@ function BalanceSection() {
   );
 }
 
+/* ── Deposit QR ───────────────────────────────────────────────────────────────
+ * The QR is generated entirely on-device with the `qrcode` lib — the address is
+ * never sent to any image/QR service. Rendered dark-on-white (the most reliable
+ * combination for a phone camera) on a small white tile that pops on the near-
+ * black page. Cached per address via TanStack Query so re-renders are free.
+ */
+function DepositQr({ address }: { address: string }) {
+  const qr = useQuery<string>({
+    queryKey: ['crypto', 'qr', address],
+    queryFn: () =>
+      QRCode.toDataURL(address, {
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        width: 320,
+        color: { dark: '#05080eff', light: '#ffffffff' },
+      }),
+    staleTime: Infinity,
+  });
+
+  return (
+    <div className="mb-4 flex flex-col items-center">
+      <div className="grid size-44 place-items-center rounded-2xl border border-edge bg-white p-3">
+        {qr.isSuccess ? (
+          <img
+            src={qr.data}
+            alt={`QR-код адреса ${coinName()}`}
+            className="size-full"
+            draggable={false}
+          />
+        ) : qr.isError ? (
+          <span className="px-2 text-center text-xs text-ink">
+            Не удалось показать QR-код
+          </span>
+        ) : (
+          <Spinner size={22} />
+        )}
+      </div>
+      <p className="mt-2 text-center text-xs text-muted">
+        Отсканируйте код в кошельке {coinName()}
+      </p>
+    </div>
+  );
+}
+
 /* ── Section: Пополнение ─────────────────────────────────────────────────────*/
 function DepositSection() {
   const refreshBalance = useRefreshBalance();
@@ -285,6 +336,8 @@ function DepositSection() {
         </div>
       ) : (
         <>
+          <DepositQr address={walletQuery.data.address} />
+
           <label className="mb-1.5 block text-sm text-muted">Адрес {coinName()}</label>
           <div className="flex items-stretch gap-2">
             <code className="min-w-0 flex-1 break-all rounded-xl border border-edge bg-panel-2 px-3 py-2.5 font-mono text-sm text-fg">
@@ -369,6 +422,17 @@ function WithdrawSection() {
     },
   });
 
+  // Re-checks every pending withdrawal server-side and refunds any that failed,
+  // so we refresh the balance on success. Returns the set that was pending (now
+  // with up-to-date statuses) which we summarise below.
+  const checkPending = useMutation<Withdrawal[], ApiError>({
+    mutationFn: () =>
+      api.post<Withdrawal[]>('/wallets/me/crypto/check-pending-withdrawals'),
+    onSuccess: async () => {
+      await refreshBalance();
+    },
+  });
+
   const numericAmount = Number(amount);
   const amountValid = amount.trim() !== '' && Number.isFinite(numericAmount) && numericAmount > 0;
   const canSubmit = address.trim() !== '' && amountValid && !withdraw.isPending;
@@ -425,7 +489,81 @@ function WithdrawSection() {
           Вывести
         </Button>
       </form>
+
+      <div className="mt-6 rounded-xl border border-edge bg-panel-2 p-4">
+        <div className="mb-1.5 flex items-center gap-2 text-fg">
+          <ShieldCheck size={16} strokeWidth={2} className="text-ton" />
+          <h3 className="text-sm font-medium">Статус выводов</h3>
+        </div>
+        <p className="mb-3 text-sm leading-relaxed text-muted">
+          Проверьте выводы в обработке. Если перевод не прошёл, сумма вернётся на
+          баланс автоматически.
+        </p>
+
+        <Button
+          type="button"
+          onClick={() => checkPending.mutate()}
+          loading={checkPending.isPending}
+          className="self-start"
+        >
+          <RefreshCw size={16} strokeWidth={2} />
+          Проверить статус выводов
+        </Button>
+
+        {checkPending.isError && (
+          <p className="mt-3 text-sm text-lose">
+            {errorMessage(checkPending.error, 'Не удалось проверить выводы')}
+          </p>
+        )}
+        {checkPending.isSuccess && (
+          <div className="mt-3">
+            <CheckPendingResult withdrawals={checkPending.data} />
+          </div>
+        )}
+      </div>
     </Card>
+  );
+}
+
+/* Summary of a check-pending-withdrawals run. The returned list is exactly the
+ * set that was PENDING, now carrying fresh statuses: REJECTED ones have just been
+ * refunded to the balance, CONFIRMED ones went through, the rest are still on the
+ * way. Framed as good/neutral news — never an alarm. */
+function CheckPendingResult({ withdrawals }: { withdrawals: Withdrawal[] }) {
+  if (withdrawals.length === 0) {
+    return <p className="text-sm text-muted">Выводов в обработке нет.</p>;
+  }
+
+  const refunded = withdrawals.filter((w) => w.status === 'REJECTED');
+  const confirmed = withdrawals.filter((w) => w.status === 'CONFIRMED').length;
+  const stillPending = withdrawals.filter((w) => w.status === 'PENDING').length;
+
+  const refundedTotal = refunded.reduce((sum, w) => sum + Number(w.amount), 0);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-edge bg-panel p-3 text-sm">
+      {refunded.length > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-1.5 text-win">
+            <CheckCheck size={15} strokeWidth={2} />
+            Возвращено на баланс
+          </span>
+          <Amount value={refundedTotal} className="shrink-0 font-medium" />
+        </div>
+      )}
+      {confirmed > 0 && (
+        <div className="flex items-center gap-1.5 text-win">
+          <Check size={15} strokeWidth={2} />
+          Подтверждено выводов: {confirmed}
+        </div>
+      )}
+      {stillPending > 0 && (
+        <div className="flex items-center gap-1.5 text-warn">
+          <Hourglass size={15} strokeWidth={2} />
+          Ещё в обработке: {stillPending}
+        </div>
+      )}
+    </div>
   );
 }
 

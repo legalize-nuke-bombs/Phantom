@@ -300,15 +300,12 @@ function CurrentRound({ lottery }: { lottery: CurrentLottery }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs">
+          <div className="text-xs">
             <span className="text-muted">
               Стоимость:{' '}
               <span className={cantAfford && !controlsDisabled ? 'text-lose' : 'text-fg'}>
                 {formatUsd(orderCost)}
               </span>
-            </span>
-            <span className="text-muted">
-              Баланс: <span className="text-fg">{formatUsd(balance)}</span>
             </span>
           </div>
         </div>
@@ -502,7 +499,7 @@ export default function LotteryPage() {
           className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-fg"
         >
           <ArrowLeft size={16} strokeWidth={2} />
-          Игры
+          К играм
         </Link>
         <div className="mt-3 flex items-center gap-2 text-fg">
           <span aria-hidden className="text-xl leading-none">

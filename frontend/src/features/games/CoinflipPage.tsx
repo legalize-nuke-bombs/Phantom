@@ -10,22 +10,27 @@
 //   • run returns result = possibleResult on a win, "0" on a loss.
 //   • CoinFlipSettings: minimalBet, multiplier (e.g. 1.8).
 //
-// The flip is a CSS rotateY animation: while the round is in flight the coin spins;
-// once resolved it settles on the winning face. All RAF/CSS — no animation libs.
+// The flip is driven by requestAnimationFrame, not a fixed-speed CSS keyframe: we
+// pre-compute a total rotation that ENDS exactly on the outcome face, then ease it
+// with a cubic ease-out so the angular speed decelerates smoothly to a stop (no
+// spin-then-snap). The whirr sound rides the same progress and fades as it settles.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Coins } from 'lucide-react';
-import clsx from 'clsx';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { getGameSettings } from '@/shared/lib/gameApi';
 import { useGameRound } from '@/shared/lib/useGameRound';
 import { errorMessage } from '@/shared/api/errors';
-import { useQuery } from '@tanstack/react-query';
+import { sfx } from '@/shared/lib/sound';
+import type { SpinHandle } from '@/shared/lib/sound';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
 import Card from '@/shared/ui/Card';
 import Spinner from '@/shared/ui/Spinner';
 import BetInput from '@/shared/ui/BetInput';
 import ProvablyFair from '@/shared/ui/ProvablyFair';
+import PageBack from '@/shared/ui/PageBack';
+import CoinGlyph from '@/shared/ui/CoinGlyph';
+import clsx from 'clsx';
 
 /** CoinFlipSettings — the shape returned by GET /api/games/coinflip. Decimals are strings. */
 interface CoinFlipSettings {
@@ -43,8 +48,8 @@ interface SideInfo {
 }
 
 const SIDES: readonly SideInfo[] = [
-  { side: 'heads', label: 'Орёл', glyph: '💎' },
-  { side: 'tails', label: 'Решка', glyph: '🪙' },
+  { side: 'heads', label: 'Герб', glyph: '💎' },
+  { side: 'tails', label: 'Цифра', glyph: '1' },
 ];
 
 /** Lookup by side, derived from SIDES so the faces are defined in one place. */
@@ -55,84 +60,149 @@ const SIDE_INFO: Record<Side, SideInfo> = Object.fromEntries(
 /** The opposite face — a loss lands on the side the user did not pick. */
 const other = (s: Side): Side => (s === 'heads' ? 'tails' : 'heads');
 
-/** A round resolves to the face that actually came up (your side on a win). */
-type Outcome = 'win' | 'lose';
+/* ── flip animation tuning ──────────────────────────────────────────────── */
 
-/** One face of the coin. */
-function CoinFace({
-  side,
-  className,
-}: {
-  side: Side;
-  className?: string;
-}) {
+const FLIP_MS = 2200; // total flight time
+const FLIP_TURNS = 6; // whole turns before settling — enough to read as a real flip
+const EASE_OUT = (t: number) => 1 - Math.pow(1 - t, 3); // cubic: fast → slow → stop
+
+/** The resting Y-rotation (deg) that shows `side` toward the viewer. */
+const faceAngle = (s: Side): number => (s === 'heads' ? 0 : 180);
+
+/* ── screen state ───────────────────────────────────────────────────────── */
+
+// A tiny reducer keeps the screen in one of three honest phases, so the result is
+// gated on the animation finishing (not the network) and a finished round resets to
+// `picking` in a single click — no dead intermediate frame needing a second tap.
+type Phase = 'picking' | 'flipping' | 'result';
+
+interface State {
+  phase: Phase;
+  side: Side; // the user's pick (sticky across rounds)
+  bet: string;
+  betValid: boolean;
+  landed: Side | null; // the face that came up, once resolved
+  won: boolean | null;
+  payout: string | null; // winning amount string, or null on a loss
+}
+
+type Action =
+  | { type: 'setSide'; side: Side }
+  | { type: 'setBet'; bet: string }
+  | { type: 'setBetValid'; valid: boolean }
+  | { type: 'startFlip' }
+  | { type: 'settle'; landed: Side; won: boolean; payout: string | null }
+  | { type: 'reset' };
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'setSide':
+      return { ...state, side: action.side };
+    case 'setBet':
+      return { ...state, bet: action.bet };
+    case 'setBetValid':
+      return { ...state, betValid: action.valid };
+    case 'startFlip':
+      return { ...state, phase: 'flipping', landed: null, won: null, payout: null };
+    case 'settle':
+      return {
+        ...state,
+        phase: 'result',
+        landed: action.landed,
+        won: action.won,
+        payout: action.payout,
+      };
+    case 'reset':
+      // Keep side + bet so "ещё раз" replays the same wager instantly.
+      return { ...state, phase: 'picking', landed: null, won: null, payout: null };
+  }
+}
+
+const initialState: State = {
+  phase: 'picking',
+  side: 'heads',
+  bet: '',
+  betValid: false,
+  landed: null,
+  won: null,
+  payout: null,
+};
+
+/* ── the coin ───────────────────────────────────────────────────────────── */
+
+/** One metallic face of the coin. A diamond "герб" vs. a GRAM "цифра". */
+function CoinFace({ side, back }: { side: Side; back?: boolean }) {
   const info = SIDE_INFO[side];
   return (
     <div
-      className={clsx(
-        'absolute inset-0 grid place-items-center rounded-full',
-        '[backface-visibility:hidden]',
-        'bg-gradient-to-br from-ton via-ton-deep to-[#055f93]',
-        'shadow-[inset_0_2px_8px_rgba(255,255,255,0.35),inset_0_-6px_14px_rgba(0,0,0,0.4)]',
-        'ring-2 ring-ice/40',
-        className,
-      )}
+      className="absolute inset-0 rounded-full [backface-visibility:hidden]"
+      style={{ transform: back ? 'rotateY(180deg)' : undefined }}
     >
-      <span
-        className="text-5xl drop-shadow-[0_2px_3px_rgba(0,0,0,0.45)] sm:text-6xl"
-        aria-hidden
-      >
-        {info.glyph}
-      </span>
+      {/* Brushed-metal disc: a radial sheen over a steel→deep-ton body. */}
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background:
+            'radial-gradient(circle at 32% 26%, #aef0ff 0%, #4cc4ff 26%, #149bf0 55%, #0a73c4 78%, #064a82 100%)',
+          boxShadow:
+            'inset 0 3px 10px rgba(255,255,255,0.55), inset 0 -10px 22px rgba(0,0,0,0.5)',
+        }}
+      />
+      {/* Raised rim. */}
+      <div
+        className="absolute inset-0 rounded-full ring-2 ring-ice/50"
+        style={{ boxShadow: 'inset 0 0 0 5px rgba(2,30,55,0.55)' }}
+      />
+      {/* Inner bevel that frames the emblem. */}
+      <div className="absolute inset-[14%] grid place-items-center rounded-full border border-ice/25 bg-black/10">
+        {side === 'heads' ? (
+          <span
+            className="text-5xl drop-shadow-[0_2px_4px_rgba(0,8,20,0.6)] sm:text-6xl"
+            aria-hidden
+          >
+            {info.glyph}
+          </span>
+        ) : (
+          <span
+            className="font-mono text-6xl font-black tracking-tighter text-ice drop-shadow-[0_2px_4px_rgba(0,8,20,0.7)] sm:text-7xl"
+            aria-hidden
+          >
+            {info.glyph}
+          </span>
+        )}
+      </div>
+      {/* Moving glint — a soft diagonal highlight to sell the metal. */}
+      <div
+        className="absolute inset-0 rounded-full mix-blend-screen"
+        style={{
+          background:
+            'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.5) 49%, transparent 60%)',
+        }}
+      />
     </div>
   );
 }
 
 /**
- * The flipping coin. A pure function of its props:
- *   • spinning → the CSS keyframe animation (`cf-coin-spin`) drives a fast tumble;
- *     while it runs it fully owns the transform.
- *   • at rest → we transition to `restAngle` so the resting face (the landed face if
- *     we have one, else the user's current selection) ends toward the viewer.
- * No render-time state/refs — the animation handles the motion, the transition the
- * settle.
+ * The coin element. The parent drives its rotateY through a ref each animation
+ * frame (no per-frame React state), so the flip is buttery and the component never
+ * re-renders mid-spin.
  */
-function Coin({
-  spinning,
-  landed,
-  selected,
-}: {
-  spinning: boolean;
-  landed: Side | null;
-  selected: Side;
-}) {
-  // The face presented at rest. Heads faces front (0deg); tails is the back (180deg).
-  const resting = landed ?? selected;
-  const restAngle = resting === 'heads' ? 0 : 180;
-
-  return (
-    <div className="grid place-items-center" style={{ perspective: '900px' }}>
-      <div
-        className={clsx(
-          'relative size-32 sm:size-36',
-          spinning && 'cf-coin-spin',
-        )}
-        style={{
-          transformStyle: 'preserve-3d',
-          // While spinning the keyframe animation overrides this; at rest we ease to it.
-          transform: `rotateY(${restAngle}deg)`,
-          transition: spinning
-            ? 'none'
-            : 'transform 700ms cubic-bezier(0.22, 1, 0.36, 1)',
-        }}
-        aria-hidden
-      >
-        <CoinFace side="heads" />
-        <CoinFace side="tails" className="[transform:rotateY(180deg)]" />
-      </div>
+const Coin = ({ innerRef }: { innerRef: React.RefObject<HTMLDivElement | null> }) => (
+  <div className="grid place-items-center" style={{ perspective: '1000px' }}>
+    <div
+      ref={innerRef}
+      className="relative size-36 will-change-transform sm:size-40"
+      style={{ transformStyle: 'preserve-3d', transform: 'rotateY(0deg)' }}
+      aria-hidden
+    >
+      <CoinFace side="heads" />
+      <CoinFace side="tails" back />
     </div>
-  );
-}
+  </div>
+);
+
+/* ── page ───────────────────────────────────────────────────────────────── */
 
 export default function CoinflipPage() {
   const settingsQuery = useQuery({
@@ -142,70 +212,105 @@ export default function CoinflipPage() {
   });
 
   const round = useGameRound('COINFLIP');
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const { phase, side, bet, betValid, won, payout } = state;
 
-  const [side, setSide] = useState<Side>('heads');
-  const [bet, setBet] = useState('');
-  const [betValid, setBetValid] = useState(false);
+  const coinRef = useRef<HTMLDivElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const spinRef = useRef<SpinHandle | null>(null);
 
-  // Animation state, decoupled from the round so the coin keeps spinning briefly
-  // even after a fast network reply (a too-quick result reads as no flip at all).
-  const [spinning, setSpinning] = useState(false);
-  const [landed, setLanded] = useState<Side | null>(null);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const spinTimer = useRef<number | null>(null);
-
-  const minimalBet = settingsQuery.data ? Number(settingsQuery.data.minimalBet) : 1;
   const multiplier = settingsQuery.data ? Number(settingsQuery.data.multiplier) : 1.8;
+  const minimalBet = settingsQuery.data ? Number(settingsQuery.data.minimalBet) : 1;
 
-  // What a win pays at the current stake (bet × multiplier), for the "to win" hint.
+  // What a win pays at the current stake — the only forward-looking number we show.
   const betNum = Number(bet);
   const potentialWin = useMemo(
     () => (Number.isFinite(betNum) && betNum > 0 ? betNum * multiplier : 0),
     [betNum, multiplier],
   );
 
+  // Tear down any in-flight animation / sound on unmount.
   useEffect(
     () => () => {
-      if (spinTimer.current != null) window.clearTimeout(spinTimer.current);
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      spinRef.current?.stop();
     },
     [],
   );
 
-  const flip = async () => {
-    if (!betValid || round.busy) return;
+  /**
+   * Animate the coin from its current angle to a final angle that shows `landedSide`,
+   * decelerating with a cubic ease-out so it eases to a clean stop on the outcome
+   * face. Resolves when the motion finishes.
+   */
+  const animateTo = useCallback((landedSide: Side): Promise<void> => {
+    const el = coinRef.current;
+    const target = FLIP_TURNS * 360 + faceAngle(landedSide);
+    return new Promise((resolve) => {
+      if (!el) {
+        resolve();
+        return;
+      }
+      const start = performance.now();
+      const tick = (nowTs: number) => {
+        const p = Math.min(1, (nowTs - start) / FLIP_MS);
+        const eased = EASE_OUT(p);
+        el.style.transform = `rotateY(${eased * target}deg)`;
+        if (p < 1) {
+          rafRef.current = requestAnimationFrame(tick);
+        } else {
+          rafRef.current = null;
+          resolve();
+        }
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    });
+  }, []);
 
-    // Start the visual flip immediately; clear any previous result.
-    setLanded(null);
-    setOutcome(null);
-    setSpinning(true);
+  const flip = async () => {
+    // One handler for both the first flip and "ещё раз": if a result is showing we
+    // reset to picking first, so a single click always starts a fresh flip.
+    if (round.busy || phase === 'flipping') return;
+    if (phase === 'result') dispatch({ type: 'reset' });
+    if (!betValid) return;
+
+    sfx.click();
+    dispatch({ type: 'startFlip' });
+    spinRef.current = sfx.startSpin();
 
     try {
       const result = await round.play({ bet });
-      const won = Number(result.result) > 0;
-      // The coin lands on the user's side when they win, the other side when they lose.
-      const landedSide: Side = won ? side : other(side);
+      const isWin = Number(result.result) > 0;
+      const landedSide: Side = isWin ? side : other(side);
 
-      // Let the coin tumble for a beat before settling, regardless of how fast the
-      // server replied, so the flip always reads as a flip.
-      spinTimer.current = window.setTimeout(() => {
-        setSpinning(false);
-        setLanded(landedSide);
-        setOutcome(won ? 'win' : 'lose');
-        spinTimer.current = null;
-      }, 900);
+      // Drive the deceleration to rest on the outcome, then reveal — the result is
+      // gated on the coin actually stopping, never on the network round-trip.
+      await animateTo(landedSide);
+      spinRef.current?.stop();
+      spinRef.current = null;
+
+      dispatch({
+        type: 'settle',
+        landed: landedSide,
+        won: isWin,
+        payout: isWin ? result.result : null,
+      });
+      sfx.reveal();
+      if (isWin) sfx.win();
+      else sfx.lose();
     } catch {
-      // round.error is set by the hook; stop the animation and surface it.
-      setSpinning(false);
-      setLanded(null);
-      setOutcome(null);
+      // round.error carries the localized message; unwind the animation + sound and
+      // return to picking so the player can immediately retry.
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      spinRef.current?.stop();
+      spinRef.current = null;
+      if (coinRef.current) coinRef.current.style.transform = `rotateY(${faceAngle(side)}deg)`;
+      dispatch({ type: 'reset' });
     }
   };
-
-  // Win payout: the resolved result string (= possibleResult on a win, "0" on a loss).
-  const payout =
-    round.result && Number(round.result.result) > 0 ? round.result.result : null;
-
-  const showResult = outcome != null && !spinning && round.status === 'done';
 
   if (settingsQuery.isLoading) {
     return (
@@ -218,6 +323,7 @@ export default function CoinflipPage() {
   if (settingsQuery.isError) {
     return (
       <div className="mx-auto w-full max-w-md">
+        <PageBack to="/games" label="К играм" className="mb-4" />
         <Card className="p-6 text-center">
           <p className="text-sm text-lose">{errorMessage(settingsQuery.error)}</p>
           <Button
@@ -233,23 +339,18 @@ export default function CoinflipPage() {
     );
   }
 
+  const flipping = phase === 'flipping';
+  const showResult = phase === 'result';
+  const playLabel = showResult ? 'Ещё раз' : 'Подбросить';
+
   return (
     <div className="mx-auto w-full max-w-md">
-      {/* Local keyframes for the tumble — RAF/CSS only, no libs. */}
-      <style>{`
-        @keyframes cf-spin {
-          from { transform: rotateY(0deg); }
-          to   { transform: rotateY(1800deg); }
-        }
-        .cf-coin-spin {
-          animation: cf-spin 0.5s linear infinite;
-        }
-      `}</style>
+      <PageBack to="/games" label="К играм" className="mb-4" />
 
       {/* Header */}
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl border border-edge bg-panel-2 text-2xl">
-          🪙
+        <span className="grid size-11 place-items-center rounded-xl border border-edge bg-panel-2">
+          <CoinGlyph size={28} />
         </span>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">
@@ -257,32 +358,30 @@ export default function CoinflipPage() {
           </h1>
           <p className="text-sm text-muted">Угадай сторону — выигрыш ×{multiplier}</p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-lg border border-edge bg-panel-2 px-2.5 py-1 text-sm font-semibold text-ton">
-          <Coins size={14} aria-hidden />×{multiplier}
-        </span>
       </div>
 
       {/* Coin stage */}
-      <Card className="mb-4 flex flex-col items-center gap-4 p-6">
-        <Coin spinning={spinning} landed={landed} selected={side} />
+      <Card className="mb-4 flex flex-col items-center gap-5 p-7">
+        <Coin innerRef={coinRef} />
 
-        <div className="h-7 text-center">
-          {spinning ? (
+        <div className="min-h-[2rem] text-center">
+          {flipping ? (
             <span className="text-sm text-muted">Монета крутится…</span>
           ) : showResult ? (
-            outcome === 'win' ? (
-              <span className="text-lg font-semibold text-win">
-                Выигрыш! +<Amount value={payout} className="font-semibold" />
-              </span>
-            ) : (
-              <span className="text-lg font-semibold text-lose">Не повезло</span>
-            )
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-xs text-muted">Ваш выигрыш</span>
+              {won && payout ? (
+                <Amount value={payout} className="text-2xl font-bold" />
+              ) : (
+                <span className="text-2xl font-bold text-muted">
+                  <Amount value={0} />
+                </span>
+              )}
+            </div>
           ) : (
             <span className="text-sm text-muted">
               Ваш выбор:{' '}
-              <span className="font-medium text-fg">
-                {SIDE_INFO[side].glyph} {SIDE_INFO[side].label}
-              </span>
+              <span className="font-medium text-fg">{SIDE_INFO[side].label}</span>
             </span>
           )}
         </div>
@@ -296,8 +395,11 @@ export default function CoinflipPage() {
             <button
               key={s}
               type="button"
-              onClick={() => setSide(s)}
-              disabled={round.busy || spinning}
+              onClick={() => {
+                sfx.click();
+                dispatch({ type: 'setSide', side: s });
+              }}
+              disabled={flipping || round.busy}
               aria-pressed={active}
               className={clsx(
                 'flex items-center justify-center gap-2 rounded-xl border px-4 py-3',
@@ -308,7 +410,13 @@ export default function CoinflipPage() {
                   : 'border-edge bg-panel-2 text-muted hover:border-ton/50 hover:text-fg',
               )}
             >
-              <span className="text-xl" aria-hidden>
+              <span
+                className={clsx(
+                  s === 'tails' && 'font-mono font-black text-ton',
+                  'text-lg leading-none',
+                )}
+                aria-hidden
+              >
                 {glyph}
               </span>
               {label}
@@ -321,29 +429,29 @@ export default function CoinflipPage() {
       <div className="mb-4">
         <BetInput
           value={bet}
-          onChange={setBet}
+          onChange={(v) => dispatch({ type: 'setBet', bet: v })}
           min={minimalBet}
-          onValidityChange={setBetValid}
-          disabled={round.busy || spinning}
+          onValidityChange={(v) => dispatch({ type: 'setBetValid', valid: v })}
+          disabled={flipping || round.busy}
           error={round.status === 'error' ? (round.error ?? undefined) : undefined}
         />
       </div>
 
-      {/* Potential win hint */}
+      {/* Potential win */}
       <div className="mb-4 flex items-center justify-between rounded-xl border border-edge bg-panel px-3.5 py-2.5 text-sm">
         <span className="text-muted">Выигрыш при победе</span>
         <Amount value={potentialWin} className="font-semibold" />
       </div>
 
-      {/* Flip */}
+      {/* Flip / replay — one click, always playable */}
       <Button
         size="lg"
         className="w-full"
         onClick={flip}
-        loading={round.busy || spinning}
-        disabled={!betValid}
+        loading={flipping || round.busy}
+        disabled={!betValid && !showResult}
       >
-        {round.busy || spinning ? 'Подбрасываем…' : 'Подбросить монету'}
+        {flipping || round.busy ? 'Подбрасываем…' : playLabel}
       </Button>
 
       {/* Provably fair */}

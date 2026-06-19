@@ -1,37 +1,42 @@
 // Upgrader (route: /games/upgrader).
 //
-// You stake a bet and pick a chance%. The lower the chance, the bigger the
-// multiplier — pick 75% for a safe ×1.2, or gamble on 1% for ×90. Backend, verified
-// against com.example.phantom.game.upgrader.{UpgraderService,UpgraderSettings}:
+// Stake a bet, pick a success chance. The lower the chance, the bigger the
+// multiplier — 75% is a safe ×1.2, 1% gambles for ×90.
 //
+// Backend, verified against com.example.phantom.game.upgrader.{UpgraderService,
+// UpgraderSettings}:
 //   GET  /api/games/upgrader        → { percents: { "<chance>": "<multiplier>" }, minimalBet }
 //       Map<Integer,BigDecimal> serialises with STRING keys; chances 75/50/25/10/5/1.
-//   POST /api/games/upgrader/init   { data:{ bet, percent } }
-//       → commits serverHash; data echoes { percent, possibleResult = bet*multiplier }.
+//   POST /api/games/upgrader/init   { data: { bet, percent } }  → commits serverHash.
 //   POST /api/games/upgrader/run    { clientSeed }
-//       → result == possibleResult on a win, "0" on a bust.
+//       → result == bet × multiplier on a win, "0" on a miss.
 //
 // Win rule (source): randomResult = random(1..100); WIN when percent >= randomResult.
-// So the chosen percent IS the win chance, and the win arc on the dial is drawn to
-// exactly that fraction — the picture matches the odds. We don't get randomResult
-// back, so the needle lands at a random angle inside the matching zone (win/bust),
-// derived from the revealed outcome.
+// So the chosen percent IS the win chance. The ring's bright arc is drawn to exactly
+// that fraction, so the picture matches the odds. We don't get randomResult back, so
+// the cursor lands at a random angle inside the matching zone (win arc / miss
+// remainder), derived from the revealed outcome.
+//
+// The indicator is a CURSOR that travels ALONG THE PERIMETER of the ring (it never
+// sits over the percent number). It runs a few laps, then eases to a gradual stop
+// inside or outside the win arc.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TrendingUp, Sparkles, RotateCcw } from 'lucide-react';
 import clsx from 'clsx';
-
 import { useQuery } from '@tanstack/react-query';
+
 import { errorMessage } from '@/shared/api/errors';
 import { getGameSettings } from '@/shared/lib/gameApi';
 import { useGameRound } from '@/shared/lib/useGameRound';
-import { formatUsd } from '@/shared/lib/money';
 import { gameMeta } from '@/shared/lib/games';
+import { formatUsd } from '@/shared/lib/money';
+import { sfx } from '@/shared/lib/sound';
 
 import Amount from '@/shared/ui/Amount';
 import BetInput from '@/shared/ui/BetInput';
 import Button from '@/shared/ui/Button';
 import Card from '@/shared/ui/Card';
+import PageBack from '@/shared/ui/PageBack';
 import ProvablyFair from '@/shared/ui/ProvablyFair';
 import Spinner from '@/shared/ui/Spinner';
 
@@ -50,7 +55,6 @@ interface Option {
 }
 
 const META = gameMeta('UPGRADER');
-const SPIN_MS = 2200;
 
 /** Decompose settings into options sorted by chance, high → low (safe → risky). */
 function toOptions(s: UpgraderSettings): Option[] {
@@ -63,68 +67,102 @@ function toOptions(s: UpgraderSettings): Option[] {
     .sort((a, b) => b.chance - a.chance);
 }
 
-/* ── the dial ──────────────────────────────────────────────────────────────
-   A ring whose green arc covers exactly `chance`% of the circle, starting at the
-   top and sweeping clockwise. A needle spins and eases to rest inside the win arc
-   (win) or in the bust remainder (loss). All angles are degrees, 0° = top. */
-
-const R = 86; // ring radius
-const STROKE = 14;
-const SIZE = (R + STROKE) * 2 + 8; // viewBox side
-const C = 2 * Math.PI * R; // circumference
-const CENTER = SIZE / 2;
-
-/** easeOutQuart — fast launch, long graceful settle. */
-function easeOutQuart(t: number): number {
-  return 1 - Math.pow(1 - t, 4);
+/** Trim trailing zeros from a multiplier: 1.2 → "1.2", 9 → "9", 3.60 → "3.6". */
+function fmtMult(n: number): string {
+  return n.toFixed(2).replace(/\.?0+$/, '');
 }
 
-interface DialPhase {
-  /** Spin nonce — bump to (re)launch the needle. 0 = never spun (idle). */
+/* ── the ring ────────────────────────────────────────────────────────────────
+   A ring whose bright arc covers exactly `chance`% of the circle, starting at the
+   top (12 o'clock) and sweeping clockwise. A cursor rides the perimeter and eases
+   to rest inside the win arc (win) or in the miss remainder (loss). All angles in
+   degrees, 0° = top, increasing clockwise. */
+
+const R = 84; // ring radius
+const STROKE = 12;
+const PAD = 14; // room for the cursor to overhang the stroke
+const SIZE = (R + STROKE / 2 + PAD) * 2; // viewBox side
+const C = 2 * Math.PI * R; // circumference
+const CENTER = SIZE / 2;
+const CURSOR_R = 9; // cursor radius
+
+const SPIN_MS = 3000;
+const LAPS = 4; // full turns before easing to the target
+
+/** easeOutQuint — quick launch, long gentle settle (slower stop than quart). */
+function easeOutQuint(t: number): number {
+  return 1 - Math.pow(1 - t, 5);
+}
+
+/**
+ * Point on the ring for a given clockwise angle from the top (in the SVG's own,
+ * un-rotated coordinate space). 0° = top, 90° = right, etc.
+ */
+function pointOnRing(angleDeg: number): { x: number; y: number } {
+  const rad = ((angleDeg - 90) * Math.PI) / 180; // -90° so 0° points up
+  return { x: CENTER + R * Math.cos(rad), y: CENTER + R * Math.sin(rad) };
+}
+
+interface SpinPhase {
+  /** Spin nonce — bump to (re)launch the cursor. 0 = never spun (idle). */
   nonce: number;
-  /** Did the round win? Decides which zone the needle lands in. */
+  /** Did the round win? Decides which zone the cursor lands in. */
   win: boolean;
 }
 
-function Dial({
+function Ring({
   chance,
+  mult,
   phase,
   spinning,
-  children,
+  settled,
+  won,
+  payout,
 }: {
   chance: number;
-  phase: DialPhase;
+  mult: number;
+  phase: SpinPhase;
   spinning: boolean;
-  children: React.ReactNode;
+  settled: boolean;
+  won: boolean;
+  payout: string | null;
 }) {
   const fraction = Math.min(Math.max(chance / 100, 0), 1);
   const winArc = C * fraction;
 
-  // Needle angle in degrees (0 = pointing up). Driven by RAF on each spin.
+  // Cursor angle in degrees (clockwise from the top). Driven by RAF on each spin.
   const [angle, setAngle] = useState(0);
   const raf = useRef<number | null>(null);
+  const lastTick = useRef(0);
 
   useEffect(() => {
     if (phase.nonce === 0) return; // idle, no spin yet
     if (raf.current != null) cancelAnimationFrame(raf.current);
 
     // Land at a random angle within the matching zone, with a small margin so the
-    // needle never sits exactly on the win/bust seam.
+    // cursor never rests exactly on the win/miss seam.
     const winSpan = 360 * fraction;
-    const margin = Math.min(6, winSpan / 6 || 0);
+    const margin = Math.min(8, winSpan / 5 || 0);
     const target = phase.win
       ? margin + Math.random() * Math.max(winSpan - 2 * margin, 0)
       : winSpan + margin + Math.random() * Math.max(360 - winSpan - 2 * margin, 0);
 
     const start = angle;
-    // Several full turns on top of the shortest forward delta to the target.
-    const base = ((target - start) % 360 + 360) % 360;
-    const total = base + 360 * 4;
+    const base = (((target - start) % 360) + 360) % 360;
+    const total = base + 360 * LAPS;
     const t0 = performance.now();
+    lastTick.current = start;
 
     const tick = (now: number) => {
       const p = Math.min((now - t0) / SPIN_MS, 1);
-      setAngle(start + total * easeOutQuart(p));
+      const next = start + total * easeOutQuint(p);
+      setAngle(next);
+      // A soft tick every ~36° of travel — denser early, naturally thinning as the
+      // cursor slows, which reinforces the deceleration.
+      if (next - lastTick.current >= 36) {
+        lastTick.current += 36;
+        sfx.tick();
+      }
       if (p < 1) raf.current = requestAnimationFrame(tick);
     };
     raf.current = requestAnimationFrame(tick);
@@ -136,12 +174,22 @@ function Dial({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase.nonce]);
 
-  const settled = !spinning && phase.nonce > 0;
+  const cursor = pointOnRing(angle);
+  const startPt = pointOnRing(0);
+
+  // Cursor colour: blue while travelling, win/lose once it lands.
+  const cursorFill = spinning
+    ? 'var(--color-ice)'
+    : settled
+      ? won
+        ? 'var(--color-win)'
+        : 'var(--color-lose)'
+      : 'var(--color-ton)';
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[280px]">
-      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="h-full w-full -rotate-90">
-        {/* bust track (full ring) */}
+    <div className="relative mx-auto aspect-square w-full max-w-[260px]">
+      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="h-full w-full">
+        {/* miss track (full ring) */}
         <circle
           cx={CENTER}
           cy={CENTER}
@@ -149,9 +197,9 @@ function Dial({
           fill="none"
           strokeWidth={STROKE}
           className="stroke-edge"
-          strokeLinecap="round"
         />
-        {/* win arc — exactly `chance`% of the ring */}
+        {/* win arc — exactly `chance`% of the ring, sweeping clockwise from the top.
+            Rotated -90° so the dash starts at 12 o'clock. */}
         <circle
           cx={CENTER}
           cy={CENTER}
@@ -160,32 +208,57 @@ function Dial({
           strokeWidth={STROKE}
           strokeLinecap="round"
           strokeDasharray={`${winArc} ${C - winArc}`}
+          transform={`rotate(-90 ${CENTER} ${CENTER})`}
           className={clsx(
-            'stroke-win transition-[stroke-dasharray] duration-500',
-            settled && !phase.win && 'opacity-30',
+            'stroke-ton transition-[stroke-dasharray] duration-500',
+            settled && !won && 'opacity-25',
           )}
         />
+        {/* start marker at 12 o'clock — the seam the cursor leaves from */}
+        <circle cx={startPt.x} cy={startPt.y} r={2.5} className="fill-muted" />
+
+        {/* the travelling cursor */}
+        <g>
+          {spinning && (
+            <circle
+              cx={cursor.x}
+              cy={cursor.y}
+              r={CURSOR_R + 4}
+              fill={cursorFill}
+              opacity={0.18}
+            />
+          )}
+          <circle
+            cx={cursor.x}
+            cy={cursor.y}
+            r={CURSOR_R}
+            fill={cursorFill}
+            stroke="var(--color-ink)"
+            strokeWidth={3}
+          />
+        </g>
       </svg>
 
-      {/* needle — rotated in screen space (0° = up). */}
-      <div
-        className="pointer-events-none absolute inset-0 grid place-items-center"
-        style={{ transform: `rotate(${angle}deg)` }}
-      >
-        <div
-          className={clsx(
-            'origin-bottom rounded-full',
-            spinning ? 'bg-ice' : settled ? (phase.win ? 'bg-win' : 'bg-lose') : 'bg-ton',
-          )}
-          style={{ width: 4, height: R + 2, transform: `translateY(-${(R + 2) / 2}px)` }}
-        />
-      </div>
-      {/* hub */}
-      <span className="pointer-events-none absolute left-1/2 top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-edge bg-panel-2" />
-
-      {/* centre readout */}
-      <div className="absolute inset-0 grid place-items-center px-8 text-center">
-        {children}
+      {/* centre readout — always clear of the cursor (which rides the perimeter) */}
+      <div className="absolute inset-0 grid place-items-center px-10 text-center">
+        {settled ? (
+          won ? (
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xs text-muted">Ваш выигрыш</span>
+              <Amount value={payout} className="text-2xl font-bold" />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xs text-muted">Ваш выигрыш</span>
+              <span className="text-2xl font-bold text-muted">{formatUsd(0)}</span>
+            </div>
+          )
+        ) : (
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-3xl font-bold tabular-nums text-fg">{chance}%</span>
+            <span className="text-sm font-medium text-ton">×{fmtMult(mult)}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -211,7 +284,10 @@ function PercentPicker({
           <button
             key={o.percent}
             type="button"
-            onClick={() => onChange(o.percent)}
+            onClick={() => {
+              sfx.click();
+              onChange(o.percent);
+            }}
             disabled={disabled}
             aria-pressed={active}
             className={clsx(
@@ -222,8 +298,8 @@ function PercentPicker({
                 : 'border-edge bg-panel-2 text-muted hover:border-ton/50 hover:text-fg',
             )}
           >
-            <span className="text-base font-semibold leading-none">×{o.mult}</span>
-            <span className="text-[11px] leading-none text-muted">{o.chance}% шанс</span>
+            <span className="text-base font-semibold leading-none">×{fmtMult(o.mult)}</span>
+            <span className="text-[11px] leading-none text-muted">{o.chance}%</span>
           </button>
         );
       })}
@@ -251,9 +327,9 @@ export default function UpgraderPage() {
   const [betValid, setBetValid] = useState(false);
   // The user's explicit pick (null = none yet → fall back to the safest option).
   const [percent, setPercent] = useState<number | null>(null);
-  // Animation phase, decoupled from the round so the result text only flips when
-  // the needle finishes its sweep.
-  const [phase, setPhase] = useState<DialPhase>({ nonce: 0, win: false });
+  // Animation phase, decoupled from the round so the verdict only flips once the
+  // cursor finishes its travel.
+  const [phase, setPhase] = useState<SpinPhase>({ nonce: 0, win: false });
   const [revealed, setRevealed] = useState(false);
   const spinTimer = useRef<number | null>(null);
 
@@ -266,42 +342,47 @@ export default function UpgraderPage() {
 
   // Default to the first (safest) option until the user picks one — derived, so no
   // state-syncing effect is needed.
-  const selected =
-    options.find((o) => o.percent === percent) ?? options[0] ?? null;
+  const selected = options.find((o) => o.percent === percent) ?? options[0] ?? null;
   const betNum = Number(bet);
   const target = selected && Number.isFinite(betNum) ? betNum * selected.mult : 0;
 
-  const spinning = round.busy || (phase.nonce > 0 && !revealed);
-  const canPlay =
-    !spinning && betValid && selected != null && settingsQuery.isSuccess;
+  // Cursor is in motion from the moment we launch it until the reveal lands.
+  const spinning = phase.nonce > 0 && !revealed;
+  const settled = revealed;
+  const result = round.result;
+  const won = revealed && result != null && Number(result.result) > 0;
+  const payout = won ? result!.result : null;
 
+  const canPlay = !spinning && betValid && selected != null && settingsQuery.isSuccess;
+
+  // One handler for the first play AND "ещё раз": a finished round is cleared up
+  // front in the SAME click, so the button is always immediately playable — no dead
+  // intermediate screen needing a second tap.
   const play = useCallback(async () => {
-    if (selected == null || !betValid) return;
+    if (selected == null || !betValid || spinning) return;
+    sfx.click();
+    // Reset any previous result/animation before launching the new round.
+    if (spinTimer.current != null) clearTimeout(spinTimer.current);
     setRevealed(false);
+    round.reset();
     try {
-      const result = await round.play({
+      const res = await round.play({
         bet: String(betNum),
         percent: String(selected.percent),
       });
-      const win = Number(result.result) > 0;
-      // Launch the needle; reveal the verdict only after it lands.
+      const win = Number(res.result) > 0;
+      // Launch the cursor; reveal the verdict (and play win/lose) only after it lands.
       setPhase({ nonce: Date.now(), win });
       if (spinTimer.current != null) clearTimeout(spinTimer.current);
-      spinTimer.current = window.setTimeout(() => setRevealed(true), SPIN_MS);
+      spinTimer.current = window.setTimeout(() => {
+        setRevealed(true);
+        if (win) sfx.win();
+        else sfx.lose();
+      }, SPIN_MS);
     } catch {
       // round.error carries the localized message; nothing to do here.
     }
-  }, [round, selected, betValid, betNum]);
-
-  const replay = useCallback(() => {
-    if (spinTimer.current != null) clearTimeout(spinTimer.current);
-    setRevealed(false);
-    setPhase({ nonce: 0, win: false });
-    round.reset();
-  }, [round]);
-
-  const result = round.result;
-  const won = revealed && result != null && Number(result.result) > 0;
+  }, [round, selected, betValid, betNum, spinning]);
 
   /* ── states ── */
   if (settingsQuery.isLoading) {
@@ -314,7 +395,8 @@ export default function UpgraderPage() {
   if (settingsQuery.isError || !selected) {
     return (
       <div className="mx-auto w-full max-w-lg">
-        <PageHeader />
+        <PageBack to="/games" label="К играм" className="mb-4" />
+        <Header />
         <Card className="p-5 text-sm text-lose">
           {settingsQuery.isError
             ? errorMessage(settingsQuery.error)
@@ -326,55 +408,22 @@ export default function UpgraderPage() {
 
   return (
     <div className="mx-auto w-full max-w-lg">
-      <PageHeader />
+      <PageBack to="/games" label="К играм" className="mb-4" />
+      <Header />
 
       <Card className="overflow-hidden p-5 sm:p-6">
-        {/* dial */}
-        <Dial chance={selected.chance} phase={phase} spinning={spinning}>
-          {!revealed ? (
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-3xl font-bold tabular-nums text-fg">
-                {selected.chance}%
-              </span>
-              <span className="text-xs text-muted">шанс апгрейда</span>
-              <span className="mt-1 text-sm font-medium text-ton">×{selected.mult}</span>
-            </div>
-          ) : won ? (
-            <div className="flex flex-col items-center gap-1">
-              <Sparkles className="text-win" size={26} />
-              <Amount value={result!.result} className="text-2xl font-bold" />
-              <span className="text-xs font-medium uppercase tracking-wide text-win">
-                Апгрейд!
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-2xl font-bold text-lose">Буст сорван</span>
-              <span className="text-xs text-muted">в этот раз не повезло</span>
-            </div>
-          )}
-        </Dial>
-
-        {/* outcome banner */}
-        {revealed && result && (
-          <div
-            className={clsx(
-              'mt-4 flex items-center justify-between rounded-xl border px-4 py-3 text-sm',
-              won ? 'border-win/30 bg-win/5' : 'border-lose/30 bg-lose/5',
-            )}
-          >
-            <span className="text-muted">
-              Ставка <span className="text-fg">{formatUsd(result.bet)}</span>
-            </span>
-            <span className={clsx('font-semibold', won ? 'text-win' : 'text-lose')}>
-              {won ? '+' : '−'}
-              {formatUsd(won ? result.result : result.bet)}
-            </span>
-          </div>
-        )}
+        <Ring
+          chance={selected.chance}
+          mult={selected.mult}
+          phase={phase}
+          spinning={spinning}
+          settled={settled}
+          won={won}
+          payout={payout}
+        />
 
         {/* controls */}
-        <div className="mt-5 flex flex-col gap-4">
+        <div className="mt-6 flex flex-col gap-4">
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
               Ставка
@@ -385,17 +434,17 @@ export default function UpgraderPage() {
               min={minBet}
               onValidityChange={setBetValid}
               disabled={spinning}
-              error={round.status === 'error' ? round.error ?? undefined : undefined}
+              error={round.status === 'error' ? (round.error ?? undefined) : undefined}
             />
           </div>
 
           <div>
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                Множитель и шанс
+                Шанс и множитель
               </p>
               <p className="text-xs text-muted">
-                Цель:{' '}
+                Выигрыш:{' '}
                 <span className="font-medium text-ice">
                   {betValid ? formatUsd(target) : '—'}
                 </span>
@@ -409,22 +458,16 @@ export default function UpgraderPage() {
             />
           </div>
 
-          {revealed ? (
-            <Button variant="ghost" size="lg" onClick={replay} className="w-full">
-              <RotateCcw size={16} />
-              Ещё раз
-            </Button>
-          ) : (
-            <Button
-              size="lg"
-              onClick={play}
-              loading={spinning}
-              disabled={!canPlay}
-              className="w-full"
-            >
-              {spinning ? 'Апгрейд…' : 'Апгрейд'}
-            </Button>
-          )}
+          {/* Single persistent action — one click plays, and one click replays. */}
+          <Button
+            size="lg"
+            onClick={play}
+            loading={spinning}
+            disabled={!canPlay}
+            className="w-full"
+          >
+            {spinning ? 'Крутится…' : revealed ? 'Ещё раз' : 'Играть'}
+          </Button>
         </div>
       </Card>
 
@@ -439,18 +482,20 @@ export default function UpgraderPage() {
   );
 }
 
-function PageHeader() {
+function Header() {
   return (
     <div className="mb-5 flex items-center gap-3">
-      <span className="grid size-11 place-items-center rounded-xl border border-edge bg-panel-2 text-2xl">
+      <span
+        aria-hidden
+        className="grid size-11 place-items-center rounded-xl border border-edge bg-panel-2 text-2xl"
+      >
         {META.emoji}
       </span>
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-fg sm:text-2xl">
+        <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">
           {META.name}
-          <TrendingUp size={20} className="text-ton" aria-hidden />
         </h1>
-        <p className="text-sm text-muted">Чем рискованнее, тем выше множитель</p>
+        <p className="text-sm text-muted">Чем ниже шанс, тем выше множитель</p>
       </div>
     </div>
   );

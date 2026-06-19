@@ -6,34 +6,34 @@
    Retune the whole palette here (e.g. to exact GRAM brand hexes) in one place.
    ────────────────────────────────────────────────────────────────────────── */
 @theme {
-  /* surfaces */
-  --color-ink: #0b0f14;      /* page background      → bg-ink */
-  --color-panel: #121822;    /* cards / surfaces     → bg-panel */
-  --color-panel-2: #1a2230;  /* raised / hover       → bg-panel-2 */
-  --color-edge: #243042;     /* borders / dividers   → border-edge */
+  /* surfaces — near-black base so TON blue reads as the one bright accent */
+  --color-ink: #05080e;      /* page background      → bg-ink */
+  --color-panel: #0b1019;    /* cards / surfaces     → bg-panel */
+  --color-panel-2: #121a27;  /* raised / hover       → bg-panel-2 */
+  --color-edge: #1d2737;     /* borders / dividers   → border-edge */
 
-  /* brand — TON / GRAM crystal blue */
-  --color-ton: #2aabee;      /* primary              → text-ton / bg-ton */
-  --color-ton-deep: #0098ea; /* primary deep         → bg-ton-deep */
-  --color-ice: #7fd8ff;      /* highlight / glow     → text-ice */
+  /* brand — TON / GRAM crystal blue (the brightest thing on screen) */
+  --color-ton: #29b6ff;      /* primary              → text-ton / bg-ton */
+  --color-ton-deep: #0a9bf0; /* primary deep         → bg-ton-deep */
+  --color-ice: #8fe3ff;      /* highlight / glow     → text-ice */
 
   /* text */
-  --color-fg: #e8edf2;       /* primary text         → text-fg */
-  --color-muted: #8b97a7;    /* secondary text       → text-muted */
+  --color-fg: #eaf0f7;       /* primary text         → text-fg */
+  --color-muted: #8492a6;    /* secondary text       → text-muted */
 
-  /* status (red ONLY for loss/error) */
-  --color-win: #34d399;
-  --color-lose: #f5566c;
-  --color-warn: #f5b73d;
+  /* status (red ONLY for loss/error) — nudged brighter for the darker bg */
+  --color-win: #3ee0a6;
+  --color-lose: #ff5e74;
+  --color-warn: #ffc24a;
 
   /* finance tiers — amount-size colouring (see shared/lib/financeColors.ts).
      Drives text-tier-grey … text-tier-gold for coloured money via <Amount>. */
-  --color-tier-grey: #8b97a7;
+  --color-tier-grey: #8492a6;
   --color-tier-blue: #4aa3ff;
-  --color-tier-purple: #a855f7;
-  --color-tier-pink: #ec4899;
-  --color-tier-red: #ef4444;
-  --color-tier-gold: #f5b73d;
+  --color-tier-purple: #b06bff;
+  --color-tier-pink: #f25aa8;
+  --color-tier-red: #ff5454;
+  --color-tier-gold: #ffc24a;
 
   /* type */
   --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
@@ -53,10 +53,10 @@ body,
 body {
   margin: 0;
   background-color: var(--color-ink);
-  /* subtle spectral glow from the top — the "phantom" mood */
+  /* subtle spectral glow from the top — the "phantom" mood (kept faint on near-black) */
   background-image: radial-gradient(
     1200px 600px at 50% -15%,
-    rgba(0, 152, 234, 0.1),
+    rgba(41, 182, 255, 0.06),
     transparent 60%
   );
   background-attachment: fixed;

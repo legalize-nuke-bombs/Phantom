@@ -4,7 +4,8 @@
 
 /**
  * Format an internal balance (decimal string or number) as USD.
- * @example formatUsd('80.4') // "$80,40"
+ * Dot decimal separator, comma thousands grouping (en-US): "$1,234.50".
+ * @example formatUsd('80.4') // "$80.40"
  */
 export function formatUsd(
   amount: string | number | null | undefined,
@@ -15,7 +16,7 @@ export function formatUsd(
   if (!Number.isFinite(n)) return String(amount);
   return (
     '$' +
-    n.toLocaleString('ru-RU', {
+    n.toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     })

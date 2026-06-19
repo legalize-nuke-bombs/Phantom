@@ -1,12 +1,13 @@
 // BetInput — the shared bet control for every game.
 //
-// A controlled USD amount field plus quick chips (½, ×2, min, max). Validates the
-// amount against the game's [min, max] and the signed-in user's balance, and tells
-// the parent whether the current value is a valid, playable bet via onValidityChange.
+// A controlled USD amount field. Validates the amount against the game's
+// [min, max] and the signed-in user's balance, and tells the parent whether the
+// current value is a valid, playable bet via onValidityChange.
 //
-// Controlled: the parent owns `value` (the raw string the user typed) and gets every
-// change through `onChange`. Keeping the raw string (not a number) lets the user type
-// "1." or "" mid-edit without the field fighting them; validity is computed from it.
+// Controlled: the parent owns `value` (the raw string the user typed) and gets
+// every change through `onChange`. Keeping the raw string (not a number) lets the
+// user type "1." or "" mid-edit without the field fighting them; validity is
+// computed from it.
 
 import { useEffect, useMemo } from 'react';
 import clsx from 'clsx';
@@ -21,7 +22,7 @@ export interface BetInputProps {
   min: number;
   /**
    * Maximum bet (USD). Optional — when omitted, the only upper bound is the
-   * user's balance. The effective cap is min(max, balance).
+   * user's balance.
    */
   max?: number;
   /** Fired whenever validity flips. The parent uses this to enable/disable Play. */
@@ -30,12 +31,6 @@ export interface BetInputProps {
   /** Override the error message shown below (e.g. a server-side rejection). */
   error?: string;
   className?: string;
-}
-
-/** Round to cents, never below zero. */
-function clampCents(n: number): number {
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return Math.round(n * 100) / 100;
 }
 
 export default function BetInput({
@@ -50,13 +45,6 @@ export default function BetInput({
 }: BetInputProps) {
   const { data: wallet } = useWallet();
   const balance = wallet ? Number(wallet.balance) : 0;
-
-  // The highest bet the user could actually place: their balance, capped by the
-  // game's max if one is set.
-  const effectiveMax = useMemo(
-    () => (max != null ? Math.min(max, balance) : balance),
-    [max, balance],
-  );
 
   const amount = Number(value);
   const parsed = value.trim() !== '' && Number.isFinite(amount) ? amount : NaN;
@@ -79,37 +67,18 @@ export default function BetInput({
     onValidityChange?.(valid);
   }, [valid, onValidityChange]);
 
-  const set = (n: number) => onChange(String(clampCents(n)));
-
-  const chips: { label: string; apply: () => void; disabled?: boolean }[] = [
-    {
-      label: '½',
-      apply: () => set((Number.isFinite(parsed) ? parsed : min) / 2),
-    },
-    {
-      label: '×2',
-      apply: () => set(Math.min((Number.isFinite(parsed) ? parsed : min) * 2, effectiveMax)),
-    },
-    { label: 'Мин', apply: () => set(min) },
-    {
-      label: 'Макс',
-      apply: () => set(effectiveMax),
-      disabled: effectiveMax < min,
-    },
-  ];
-
   const shownError = error ?? reason;
 
   return (
     <div className={clsx('flex flex-col gap-2', className)}>
       <div
         className={clsx(
-          'flex items-center gap-2 rounded-xl px-3 h-12',
-          'bg-panel-2 border transition-colors',
+          'flex h-12 items-center gap-2 rounded-xl px-3',
+          'border bg-panel-2 transition-colors',
           shownError ? 'border-lose' : 'border-edge focus-within:border-ton',
         )}
       >
-        <span className="text-muted select-none">$</span>
+        <span className="select-none text-muted">$</span>
         <input
           inputMode="decimal"
           // Plain number-ish input; we keep it a text field so the raw string is
@@ -126,35 +95,14 @@ export default function BetInput({
           aria-label="Ставка"
           aria-invalid={shownError ? true : undefined}
           className={clsx(
-            'min-w-0 flex-1 bg-transparent text-fg text-lg font-medium',
+            'min-w-0 flex-1 bg-transparent text-lg font-medium text-fg',
             'placeholder:text-muted focus:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}
         />
-        <div className="flex items-center gap-1">
-          {chips.map((c) => (
-            <button
-              key={c.label}
-              type="button"
-              onClick={c.apply}
-              disabled={disabled || c.disabled}
-              className={clsx(
-                'h-7 min-w-9 px-2 rounded-lg text-xs font-medium',
-                'bg-panel text-muted border border-edge',
-                'transition-colors hover:text-fg hover:border-ton/60',
-                'disabled:cursor-not-allowed disabled:opacity-40',
-              )}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
       </div>
 
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted">
-          Баланс: <span className="text-fg">{formatUsd(balance)}</span>
-        </span>
+      <div className="min-h-[1rem] text-xs">
         {shownError ? (
           <span className="text-lose">{shownError}</span>
         ) : (

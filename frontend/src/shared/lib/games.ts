@@ -22,7 +22,7 @@ export const GAME_META: Record<GameType, GameMeta> = {
   CASES: { emoji: '📦', name: 'Кейсы' },
   FRUITS: { emoji: '🎰', name: 'Слоты' },
   COINFLIP: { emoji: '🪙', name: 'Коинфлип' },
-  UPGRADER: { emoji: '📈', name: 'Апгрейдер' },
+  UPGRADER: { emoji: '📈', name: 'Upgrader' },
 };
 
 /**

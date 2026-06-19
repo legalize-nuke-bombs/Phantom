@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Gamepad2 } from 'lucide-react';
 import { GAME_META, LOTTERY_META } from '@/shared/lib/games';
+import CoinGlyph from '@/shared/ui/CoinGlyph';
 
 /**
  * A lobby tile: a game's emoji + Russian name (from the shared presentation
@@ -14,12 +16,19 @@ interface LobbyTile {
   emoji: string;
   name: string;
   tagline: string;
+  /** Optional custom icon node — overrides the emoji (e.g. the blue coinflip coin). */
+  icon?: ReactNode;
 }
 
 const TILES: ReadonlyArray<LobbyTile> = [
   { to: '/games/cases', ...GAME_META.CASES, tagline: 'Открывай кейсы на приз' },
   { to: '/games/slots', ...GAME_META.FRUITS, tagline: 'Крути барабаны' },
-  { to: '/games/coinflip', ...GAME_META.COINFLIP, tagline: 'Орёл или решка ×2' },
+  {
+    to: '/games/coinflip',
+    ...GAME_META.COINFLIP,
+    icon: <CoinGlyph size={30} />,
+    tagline: 'Орёл или решка ×2',
+  },
   { to: '/games/upgrader', ...GAME_META.UPGRADER, tagline: 'Рискни и приумножь' },
   { to: '/games/lottery', ...LOTTERY_META, tagline: 'Билеты и общий банк' },
 ];
@@ -40,7 +49,7 @@ function GameTile({ tile }: { tile: LobbyTile }) {
         aria-hidden
         className="relative grid size-14 shrink-0 place-items-center rounded-xl border border-edge bg-panel-2 text-3xl transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105"
       >
-        {tile.emoji}
+        {tile.icon ?? tile.emoji}
       </span>
 
       <div className="relative min-w-0 flex-1">

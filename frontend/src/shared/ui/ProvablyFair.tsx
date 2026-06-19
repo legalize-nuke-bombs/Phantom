@@ -1,18 +1,18 @@
-// ProvablyFair — the collapsible "Честная игра" panel every game shows.
+// ProvablyFair — a tiny, unobtrusive "честная игра" service link.
 //
-// Two phases, driven purely by what you pass:
-//   • Before reveal — pass just `serverHash`: the panel shows the server's
-//     commitment so the user can see it was fixed before they played.
-//   • After reveal — also pass `serverSeed` + `clientSeed`: the panel reveals both
-//     seeds and a verified ✓/✗ badge proving SHA-256(serverSeed) === serverHash.
+// Collapsed by default it is just a small muted text-link. Expanding it shows a
+// compact panel:
+//   • Before reveal — the committed serverHash (proof the seed was fixed first).
+//   • After reveal  — serverSeed + clientSeed and a ✓/✗ verified badge proving
+//     SHA-256(serverSeed) === serverHash.
 //
-// Verification: pass `verified` if you already have it (useGameRound exposes it) to
-// avoid recomputing; otherwise, when both serverSeed and serverHash are present, the
-// panel verifies itself via verifyServerHash. This keeps it reusable in a live round
-// AND in a static history view.
+// No headings, no explanatory paragraphs — it stays out of the way. Verification
+// uses the `verified` prop when given (useGameRound exposes it); otherwise the
+// component verifies itself once both serverSeed and serverHash are present, so it
+// also works in a static history view.
 
 import { useEffect, useState } from 'react';
-import { ShieldCheck, ChevronDown, Check, X, Copy } from 'lucide-react';
+import { Check, ChevronDown, Copy, ShieldCheck, X } from 'lucide-react';
 import clsx from 'clsx';
 import { verifyServerHash } from '@/shared/lib/provablyFair';
 
@@ -33,7 +33,7 @@ export interface ProvablyFairProps {
   className?: string;
 }
 
-/** One labelled, monospace, copyable hex row. */
+/** One labelled, monospace, copyable hex row — compact. */
 function SeedRow({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -48,25 +48,25 @@ function SeedRow({ label, value }: { label: string; value: string }) {
   };
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted">{label}</span>
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] text-muted">{label}</span>
       <button
         type="button"
         onClick={copy}
         title="Скопировать"
         className={clsx(
-          'group flex items-start gap-2 rounded-lg px-2.5 py-2 text-left',
-          'bg-ink border border-edge transition-colors hover:border-ton/60',
+          'group flex items-start gap-2 rounded-md px-2 py-1.5 text-left',
+          'border border-edge bg-ink transition-colors hover:border-ton/60',
         )}
       >
-        <code className="min-w-0 flex-1 break-all font-mono text-xs text-fg/90">
+        <code className="min-w-0 flex-1 break-all font-mono text-[11px] leading-relaxed text-fg/80">
           {value}
         </code>
         {copied ? (
-          <Check size={14} className="mt-0.5 shrink-0 text-win" aria-hidden />
+          <Check size={13} className="mt-0.5 shrink-0 text-win" aria-hidden />
         ) : (
           <Copy
-            size={14}
+            size={13}
             className="mt-0.5 shrink-0 text-muted group-hover:text-fg"
             aria-hidden
           />
@@ -89,10 +89,9 @@ export default function ProvablyFair({
   const revealed = Boolean(serverSeed && clientSeed);
 
   // Self-verify only when the caller didn't hand us a result and we have the
-  // material to check (revealed serverSeed + committed serverHash). We stamp the
-  // result with the exact seed/hash it was computed for, so a stale result from a
-  // previous round reads as "not yet verified" (null) without a synchronous
-  // setState in the effect body (which would cascade renders).
+  // material to check. We stamp the result with the seed/hash it was computed for
+  // so a stale result reads as "not yet verified" (null) without a setState in the
+  // effect body cascading renders.
   const needsSelfVerify = verified == null && Boolean(serverSeed && serverHash);
   const verifyKey = needsSelfVerify ? `${serverSeed}:${serverHash}` : null;
   const [selfVerified, setSelfVerified] = useState<{ key: string; ok: boolean } | null>(
@@ -119,61 +118,46 @@ export default function ProvablyFair({
   if (!serverHash && !revealed) return null;
 
   return (
-    <div className={clsx('rounded-xl border border-edge bg-panel', className)}>
+    <div className={clsx('text-[11px]', className)}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
+        className="inline-flex items-center gap-1 text-muted/70 transition-colors hover:text-fg"
       >
-        <ShieldCheck size={16} className="shrink-0 text-ton" aria-hidden />
-        <span className="text-sm font-medium text-fg">Честная игра</span>
+        <ShieldCheck size={11} className="shrink-0" aria-hidden />
+        <span>Честная игра</span>
 
         {/* Verified badge — only meaningful after reveal. */}
         {revealed && isVerified != null && (
           <span
             className={clsx(
-              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-              isVerified
-                ? 'bg-win/10 text-win'
-                : 'bg-lose/10 text-lose',
+              'inline-flex items-center',
+              isVerified ? 'text-win' : 'text-lose',
             )}
+            title={isVerified ? 'Проверено' : 'Не сходится'}
           >
-            {isVerified ? <Check size={12} /> : <X size={12} />}
-            {isVerified ? 'Проверено' : 'Не сходится'}
+            {isVerified ? <Check size={11} /> : <X size={11} />}
           </span>
         )}
 
         <ChevronDown
-          size={16}
-          className={clsx(
-            'ml-auto shrink-0 text-muted transition-transform',
-            open && 'rotate-180',
-          )}
+          size={10}
+          className={clsx('shrink-0 transition-transform', open && 'rotate-180')}
           aria-hidden
         />
       </button>
 
       {open && (
-        <div className="flex flex-col gap-3 border-t border-edge px-3 py-3">
+        <div className="mt-2 flex flex-col gap-2 rounded-lg border border-edge bg-panel p-2.5">
           {serverHash && (
             <SeedRow
               label={revealed ? 'Хеш сервера (коммит)' : 'Хеш сервера'}
               value={serverHash}
             />
           )}
-          {revealed && serverSeed && (
-            <SeedRow label="Сид сервера" value={serverSeed} />
-          )}
-          {revealed && clientSeed && (
-            <SeedRow label="Сид клиента" value={clientSeed} />
-          )}
-
-          <p className="text-xs leading-relaxed text-muted">
-            {revealed
-              ? 'SHA-256 от сида сервера совпадает с хешем, показанным до игры, — результат был зафиксирован заранее.'
-              : 'Хеш сервера зафиксирован до вашей ставки. После игры откроется сид — проверьте, что его SHA-256 равен этому хешу.'}
-          </p>
+          {revealed && serverSeed && <SeedRow label="Сид сервера" value={serverSeed} />}
+          {revealed && clientSeed && <SeedRow label="Сид клиента" value={clientSeed} />}
         </div>
       )}
     </div>
