@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Home as HomeIcon,
@@ -9,6 +10,8 @@ import {
   Trophy,
   Bell,
   LogOut,
+  Menu,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -24,7 +27,6 @@ interface NavItem {
   showBalance?: boolean;
 }
 
-/** Full sidebar order. */
 const NAV: NavItem[] = [
   { to: '/', label: 'Главная', icon: HomeIcon },
   { to: '/profile', label: 'Профиль', icon: UserIcon },
@@ -36,78 +38,91 @@ const NAV: NavItem[] = [
   { to: '/notifications', label: 'Уведомления', icon: Bell },
 ];
 
-/** Bottom tab bar (mobile) — a curated subset of the primary destinations. */
-const TABS: NavItem[] = [
-  NAV[0], // Главная
-  NAV[3], // Игры
-  NAV[4], // Глобальный чат
-  NAV[6], // Прогресс
-  NAV[1], // Профиль
-];
-
 function Wordmark() {
   return (
     <div className="flex items-center gap-2">
       <span className="text-2xl leading-none">💎</span>
-      <span className="text-lg font-semibold tracking-wide text-fg">
-        Phantom
-      </span>
+      <span className="text-lg font-semibold tracking-wide text-fg">Phantom</span>
     </div>
   );
 }
 
-/* ── Sidebar (md+) ─────────────────────────────────────────────────────── */
-
 function SidebarLink({
   item,
   balance,
+  onNavigate,
 }: {
   item: NavItem;
   balance: string | undefined;
+  onNavigate: () => void;
 }) {
   const Icon = item.icon;
-
   return (
     <NavLink
       to={item.to}
       end={item.to === '/'}
+      onClick={onNavigate}
       className={({ isActive }) =>
         clsx(
           'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors',
-          isActive
-            ? 'bg-panel-2 text-fg'
-            : 'text-muted hover:bg-panel-2 hover:text-fg',
+          isActive ? 'bg-panel-2 text-fg' : 'text-muted hover:bg-panel-2 hover:text-fg',
         )
       }
     >
       <Icon size={20} />
       <span>{item.label}</span>
       {item.showBalance ? (
-        <span className="ml-auto text-sm font-medium text-ton">
-          {formatUsd(balance)}
-        </span>
+        <span className="ml-auto text-sm font-medium text-ton">{formatUsd(balance)}</span>
       ) : null}
     </NavLink>
   );
 }
 
-function Sidebar({ balance }: { balance: string | undefined }) {
+/**
+ * One left bar for both breakpoints. Desktop (md+): static, always visible.
+ * Mobile: a slide-in drawer (off-screen by default) toggled by the hamburger,
+ * dimming the page behind it — same navigation, adapted.
+ */
+function Sidebar({
+  balance,
+  open,
+  onClose,
+}: {
+  balance: string | undefined;
+  open: boolean;
+  onClose: () => void;
+}) {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
   async function handleLogout() {
+    onClose();
     await logout();
     navigate('/login');
   }
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-edge bg-panel/40 md:flex">
-      <div className="flex h-14 items-center px-5">
+    <aside
+      className={clsx(
+        'fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-edge bg-panel transition-transform duration-200',
+        'md:static md:z-auto md:w-60 md:translate-x-0',
+        open ? 'translate-x-0' : '-translate-x-full',
+      )}
+    >
+      <div className="flex h-14 items-center justify-between px-5">
         <Wordmark />
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Закрыть меню"
+          className="text-muted transition-colors hover:text-fg md:hidden"
+        >
+          <X size={20} />
+        </button>
       </div>
-      <nav className="flex flex-1 flex-col gap-1 p-3">
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
         {NAV.map((item) => (
-          <SidebarLink key={item.to} item={item} balance={balance} />
+          <SidebarLink key={item.to} item={item} balance={balance} onNavigate={onClose} />
         ))}
         <button
           type="button"
@@ -122,61 +137,38 @@ function Sidebar({ balance }: { balance: string | undefined }) {
   );
 }
 
-/* ── Bottom tab bar (mobile) ───────────────────────────────────────────── */
-
-function BottomTabLink({
-  item,
-  balance,
-}: {
-  item: NavItem;
-  balance: string | undefined;
-}) {
-  const Icon = item.icon;
-
-  return (
-    <NavLink
-      to={item.to}
-      end={item.to === '/'}
-      className={({ isActive }) =>
-        clsx(
-          'flex flex-1 flex-col items-center gap-0.5 py-2 transition-colors',
-          isActive ? 'text-ton' : 'text-muted',
-        )
-      }
-    >
-      <Icon size={20} />
-      <span className="text-[10px] leading-tight">
-        {item.showBalance ? formatUsd(balance) : item.label}
-      </span>
-    </NavLink>
-  );
-}
-
-function BottomTabBar({ balance }: { balance: string | undefined }) {
-  return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-edge bg-ink/90 backdrop-blur md:hidden">
-      {TABS.map((item) => (
-        <BottomTabLink key={item.to} item={item} balance={balance} />
-      ))}
-    </nav>
-  );
-}
-
-/* ── Shell ─────────────────────────────────────────────────────────────── */
-
 export default function AppShell() {
   const wallet = useWallet();
   const balance = wallet.data?.balance;
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar balance={balance} />
+      {/* Mobile: hamburger trigger (no global top bar — just a floating button) */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Меню"
+        className="fixed left-3 top-3 z-30 grid h-10 w-10 place-items-center rounded-xl border border-edge bg-panel/90 text-fg backdrop-blur md:hidden"
+      >
+        <Menu size={20} />
+      </button>
+      {/* Mobile: backdrop when the drawer is open */}
+      {open ? (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 md:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden
+        />
+      ) : null}
+
+      <Sidebar balance={balance} open={open} onClose={() => setOpen(false)} />
+
       <div className="flex min-w-0 flex-1 flex-col">
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-4 md:px-6 md:pb-8 md:pt-6">
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-10 pt-16 md:px-6 md:pb-8 md:pt-6">
           <Outlet />
         </main>
       </div>
-      <BottomTabBar balance={balance} />
     </div>
   );
 }
