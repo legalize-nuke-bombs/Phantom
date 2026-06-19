@@ -1,6 +1,7 @@
 // Own-profile settings (route: /profile/settings). Lifted out of ProfileView so
 // the profile itself stays compact on mobile. Everything here is for the SIGNED-IN
-// user only — account edits, security, recovery key, deletion, and logout.
+// user only — account edits, security, recovery key, and deletion. (Logout is not a
+// setting; it lives in the sidebar nav.)
 //
 // Each block is a collapsible accordion so the page stays short and scannable on a
 // phone. Account mutations invalidate ['users','me'] (and the user's experience) so
@@ -19,7 +20,6 @@ import {
   Eye,
   EyeOff,
   KeyRound,
-  LogOut,
   Settings,
   ShieldCheck,
   Trash2,
@@ -510,35 +510,6 @@ function DeleteAccountForm() {
   );
 }
 
-/* ── logout ────────────────────────────────────────────────────────────── */
-function LogoutButton() {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  async function handleLogout() {
-    setLoggingOut(true);
-    try {
-      await logout();
-    } finally {
-      navigate('/login');
-    }
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      size="lg"
-      onClick={handleLogout}
-      loading={loggingOut}
-      className="w-full text-lose hover:bg-lose/10 hover:border-lose/50"
-    >
-      <LogOut size={18} strokeWidth={2} />
-      Выйти из аккаунта
-    </Button>
-  );
-}
-
 /* ── page ──────────────────────────────────────────────────────────────── */
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -586,8 +557,6 @@ export default function SettingsPage() {
           <DeleteAccountForm />
         </Accordion>
       </div>
-
-      <LogoutButton />
     </div>
   );
 }

@@ -9,16 +9,15 @@
 // of: loading · hidden · error · data. The per-section query hooks below collapse
 // a 403 into a typed HIDDEN sentinel, mirroring shared/lib/experience#useMyExperience.
 //
-// The OWN profile stays deliberately COMPACT for mobile: it ends in a small set of
-// nav buttons to the dedicated Settings and Referrals pages, instead of inlining
-// those flows here.
+// The OWN profile stays deliberately COMPACT for mobile: the header card itself
+// carries the two nav links (Settings / Referrals) so they're impossible to miss,
+// instead of inlining those flows or burying them at the bottom.
 
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
-  ChevronRight,
   EyeOff,
   Gamepad2,
   Gift,
@@ -33,6 +32,7 @@ import { api, ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
 import { useMyExperience } from '@/shared/lib/experience';
 import { gameMeta } from '@/shared/lib/games';
+import { useLevels } from '@/shared/lib/levelFeatures';
 import { formatTime } from '@/shared/lib/time';
 import { RANKS_ASC } from '@/shared/types';
 import type {
@@ -102,15 +102,6 @@ function useUserHistory(userId: number) {
         throw err;
       }
     },
-  });
-}
-
-/** Level thresholds — forever-cached; used only to derive the XP-bar floor. */
-function useLevels() {
-  return useQuery<Level[]>({
-    queryKey: ['experience', 'levels'],
-    queryFn: () => api.get<Level[]>('/experience/levels'),
-    staleTime: Infinity,
   });
 }
 
@@ -384,13 +375,12 @@ function HistoryRow({ entry }: { entry: GameHistoryEntry }) {
         </p>
         <p className="text-xs text-muted">{formatTime(entry.timestamp, 'relative')}</p>
       </div>
-      {/* Fixed, right-aligned column so bet→result lines up across every row. */}
-      <div className="flex w-32 shrink-0 items-center justify-end gap-1.5 text-right text-sm font-medium tabular-nums sm:w-40">
-        <Amount value={entry.bet} className="text-muted" />
-        <span aria-hidden className="text-muted">
-          →
-        </span>
-        <Amount value={entry.result} className="font-semibold" />
+      {/* Each amount gets its OWN fixed-width right-aligned cell, so bets line up
+          under bets and results under results across every row. */}
+      <div className="flex shrink-0 items-center gap-1.5 text-sm font-medium tabular-nums">
+        <Amount value={entry.bet} className="inline-block w-14 text-right text-muted sm:w-20" />
+        <span aria-hidden className="text-muted">→</span>
+        <Amount value={entry.result} className="inline-block w-14 text-right font-semibold sm:w-20" />
       </div>
     </li>
   );
@@ -427,32 +417,31 @@ function HistoryCard({ userId }: { userId: number }) {
 }
 
 /* ── own-profile navigation (settings / referrals) ─────────────────────── */
-/* A Link styled like a ghost Button — anchors can't be nested in <button>, so we
-   reuse the button look here rather than wrapping the shared Button. */
-function NavButton({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
+/* Lives INSIDE the header card so it's the first thing on the own profile. A Link
+   styled like a ghost Button — anchors can't be nested in <button>, so we reuse the
+   button look here rather than wrapping the shared Button. */
+function NavLink({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
   return (
     <Link
       to={to}
       className={clsx(
-        'flex h-12 w-full items-center justify-between rounded-xl px-4 text-sm font-medium',
-        'bg-transparent text-fg border border-edge transition-colors hover:bg-panel-2',
+        'flex h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium',
+        'bg-panel-2 text-fg border border-edge transition-colors hover:bg-panel-2/60 hover:border-ton/40',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-ton',
       )}
     >
-      <span className="inline-flex items-center gap-2.5">
-        <span className="text-muted">{icon}</span>
-        {label}
-      </span>
-      <ChevronRight size={18} className="text-muted" />
+      <span className="text-muted">{icon}</span>
+      {label}
     </Link>
   );
 }
 
+/** The two own-profile nav links, side by side — rendered within the header card. */
 function OwnNav() {
   return (
-    <div className="flex flex-col gap-3">
-      <NavButton to="/profile/settings" icon={<Settings size={18} strokeWidth={2} />} label="Настройки" />
-      <NavButton to="/profile/referrals" icon={<Gift size={18} strokeWidth={2} />} label="Рефералы" />
+    <div className="mt-5 flex items-center gap-3 border-t border-edge pt-4">
+      <NavLink to="/profile/settings" icon={<Settings size={17} strokeWidth={2} />} label="Настройки" />
+      <NavLink to="/profile/referrals" icon={<Gift size={17} strokeWidth={2} />} label="Рефералы" />
     </div>
   );
 }
@@ -504,6 +493,7 @@ function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
     <div className="flex flex-col gap-5 sm:gap-6">
       <Card className="p-5 sm:p-6">
         <ProfileHeader user={user} level={level} />
+        {isOwn ? <OwnNav /> : null}
       </Card>
 
       <XpCard
@@ -516,8 +506,6 @@ function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
 
       <StatsCard userId={user.id} />
       <HistoryCard userId={user.id} />
-
-      {isOwn ? <OwnNav /> : null}
     </div>
   );
 }

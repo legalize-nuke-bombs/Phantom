@@ -172,12 +172,12 @@ function GameRow({
           {meta.emoji} {meta.name} · {formatTime(entry.timestamp, 'relative')}
         </p>
       </div>
-      {/* Fixed, right-aligned column so the bet→result amounts never shift
-          horizontally between rows of differing magnitudes. */}
-      <div className="flex w-28 shrink-0 items-center justify-end gap-1.5 text-right text-sm font-medium tabular-nums sm:w-36">
-        <Amount value={entry.bet} className="text-muted" />
+      {/* Each amount gets its own fixed-width right-aligned cell so the bet and
+          result columns line up across rows of differing magnitudes. */}
+      <div className="flex shrink-0 items-center gap-1.5 text-sm font-medium tabular-nums">
+        <Amount value={entry.bet} className="inline-block w-14 text-right text-muted sm:w-20" />
         <span aria-hidden className="text-muted">→</span>
-        <Amount value={entry.result} className="font-semibold" />
+        <Amount value={entry.result} className="inline-block w-14 text-right font-semibold sm:w-20" />
       </div>
     </li>
   );

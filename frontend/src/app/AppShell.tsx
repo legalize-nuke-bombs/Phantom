@@ -1,16 +1,20 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Home as HomeIcon,
   User as UserIcon,
   Wallet as WalletIcon,
   Gamepad2,
+  Globe,
   MessagesSquare,
+  Trophy,
   Bell,
+  LogOut,
   type LucideIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useWallet } from '@/shared/lib/wallet';
 import { formatUsd } from '@/shared/lib/money';
+import { useAuth } from '@/shared/auth/AuthContext';
 
 interface NavItem {
   to: string;
@@ -26,15 +30,18 @@ const NAV: NavItem[] = [
   { to: '/profile', label: 'Профиль', icon: UserIcon },
   { to: '/wallet', label: 'Кошелёк', icon: WalletIcon, showBalance: true },
   { to: '/games', label: 'Игры', icon: Gamepad2 },
-  { to: '/chat', label: 'Общение', icon: MessagesSquare },
+  { to: '/chat/global', label: 'Глобальный чат', icon: Globe },
+  { to: '/chat/groups', label: 'Групповые чаты', icon: MessagesSquare },
+  { to: '/progress', label: 'Прогресс', icon: Trophy },
   { to: '/notifications', label: 'Уведомления', icon: Bell },
 ];
 
 /** Bottom tab bar (mobile) — a curated subset of the primary destinations. */
 const TABS: NavItem[] = [
   NAV[0], // Главная
-  NAV[2], // Кошелёк (balance)
-  NAV[5], // Уведомления
+  NAV[3], // Игры
+  NAV[4], // Глобальный чат
+  NAV[6], // Прогресс
   NAV[1], // Профиль
 ];
 
@@ -85,6 +92,14 @@ function SidebarLink({
 }
 
 function Sidebar({ balance }: { balance: string | undefined }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  async function handleLogout() {
+    await logout();
+    navigate('/login');
+  }
+
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-edge bg-panel/40 md:flex">
       <div className="flex h-14 items-center px-5">
@@ -95,6 +110,16 @@ function Sidebar({ balance }: { balance: string | undefined }) {
           <SidebarLink key={item.to} item={item} balance={balance} />
         ))}
       </nav>
+      <div className="p-3">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-lose transition-colors hover:bg-panel-2"
+        >
+          <LogOut size={20} />
+          <span>Выйти из аккаунта</span>
+        </button>
+      </div>
     </aside>
   );
 }

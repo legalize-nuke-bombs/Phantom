@@ -16,9 +16,17 @@ const NotificationsPage = lazy(
   () => import('@/features/notifications/NotificationsPage'),
 );
 const GamesPage = lazy(() => import('@/features/games/GamesPage'));
-const CommunicationPage = lazy(
-  () => import('@/features/communication/CommunicationPage'),
+const GlobalChatPage = lazy(
+  () => import('@/features/communication/GlobalChatPage'),
 );
+const GroupChatsPage = lazy(
+  () => import('@/features/communication/GroupChatsPage'),
+);
+const ProgressPage = lazy(() => import('@/features/progress/ProgressPage'));
+const LeaderboardPage = lazy(
+  () => import('@/features/progress/LeaderboardPage'),
+);
+const LevelsPage = lazy(() => import('@/features/progress/LevelsPage'));
 const SettingsPage = lazy(() => import('@/features/profile/SettingsPage'));
 const ReferralPage = lazy(() => import('@/features/referral/ReferralPage'));
 
@@ -132,12 +140,46 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: 'chat',
+        path: 'chat/global',
         element: (
           <PageSuspense>
-            <CommunicationPage />
+            <GlobalChatPage />
           </PageSuspense>
         ),
+      },
+      {
+        path: 'chat/groups',
+        element: (
+          <PageSuspense>
+            <GroupChatsPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'progress',
+        element: (
+          <PageSuspense>
+            <ProgressPage />
+          </PageSuspense>
+        ),
+        children: [
+          {
+            index: true,
+            element: (
+              <PageSuspense>
+                <LeaderboardPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: 'levels',
+            element: (
+              <PageSuspense>
+                <LevelsPage />
+              </PageSuspense>
+            ),
+          },
+        ],
       },
       {
         path: 'u/:userId',
