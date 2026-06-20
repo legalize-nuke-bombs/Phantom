@@ -13,15 +13,21 @@
 // character counter and loading / success / error states.
 
 import { useState } from 'react';
-import { Check, Megaphone, Send, ShieldAlert } from 'lucide-react';
+import { Ban, Check, Megaphone, Send, ShieldAlert, ShieldCheck } from 'lucide-react';
 import clsx from 'clsx';
 
 import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { useMyCapabilities } from '@/shared/lib/roles';
+import { formatTime } from '@/shared/lib/time';
+import { banExpiry, useBanUser, useUnbanUser, useUserBan } from '@/shared/chat/ban';
+import type { User } from '@/shared/types';
 import Button from '@/shared/ui/Button';
 import Card from '@/shared/ui/Card';
+import Input from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
+import UserChip from '@/shared/ui/UserChip';
+import UserLookup from '@/shared/ui/UserLookup';
 import { BROADCAST_MAX, useBroadcast } from './useModeration';
 
 /** Shown to anyone without chat-moderator access. */
@@ -123,8 +129,149 @@ function BroadcastComposer() {
   );
 }
 
+/* ── Чёрный список (chat ban) ─────────────────────────────────────────────
+   A ban blocks the same set of actions as the chat feature (sending, creating
+   chats, adding members) — reading stays allowed. Look up a player, see their
+   current ban, then ban (reason + duration) or lift it. Self / fellow-moderator
+   bans bounce server-side (CANT_BAN_SELF / CANT_BAN_MODERATOR). */
+const BAN_UNITS = [
+  { label: 'минут', seconds: 60 },
+  { label: 'часов', seconds: 3600 },
+  { label: 'дней', seconds: 86400 },
+] as const;
+
+function BanTool({ myId }: { myId: number }) {
+  const [lookup, setLookup] = useState('');
+  const [target, setTarget] = useState<User | null>(null);
+  const [reason, setReason] = useState('');
+  const [count, setCount] = useState('1');
+  const [unitIdx, setUnitIdx] = useState(2); // дни by default
+
+  const ban = useUserBan(target?.id);
+  const banUser = useBanUser();
+  const unbanUser = useUnbanUser();
+
+  // Backend wants seconds (Positive). Floor at 60s so a fat-fingered 0 never bans for nothing.
+  const durationSeconds = Math.max(60, Math.round(Number(count) || 0) * BAN_UNITS[unitIdx].seconds);
+  const current = ban.data; // Ban | null
+
+  function submitBan() {
+    if (!target || !reason.trim()) return;
+    banUser.mutate(
+      { targetId: target.id, reason: reason.trim(), duration: durationSeconds },
+      { onSuccess: () => setReason('') },
+    );
+  }
+
+  return (
+    <Card className="p-5 sm:p-6">
+      <div className="mb-1 flex items-center gap-2 text-fg">
+        <span className="text-lose">
+          <Ban size={16} strokeWidth={2} />
+        </span>
+        <h2 className="text-sm font-semibold">Чёрный список</h2>
+      </div>
+      <p className="mb-4 text-xs leading-relaxed text-muted">
+        Блокировка запрещает писать в чат, создавать чаты и добавлять участников. Читать
+        чаты блокировка не мешает.
+      </p>
+
+      <div className="flex flex-col gap-4">
+        <UserLookup
+          value={lookup}
+          onChange={setLookup}
+          onResolve={setTarget}
+          excludeId={myId}
+          excludeMessage="Нельзя заблокировать себя"
+          placeholder="ID или @username"
+        />
+
+        {target == null ? null : ban.isLoading ? (
+          <div className="flex justify-center py-2">
+            <Spinner size={20} />
+          </div>
+        ) : current ? (
+          // Already banned → show the ban + an unban action.
+          <div className="flex flex-col gap-3 rounded-xl border border-lose/40 bg-lose/5 p-3">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-lose">
+              <Ban size={14} strokeWidth={2} />
+              Заблокирован до {formatTime(banExpiry(current), 'date')}
+            </p>
+            <p className="text-xs text-muted">
+              Причина: <span className="text-fg">{current.reason}</span>
+            </p>
+            {current.moderator ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted">
+                <span>Модератор:</span>
+                <UserChip user={current.moderator} size={20} />
+              </div>
+            ) : null}
+            <Button
+              variant="ghost"
+              onClick={() => unbanUser.mutate(target.id)}
+              loading={unbanUser.isPending}
+              className="self-start"
+            >
+              <ShieldCheck size={16} strokeWidth={2} />
+              Разблокировать
+            </Button>
+            {unbanUser.isError ? (
+              <p className="text-xs text-lose">{errorMessage(unbanUser.error, 'Не удалось разблокировать')}</p>
+            ) : null}
+          </div>
+        ) : (
+          // Not banned → the ban form.
+          <div className="flex flex-col gap-3">
+            <Input
+              label="Причина"
+              placeholder="За что блокировка"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+            <div className="flex items-end gap-2">
+              <div className="w-24">
+                <Input
+                  label="Срок"
+                  type="number"
+                  min={1}
+                  value={count}
+                  onChange={(e) => setCount(e.target.value)}
+                />
+              </div>
+              <select
+                value={unitIdx}
+                onChange={(e) => setUnitIdx(Number(e.target.value))}
+                className="h-11 flex-1 rounded-xl border border-edge bg-panel-2 px-3 text-sm text-fg focus:border-ton focus:outline-none"
+              >
+                {BAN_UNITS.map((u, i) => (
+                  <option key={u.label} value={i}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              onClick={submitBan}
+              loading={banUser.isPending}
+              disabled={!reason.trim()}
+              className="self-start border-lose/40 text-lose hover:bg-lose/10"
+              variant="ghost"
+            >
+              <Ban size={16} strokeWidth={2} />
+              Заблокировать
+            </Button>
+            {banUser.isError ? (
+              <p className="text-xs text-lose">{errorMessage(banUser.error, 'Не удалось заблокировать')}</p>
+            ) : null}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export default function ModerationPage() {
-  const { loading } = useAuth();
+  const { user, loading } = useAuth();
   const { isChatModerator } = useMyCapabilities();
 
   // Wait for auth to settle before deciding — otherwise a logged-in moderator would
@@ -154,6 +301,7 @@ export default function ModerationPage() {
       </div>
 
       <BroadcastComposer />
+      <BanTool myId={user?.id ?? 0} />
     </div>
   );
 }

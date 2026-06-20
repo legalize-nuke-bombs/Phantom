@@ -3,20 +3,20 @@
 // Everything keys off chatId, so the same component serves the global chat now and 1:1 /
 // group chats later.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent, KeyboardEvent } from 'react';
-import { MessagesSquare, Send } from 'lucide-react';
+import { useEffect, useMemo, useRef } from 'react';
+import { MessagesSquare } from 'lucide-react';
 import clsx from 'clsx';
 
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
-import { GLOBAL_CHAT_ID, MAX_MESSAGE_LENGTH, useChatMessages, useSendMessage } from '@/shared/chat/useChat';
+import { GLOBAL_CHAT_ID, useChatMessages, useSendMessage } from '@/shared/chat/useChat';
 import { markBucketRead, useUnreadCount } from '@/shared/realtime/badges';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
-import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
+import { useFeatureGate } from '@/shared/lib/levelFeatures';
 import { formatTime, fromEpoch } from '@/shared/lib/time';
 import Button from '@/shared/ui/Button';
 import Spinner from '@/shared/ui/Spinner';
+import Composer from './Composer';
 import MessageBubble from './MessageBubble';
 
 // Local "Сегодня / Вчера / <date>" labeller — formatTime has no relative-day style, so
@@ -49,9 +49,9 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
   // Sending is feature-gated by the backend in every chat, but we only SHOW the lock in the
   // GLOBAL chat (the public square — you earn the rank to talk there). In a group chat you
   // were added to, the composer stays open; the gating users care about is creating chats /
-  // adding members, handled on those actions.
+  // adding members, handled on those actions. The Composer also lock-gates on a chat ban
+  // (which blocks sending in every chat); we pass this feature-lock flag and it combines.
   const composerLocked = useFeatureGate('SEND_MESSAGE').locked && chatId === GLOBAL_CHAT_ID;
-  const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Oldest → newest for display (the API and cache hold newest-first).
@@ -98,22 +98,6 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
   useEffect(() => {
     if (unreadHere > 0) void markBucketRead(chatBucket);
   }, [unreadHere, chatBucket]);
-
-  function submit() {
-    const content = draft.trim();
-    if (!content || send.isPending || composerLocked) return;
-    send.mutate(content, { onSuccess: () => setDraft('') });
-  }
-  function onFormSubmit(e: FormEvent) {
-    e.preventDefault();
-    submit();
-  }
-  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      submit();
-    }
-  }
 
   if (query.isLoading) {
     return (
@@ -178,46 +162,10 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
         )}
       </div>
 
-      {composerLocked ? (
-        // Locked: replace the whole composer with the lock banner (mirrors how gifts
-        // gate SEND_PRESENT). The backend would reject a send anyway.
-        <div className="border-t border-edge p-4">
-          <div className="flex flex-col items-start gap-2">
-            <p className="text-sm text-muted">
-              Отправка сообщений откроется по мере роста вашего ранга.
-            </p>
-            <FeatureLock feature="SEND_MESSAGE" />
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={onFormSubmit} className="border-t border-edge p-3">
-          {send.isError ? (
-            <p className="mb-2 text-xs text-lose">
-              {errorMessage(send.error, 'Не удалось отправить сообщение')}
-            </p>
-          ) : null}
-          <div className="flex items-end gap-2">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={onKeyDown}
-              maxLength={MAX_MESSAGE_LENGTH}
-              rows={1}
-              placeholder="Сообщение…"
-              disabled={send.isPending}
-              className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-xl border border-edge bg-panel-2 px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-ton focus:outline-none disabled:opacity-50"
-            />
-            <Button
-              type="submit"
-              loading={send.isPending}
-              disabled={draft.trim() === ''}
-              className="h-11 shrink-0 px-4"
-            >
-              <Send size={16} strokeWidth={2} />
-            </Button>
-          </div>
-        </form>
-      )}
+      {/* Composer owns the input, attachments (upload / disk picker), and the ban +
+          feature-lock banners. We pass the global-only feature lock; it combines that with
+          the chat-ban gate internally. */}
+      <Composer send={send} locked={composerLocked} />
     </div>
   );
 }

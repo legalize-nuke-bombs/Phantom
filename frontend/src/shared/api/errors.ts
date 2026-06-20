@@ -32,6 +32,12 @@ export const ERROR_MESSAGES: Record<string, string> = {
   // chat / members
   CHAT_NOT_FOUND: 'Чат не найден',
   MESSAGE_NOT_FOUND: 'Сообщение не найдено',
+
+  // chat ban (banlist)
+  NOT_BANNED: 'Пользователь не заблокирован',
+  ALREADY_BANNED: 'Пользователь уже заблокирован',
+  CANT_BAN_SELF: 'Нельзя заблокировать самого себя',
+  CANT_BAN_MODERATOR: 'Нельзя заблокировать модератора',
   TOO_MANY_MEMBERS: 'В чате слишком много участников',
   ALREADY_ADDED: 'Этот игрок уже в чате',
   CANT_SELF_ADD: 'Нельзя добавить самого себя',

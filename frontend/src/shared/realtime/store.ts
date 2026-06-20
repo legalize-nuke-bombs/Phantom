@@ -160,6 +160,20 @@ export function bucketIds(bucket: Bucket): number[] {
   return out;
 }
 
+/**
+ * Ids of chat-bucket notifications whose chat id is NOT in `validChatIds` — orphans left by a
+ * chat that was deleted or that I left. They can never be cleared by opening the chat (it's
+ * gone), so they'd badge forever; the resync marks them read directly. Global ('1') is valid.
+ */
+export function orphanChatNotificationIds(validChatIds: ReadonlySet<string>): number[] {
+  const out: number[] = [];
+  for (const r of rows.values()) {
+    if (!r.bucket.startsWith('chat:')) continue;
+    if (!validChatIds.has(r.bucket.slice('chat:'.length))) out.push(r.id);
+  }
+  return out;
+}
+
 /** Rows in one bucket, oldest→newest (the misc inbox snapshot; the gift payload lookup). */
 export function bucketRows(bucket: Bucket): StoredNotification[] {
   return [...rows.values()].filter((r) => r.bucket === bucket).sort((a, b) => a.id - b.id);

@@ -233,8 +233,13 @@ export interface UploadController {
   error: ApiError | null;
   /** Name of the file currently uploading (for the progress label). */
   fileName: string | null;
-  /** Begin uploading a file. No-op while another upload is in flight. */
-  start: (file: File) => void;
+  /**
+   * Begin uploading a file. No-op while another upload is in flight. The optional
+   * `onDone` fires with the created DiskFile when the upload succeeds — lets a caller
+   * (e.g. the chat composer) pick the result up as a pending attachment (its id is the
+   * message attachmentId) without watching state via an effect.
+   */
+  start: (file: File, onDone?: (created: DiskFile) => void) => void;
   /** Abort the in-flight upload (xhr.abort()). */
   cancel: () => void;
   /** Clear a finished success/error back to idle. */
@@ -257,7 +262,7 @@ export function useUpload(): UploadController {
   const abortRef = useRef<(() => void) | null>(null);
 
   const start = useCallback(
-    (file: File) => {
+    (file: File, onDone?: (created: DiskFile) => void) => {
       if (abortRef.current) return; // single-flight guard
       setPhase('uploading');
       setError(null);
@@ -269,11 +274,12 @@ export function useUpload(): UploadController {
       abortRef.current = abort;
 
       promise
-        .then(() => {
+        .then((created) => {
           abortRef.current = null;
           setPhase('success');
           qc.invalidateQueries({ queryKey: DISK_KEYS.files });
           qc.invalidateQueries({ queryKey: DISK_KEYS.usage });
+          onDone?.(created);
         })
         .catch((err: unknown) => {
           abortRef.current = null;

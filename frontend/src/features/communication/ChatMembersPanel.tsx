@@ -4,13 +4,14 @@
 // chat is gone for me, so the caller navigates back to the list (onClosed).
 
 import { useEffect, useState } from 'react';
-import { Crown, LogOut, Trash2, UserPlus, X } from 'lucide-react';
+import { Ban, Crown, LogOut, Trash2, UserPlus, X } from 'lucide-react';
 import clsx from 'clsx';
 
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
+import { useMyBan } from '@/shared/chat/ban';
 import type { User } from '@/shared/types';
 import Button from '@/shared/ui/Button';
 import UserChip from '@/shared/ui/UserChip';
@@ -104,11 +105,14 @@ function AddMemberField({ chatId, myId }: { chatId: string; myId: number }) {
   const [resolved, setResolved] = useState<User | null>(null);
   const addMember = useAddMember(chatId);
   // Adding a member needs the chat feature (backend refuses otherwise) — gate the
-  // action on SEND_MESSAGE, the same feature that gates messaging/creating chats.
+  // action on SEND_MESSAGE, the same feature that gates messaging/creating chats. A ban
+  // blocks it too, so fold both into one lock.
   const gate = useFeatureGate('SEND_MESSAGE');
+  const banned = useMyBan().data != null;
+  const addLocked = gate.locked || banned;
 
   function handleAdd() {
-    if (!resolved || gate.locked) return;
+    if (!resolved || addLocked) return;
     addMember.mutate(resolved.id, {
       onSuccess: () => {
         setValue('');
@@ -130,7 +134,7 @@ function AddMemberField({ chatId, myId }: { chatId: string; myId: number }) {
       <div className="flex items-center gap-2">
         <Button
           onClick={handleAdd}
-          disabled={!resolved || gate.locked}
+          disabled={!resolved || addLocked}
           loading={addMember.isPending}
           className="flex-1"
         >
@@ -138,7 +142,13 @@ function AddMemberField({ chatId, myId }: { chatId: string; myId: number }) {
           Добавить
         </Button>
         {/* Lock hint beside the disabled button; renders nothing once unlocked. */}
-        <FeatureLock feature="SEND_MESSAGE" />
+        {banned ? (
+          <span className="inline-flex items-center gap-1 text-xs text-lose">
+            <Ban size={12} /> Заблокированы
+          </span>
+        ) : (
+          <FeatureLock feature="SEND_MESSAGE" />
+        )}
       </div>
       {addMember.isError ? (
         <p className="text-xs text-lose">{errorMessage(addMember.error, 'Не удалось добавить участника')}</p>

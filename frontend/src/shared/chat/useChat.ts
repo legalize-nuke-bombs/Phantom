@@ -38,10 +38,24 @@ export function useChatMessages(chatId: string) {
   });
 }
 
+/**
+ * Arguments for sending a message. `content` may be '' when there's an attachment —
+ * the backend rejects only when BOTH content is blank AND no attachment is present.
+ * `attachmentId` is the UUID of an already-uploaded disk file (its file id == the
+ * attachmentId); the backend resolves it to the message's FileRef.
+ */
+export interface SendMessageArgs {
+  content: string;
+  attachmentId?: string;
+}
+
 export function useSendMessage(chatId: string) {
   const qc = useQueryClient();
-  return useMutation<ChatMessage, ApiError, string>({
-    mutationFn: (content) => api.post<ChatMessage>('/chat/messages', { chatId, content }),
+  return useMutation<ChatMessage, ApiError, SendMessageArgs>({
+    // attachmentId is only included when present, so a plain text send keeps the same
+    // body it always had ({ chatId, content }).
+    mutationFn: ({ content, attachmentId }) =>
+      api.post<ChatMessage>('/chat/messages', { chatId, content, attachmentId }),
     // Show it immediately; the WS echo of our own message dedups by id in the cache.
     onSuccess: (message) => mergeIncomingMessage(qc, message),
   });

@@ -25,7 +25,7 @@ import { useAuth } from '@/shared/auth/AuthContext';
 import { api } from '@/shared/api/client';
 import { sfx } from '@/shared/lib/sound';
 import { mergeIncomingMessage, removeMessageFromCache } from '@/shared/chat/chatCache';
-import { bucketFor, putNotifications, removeNotifications, allIds, ensureOwner, clearStore } from './store';
+import { bucketFor, putNotifications, removeNotifications, orphanChatNotificationIds, allIds, ensureOwner, clearStore } from './store';
 import type { ChatMessage, NotificationEnvelope } from './types';
 
 type RealtimeStatus = 'idle' | 'connecting' | 'connected';
@@ -236,8 +236,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       // subscribe the full set — no smart diff. Every reconnect/F5 re-subscribes anyway,
       // so diffing what changed buys nothing. Subscribing to exactly the current list IS
       // the eviction: a revoked topic simply isn't in it.
+      const topicIds = await fetchAllTopicIds();
       const dests = [userDestination(userId)];
-      for (const tid of await fetchAllTopicIds()) dests.push(topicDestination(tid));
+      for (const tid of topicIds) dests.push(topicDestination(tid));
       if (cancelled || !client.connected) return;
       for (const [, sub] of subs) {
         try {
@@ -273,6 +274,24 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       if (complete && !cancelled) {
         const live = new Set(items.map((n) => n.id));
         removeNotifications([...knownIds].filter((id) => !live.has(id)));
+      }
+
+      // Clear notifications stuck in the bucket of a chat we can no longer read (deleted or
+      // left) — opening that chat is the only other way they'd be marked read, and it's gone.
+      // Valid chats = the global chat + every personal-chat/<id> topic we may read.
+      const validChats = new Set<string>(['1']);
+      for (const tid of topicIds) {
+        const m = /^personal-chat\/(.+)$/.exec(tid);
+        if (m) validChats.add(m[1]);
+      }
+      const orphanIds = orphanChatNotificationIds(validChats);
+      if (orphanIds.length > 0 && !cancelled) {
+        try {
+          await api.post('/notifications/read', { ids: orphanIds });
+          removeNotifications(orphanIds);
+        } catch (e) {
+          console.warn('[realtime] failed to clear orphan chat notifications', e);
+        }
       }
     }
 

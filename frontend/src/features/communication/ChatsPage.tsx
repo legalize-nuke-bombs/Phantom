@@ -7,7 +7,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { MessagesSquare, Plus, Users } from 'lucide-react';
+import { Ban, MessagesSquare, Plus, Users } from 'lucide-react';
 import clsx from 'clsx';
 
 import { useAuth } from '@/shared/auth/AuthContext';
@@ -15,6 +15,7 @@ import { errorMessage } from '@/shared/api/errors';
 import { useUnreadCount } from '@/shared/realtime/badges';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
+import { useMyBan } from '@/shared/chat/ban';
 import Button from '@/shared/ui/Button';
 import Card from '@/shared/ui/Card';
 import RankBadge from '@/shared/ui/RankBadge';
@@ -117,11 +118,14 @@ export default function ChatsPage() {
   // Creating a chat needs the chat feature (backend refuses otherwise), so gate the
   // "Новый чат" action on SEND_MESSAGE — same feature that gates messaging.
   const createGate = useFeatureGate('SEND_MESSAGE');
+  // A ban blocks creating chats too (backend refuses), so fold it into the same lock.
+  const banned = useMyBan().data != null;
+  const createLocked = createGate.locked || banned;
 
   const chats = list.data?.pages.flat() ?? [];
 
   function handleCreate() {
-    if (createGate.locked) return;
+    if (createLocked) return;
     createChat.mutate(undefined, {
       onSuccess: (chat) => navigate(`/chat/groups/${chat.id}`),
     });
@@ -134,12 +138,18 @@ export default function ChatsPage() {
         <div className="ml-auto flex items-center gap-2">
           {/* The lock hint sits beside the disabled button while the chat feature is
               still locked; FeatureLock renders nothing once unlocked. */}
-          <FeatureLock feature="SEND_MESSAGE" />
+          {banned ? (
+            <span className="inline-flex items-center gap-1 text-xs text-lose">
+              <Ban size={12} /> Вы заблокированы
+            </span>
+          ) : (
+            <FeatureLock feature="SEND_MESSAGE" />
+          )}
           <Button
             size="sm"
             onClick={handleCreate}
             loading={createChat.isPending}
-            disabled={createGate.locked}
+            disabled={createLocked}
           >
             <Plus size={16} />
             Новый чат
@@ -179,13 +189,19 @@ export default function ChatsPage() {
               className="mt-2"
               onClick={handleCreate}
               loading={createChat.isPending}
-              disabled={createGate.locked}
+              disabled={createLocked}
             >
               <Plus size={16} />
               Новый чат
             </Button>
             {/* Same lock hint in the empty state — most likely place a locked user lands. */}
-            <FeatureLock feature="SEND_MESSAGE" className="mt-1" />
+            {banned ? (
+              <span className="mt-1 inline-flex items-center gap-1 text-xs text-lose">
+                <Ban size={12} /> Вы заблокированы
+              </span>
+            ) : (
+              <FeatureLock feature="SEND_MESSAGE" className="mt-1" />
+            )}
           </div>
         </div>
       ) : (

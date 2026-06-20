@@ -23,6 +23,7 @@ import type { ChatMessage } from '@/shared/realtime/types';
 import type { LevelName } from '@/shared/types';
 import RankBadge from '@/shared/ui/RankBadge';
 
+import AttachmentView from './AttachmentView';
 import { linkify } from './linkify';
 
 const AVATAR = 32; // RankBadge diameter; also the gutter reserved for grouped rows.
@@ -63,6 +64,10 @@ export default function MessageBubble({
     (myId != null && message.user.id === myId) ||
     (chatId === GLOBAL_CHAT_ID && myCaps.isChatModerator && !authorIsModerator);
 
+  // An attachment-only message carries content === '' (the backend allows it); skip the
+  // empty text line so such a bubble shows just the attachment + timestamp.
+  const hasText = message.content.trim() !== '';
+
   function onConfirmDelete() {
     del.mutate(message.id, { onSuccess: () => setConfirming(false) });
   }
@@ -102,9 +107,19 @@ export default function MessageBubble({
               own ? 'bg-ton-deep/15 text-fg' : 'bg-panel-2 text-fg',
             )}
           >
+            {/* Attachment (image thumbnail → lightbox, or a download chip). An
+                attachment-only message has empty content, so the text line is skipped
+                below and the bubble stays clean. */}
+            {message.attachment ? (
+              <div className={clsx(hasText && 'mb-1.5')}>
+                <AttachmentView file={message.attachment} />
+              </div>
+            ) : null}
             {/* linkify keeps content as escaped React children — URLs become <a>, the
                 rest stays plain text (never dangerouslySetInnerHTML). */}
-            <p className="whitespace-pre-wrap break-words text-sm">{linkify(message.content)}</p>
+            {hasText ? (
+              <p className="whitespace-pre-wrap break-words text-sm">{linkify(message.content)}</p>
+            ) : null}
             {/* Understated timestamp tucked under the text, aligned to the bubble's edge. */}
             <span className="mt-0.5 block text-[10px] leading-none text-muted">
               {formatTime(message.timestamp, 'time')}
