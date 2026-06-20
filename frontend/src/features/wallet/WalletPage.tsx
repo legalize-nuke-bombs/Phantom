@@ -29,6 +29,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
@@ -309,6 +310,7 @@ function DepositQr({ address }: { address: string }) {
 /* ── Section: Пополнение ─────────────────────────────────────────────────────*/
 function DepositSection() {
   const refreshBalance = useRefreshBalance();
+  const qc = useQueryClient();
   const { copied, copy } = useCopy();
 
   const walletQuery = useQuery<CryptoWallet>({
@@ -321,6 +323,7 @@ function DepositSection() {
     mutationFn: () => api.post<Deposit[]>(`/wallets/me/crypto/${COIN}/check-deposits`),
     onSuccess: async () => {
       await refreshBalance();
+      qc.invalidateQueries({ queryKey: ['crypto', 'deposits', COIN] });
     },
   });
 
@@ -390,6 +393,8 @@ function DepositSection() {
           </div>
         </>
       )}
+
+      <DepositHistory />
     </Card>
   );
 }
@@ -416,9 +421,68 @@ function DepositResult({ deposits }: { deposits: Deposit[] }) {
   );
 }
 
+/* Persistent deposit history (GET /{coin}/deposits), cursor-paginated by id. */
+function DepositHistory() {
+  const deposits = useInfiniteQuery({
+    queryKey: ['crypto', 'deposits', COIN],
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: '20' });
+      if (pageParam !== undefined) params.set('before', String(pageParam));
+      return api.get<Deposit[]>(`/wallets/me/crypto/${COIN}/deposits?${params}`);
+    },
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (last) => (last.length < 20 ? undefined : last[last.length - 1].id),
+  });
+
+  const items = deposits.data?.pages.flat() ?? [];
+
+  return (
+    <div className="mt-6 border-t border-edge pt-5">
+      <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">
+        История пополнений
+      </h3>
+      {deposits.isLoading ? (
+        <div className="flex justify-center py-2">
+          <Spinner size={20} />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-muted">Пополнений пока нет.</p>
+      ) : (
+        <ul className="divide-y divide-edge rounded-xl border border-edge bg-panel-2">
+          {items.map((d) => (
+            <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+              <div className="min-w-0">
+                <Amount value={d.amount} className="text-sm font-medium" />
+                <p className="truncate font-mono text-[11px] text-muted">{d.txHash}</p>
+              </div>
+              <span className="shrink-0 text-xs text-muted">
+                {formatTime(d.timestamp, 'short')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {deposits.hasNextPage ? (
+        <div className="mt-2 flex justify-center">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            loading={deposits.isFetchingNextPage}
+            onClick={() => deposits.fetchNextPage()}
+          >
+            Показать ещё
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /* ── Section: Вывод ───────────────────────────────────────────────────────── */
 function WithdrawSection() {
   const refreshBalance = useRefreshBalance();
+  const qc = useQueryClient();
   const wallet = useWallet();
 
   const [address, setAddress] = useState('');
@@ -432,6 +496,7 @@ function WithdrawSection() {
       }),
     onSuccess: async () => {
       await refreshBalance();
+      qc.invalidateQueries({ queryKey: ['crypto', 'withdrawals', COIN] });
       setAddress('');
       setAmount('');
     },
@@ -442,9 +507,10 @@ function WithdrawSection() {
   // with up-to-date statuses) which we summarise below.
   const checkPending = useMutation<Withdrawal[], ApiError>({
     mutationFn: () =>
-      api.post<Withdrawal[]>('/wallets/me/crypto/check-pending-withdrawals'),
+      api.post<Withdrawal[]>(`/wallets/me/crypto/${COIN}/check-pending-withdrawals`),
     onSuccess: async () => {
       await refreshBalance();
+      qc.invalidateQueries({ queryKey: ['crypto', 'withdrawals', COIN] });
     },
   });
 
@@ -536,7 +602,75 @@ function WithdrawSection() {
           </div>
         )}
       </div>
+
+      <WithdrawHistory />
     </Card>
+  );
+}
+
+/* Persistent withdrawal history (GET /{coin}/withdrawals), cursor-paginated by id. */
+function WithdrawHistory() {
+  const withdrawals = useInfiniteQuery({
+    queryKey: ['crypto', 'withdrawals', COIN],
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: '20' });
+      if (pageParam !== undefined) params.set('before', String(pageParam));
+      return api.get<Withdrawal[]>(`/wallets/me/crypto/${COIN}/withdrawals?${params}`);
+    },
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (last) => (last.length < 20 ? undefined : last[last.length - 1].id),
+  });
+
+  const items = withdrawals.data?.pages.flat() ?? [];
+
+  return (
+    <div className="mt-6 border-t border-edge pt-5">
+      <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">
+        История выводов
+      </h3>
+      {withdrawals.isLoading ? (
+        <div className="flex justify-center py-2">
+          <Spinner size={20} />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-muted">Выводов пока нет.</p>
+      ) : (
+        <ul className="divide-y divide-edge rounded-xl border border-edge bg-panel-2">
+          {items.map((w) => {
+            const status = WITHDRAW_STATUS[w.status];
+            return (
+              <li key={w.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Amount value={w.amount} className="text-sm font-medium" />
+                    <span className={`text-[11px] font-medium ${status?.tone ?? 'text-muted'}`}>
+                      {status?.label ?? w.status}
+                    </span>
+                  </div>
+                  <p className="truncate font-mono text-[11px] text-muted">{w.receiver}</p>
+                </div>
+                <span className="shrink-0 text-xs text-muted">
+                  {formatTime(w.timestamp, 'short')}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {withdrawals.hasNextPage ? (
+        <div className="mt-2 flex justify-center">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            loading={withdrawals.isFetchingNextPage}
+            onClick={() => withdrawals.fetchNextPage()}
+          >
+            Показать ещё
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
