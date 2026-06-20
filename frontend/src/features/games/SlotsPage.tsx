@@ -479,8 +479,6 @@ export default function SlotsPage() {
               </span>
               <Amount value={winShown} className="text-2xl font-bold" />
             </div>
-          ) : spinning ? (
-            <span className="text-sm text-muted">Крутим…</span>
           ) : null}
         </div>
 
@@ -503,7 +501,7 @@ export default function SlotsPage() {
             className="w-full"
           >
             {!busy && <RotateCw size={18} aria-hidden className="shrink-0" />}
-            {busy ? 'Крутим…' : playedOnce ? 'Крутить ещё' : 'Крутить'}
+            {!busy && (playedOnce ? 'Крутить ещё' : 'Крутить')}
           </Button>
         </div>
       </Card>

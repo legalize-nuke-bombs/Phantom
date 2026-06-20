@@ -35,10 +35,10 @@ export const LEVEL_FEATURES: readonly LevelFeature[] = [
 
 /** Human-readable RU label per feature — for "Откроется на ранге X" copy, lists, etc. */
 export const FEATURE_LABELS: Record<LevelFeature, string> = {
-  SEND_MESSAGE: 'Сообщения в чате',
+  SEND_MESSAGE: 'Отправка сообщений',
   SEND_PRESENT: 'Отправка подарков',
-  DISK_BASE: 'Загрузка файлов',
-  DISK_PLUS: 'Расширенный диск',
+  DISK_BASE: 'Облако',
+  DISK_PLUS: 'Облако Плюс',
 };
 
 const FEATURE_SET = new Set<string>(LEVEL_FEATURES);

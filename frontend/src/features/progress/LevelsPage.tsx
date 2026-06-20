@@ -90,11 +90,6 @@ function LevelRow({
                     ? 'border-win/30 bg-win/10 text-win'
                     : 'border-edge bg-panel-2 text-muted',
                 )}
-                title={
-                  reached
-                    ? `${FEATURE_LABELS[feature]} — открыто`
-                    : `Откроется на ранге ${level.name}`
-                }
               >
                 {reached ? (
                   <Sparkles size={12} strokeWidth={2.5} className="shrink-0" />
@@ -105,11 +100,7 @@ function LevelRow({
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="mt-2 text-xs text-muted">
-            {reached ? 'Ранг достигнут' : `Откроется на ранге ${level.name}`}
-          </p>
-        )}
+        ) : null}
       </div>
     </Card>
   );
