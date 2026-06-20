@@ -76,7 +76,8 @@ function Lightbox({ file, onClose }: { file: FileRef; onClose: () => void }) {
   );
 }
 
-export default function AttachmentView({ file }: { file: FileRef }) {
+/** `time` (a formatted send-time) is shown INSIDE the attachment, tucked into a corner. */
+export default function AttachmentView({ file, time }: { file: FileRef; time?: string }) {
   const [lightbox, setLightbox] = useState(false);
   const { status, url } = useImagePreview({ id: file.id, name: file.name, size: file.size });
 
@@ -89,7 +90,7 @@ export default function AttachmentView({ file }: { file: FileRef }) {
           type="button"
           onClick={() => setLightbox(true)}
           title={file.name}
-          className="block overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
+          className="relative block overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
         >
           <img
             src={url}
@@ -99,6 +100,11 @@ export default function AttachmentView({ file }: { file: FileRef }) {
             draggable={false}
             className="block max-h-[22rem] max-w-[18rem] rounded-2xl sm:max-w-[20rem]"
           />
+          {time ? (
+            <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white/90">
+              {time}
+            </span>
+          ) : null}
         </button>
         {lightbox ? <Lightbox file={file} onClose={() => setLightbox(false)} /> : null}
       </>
@@ -119,7 +125,8 @@ export default function AttachmentView({ file }: { file: FileRef }) {
       rel="noopener"
       title={`Скачать ${file.name}`}
       className={clsx(
-        'inline-flex max-w-[18rem] items-center gap-2.5 rounded-xl bg-panel-2 px-3 py-2.5',
+        'relative flex max-w-[18rem] items-center gap-2.5 rounded-xl bg-panel-2 px-3 py-2.5',
+        time && 'pb-4', // room for the time tucked into the bottom-right corner
         'transition-colors hover:bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-ton',
       )}
     >
@@ -130,7 +137,10 @@ export default function AttachmentView({ file }: { file: FileRef }) {
         <span className="block truncate text-sm font-medium text-fg">{file.name}</span>
         <span className="block text-xs tabular-nums text-muted">{formatBytes(file.size)}</span>
       </span>
-      <Download size={16} strokeWidth={2} className="shrink-0 text-muted" />
+      <Download size={16} strokeWidth={2} className="shrink-0 self-start text-muted" />
+      {time ? (
+        <span className="absolute bottom-1 right-2.5 text-[10px] leading-none text-muted">{time}</span>
+      ) : null}
     </a>
   );
 }

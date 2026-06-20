@@ -72,9 +72,12 @@ export default function ChatConversationPage() {
 
   const memberCount = chat.members.length;
 
+  // Mirrors the global chat page (h-full column, a light title row, then the ChatRoom core),
+  // just with the extras a group chat needs: a back arrow, the chat's avatar/title, and the
+  // monolithic members column.
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-edge">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         <Link
           to="/chat/groups"
           aria-label="Назад к чатам"
@@ -83,15 +86,17 @@ export default function ChatConversationPage() {
           <ArrowLeft size={18} />
         </Link>
         <HeaderAvatar chat={chat} myId={myId} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-fg">{chatTitle(chat, myId)}</p>
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-semibold tracking-tight text-fg sm:text-lg">
+            {chatTitle(chat, myId)}
+          </h1>
           <p className="truncate text-xs text-muted">{memberCount} участников</p>
         </div>
-      </header>
+      </div>
 
       {/* Conversation + the monolithic members column, always shown on the right (md+).
           On mobile the members panel stacks below the chat. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3 md:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 md:flex-row">
         <div className="min-h-0 flex-1">
           <ChatRoom chatId={chatId} />
         </div>

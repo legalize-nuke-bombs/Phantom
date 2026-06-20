@@ -121,14 +121,13 @@ export default function MessageBubble({
             ) : null}
 
             {message.attachment ? (
-              <div className={clsx('flex flex-col gap-0.5', own && 'items-end')}>
-                <AttachmentView file={message.attachment} />
-                {/* Attachment-only message → the timestamp rides under the attachment. */}
-                {!hasText ? (
-                  <span className="px-1 text-[10px] leading-none text-muted">
-                    {formatTime(message.timestamp, 'time')}
-                  </span>
-                ) : null}
+              <div className={clsx('flex flex-col', own && 'items-end')}>
+                {/* The send time lives INSIDE the attachment (a corner), so an attachment-only
+                    message needs no separate timestamp line. With text, the bubble shows it. */}
+                <AttachmentView
+                  file={message.attachment}
+                  time={!hasText ? formatTime(message.timestamp, 'time') : undefined}
+                />
               </div>
             ) : null}
           </div>

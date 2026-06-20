@@ -5,6 +5,7 @@
 //
 // Reuses the chat-entity layer in shared/chat/chats.ts; messaging itself lives in ChatRoom.
 
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ban, MessagesSquare, Plus, Users } from 'lucide-react';
@@ -12,12 +13,11 @@ import clsx from 'clsx';
 
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
-import { useUnreadCount } from '@/shared/realtime/badges';
+import { reconcileChatBadges, useUnreadCount } from '@/shared/realtime/badges';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
 import { useMyBan } from '@/shared/chat/ban';
 import Button from '@/shared/ui/Button';
-import Card from '@/shared/ui/Card';
 import RankBadge from '@/shared/ui/RankBadge';
 import Spinner from '@/shared/ui/Spinner';
 import {
@@ -97,13 +97,13 @@ function ChatList({ chats, myId }: { chats: Chat[]; myId: number }) {
   const exp = useExperienceBatch(otherIds);
 
   return (
-    <Card className="divide-y divide-edge p-1.5">
+    <div className="flex flex-col p-1.5">
       {chats.map((chat) => {
         const otherId = chatKind(chat, myId) === 'dm' ? otherMembers(chat, myId)[0]?.user.id : undefined;
         const level = otherId != null ? levelFor(exp.data, otherId) : null;
         return <ChatRow key={chat.id} chat={chat} myId={myId} level={level} />;
       })}
-    </Card>
+    </div>
   );
 }
 
@@ -122,7 +122,15 @@ export default function ChatsPage() {
   const banned = useMyBan().data != null;
   const createLocked = createGate.locked || banned;
 
-  const chats = list.data?.pages.flat() ?? [];
+  const chats = list.data ?? [];
+
+  // On open we load the COMPLETE chat list; once it's in, reconcile chat badges — any unread
+  // for a chat no longer in the list (deleted / kicked / left) is stranded and can never be
+  // opened to clear, so mark it read. Runs on each fresh load (keyed on the data identity).
+  useEffect(() => {
+    if (!list.data) return;
+    void reconcileChatBadges(new Set<string>(['1', ...list.data.map((c) => c.id)]));
+  }, [list.data]);
 
   function handleCreate() {
     if (createLocked) return;
@@ -132,8 +140,8 @@ export default function ChatsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-      <header className="flex items-center gap-3">
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-3">
+      <header className="flex shrink-0 items-center gap-3">
         <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">Чаты</h1>
         <div className="ml-auto flex items-center gap-2">
           {/* The lock hint sits beside the disabled button while the chat feature is
@@ -145,12 +153,7 @@ export default function ChatsPage() {
           ) : (
             <FeatureLock feature="SEND_MESSAGE" />
           )}
-          <Button
-            size="sm"
-            onClick={handleCreate}
-            loading={createChat.isPending}
-            disabled={createLocked}
-          >
+          <Button size="sm" onClick={handleCreate} loading={createChat.isPending} disabled={createLocked}>
             <Plus size={16} />
             Новый чат
           </Button>
@@ -158,51 +161,44 @@ export default function ChatsPage() {
       </header>
 
       {createChat.isError ? (
-        <p className="text-sm text-lose">{errorMessage(createChat.error, 'Не удалось создать чат')}</p>
+        <p className="shrink-0 text-sm text-lose">
+          {errorMessage(createChat.error, 'Не удалось создать чат')}
+        </p>
       ) : null}
 
-      {list.isLoading ? (
-        <div className="grid min-h-[40vh] place-items-center">
-          <Spinner size={28} />
-        </div>
-      ) : list.isError ? (
-        <Card className="grid place-items-center p-10 text-center">
-          <div className="max-w-sm">
-            <p className="text-sm text-lose">{errorMessage(list.error, 'Не удалось загрузить чаты')}</p>
-            <Button
-              variant="ghost"
-              className="mt-4"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['chats', 'list'] })}
-            >
-              Повторить
-            </Button>
-          </div>
-        </Card>
-      ) : chats.length === 0 ? (
-        <div className="grid min-h-[50vh] place-items-center rounded-xl border border-dashed border-edge bg-panel/40">
-          <div className="flex flex-col items-center gap-2 px-6 text-center">
-            <MessagesSquare size={28} className="text-muted" />
-            <p className="text-sm font-medium text-fg">Пока нет чатов</p>
-            <p className="text-xs text-muted">Создайте чат кнопкой «Новый чат» вверху справа</p>
-          </div>
-        </div>
-      ) : (
-        <>
-          <ChatList chats={chats} myId={myId} />
-          {list.hasNextPage ? (
-            <div className="flex justify-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => list.fetchNextPage()}
-                loading={list.isFetchingNextPage}
-              >
-                Показать ещё
-              </Button>
+      {/* One full-height block; the list scrolls INSIDE it, the page itself never scrolls. */}
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-edge bg-panel">
+        <div className="h-full overflow-y-auto">
+          {list.isLoading ? (
+            <div className="grid h-full place-items-center">
+              <Spinner size={28} />
             </div>
-          ) : null}
-        </>
-      )}
+          ) : list.isError ? (
+            <div className="grid h-full place-items-center p-10 text-center">
+              <div className="max-w-sm">
+                <p className="text-sm text-lose">{errorMessage(list.error, 'Не удалось загрузить чаты')}</p>
+                <Button
+                  variant="ghost"
+                  className="mt-4"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['chats', 'list'] })}
+                >
+                  Повторить
+                </Button>
+              </div>
+            </div>
+          ) : chats.length === 0 ? (
+            <div className="grid h-full place-items-center p-6 text-center">
+              <div className="flex flex-col items-center gap-2">
+                <MessagesSquare size={28} className="text-muted" />
+                <p className="text-sm font-medium text-fg">Пока нет чатов</p>
+                <p className="text-xs text-muted">Создайте чат кнопкой «Новый чат» вверху справа</p>
+              </div>
+            </div>
+          ) : (
+            <ChatList chats={chats} myId={myId} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -18,14 +18,10 @@
 // members[0] is the ELDEST = the de-facto owner: only members[0] can add / kick / delete;
 // everyone can leave.
 
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/shared/api/client';
+import { markBucketRead } from '@/shared/realtime/badges';
 import type { ShortUser, User } from '@/shared/types';
 
 /* ── types (mirror the backend representations) ─────────────────────────────── */
@@ -79,24 +75,33 @@ function fetchChat(chatId: string): Promise<Chat> {
 /* ── reads ──────────────────────────────────────────────────────────────────── */
 
 /**
- * My chats, newest activity first (topic.timestamp DESC, then id DESC). Paged with
- * the (beforeTimestamp, beforeId) cursor = the last row of the page just loaded; a
- * short page means we reached the end.
+ * ALL my chats, newest activity first — paged to the end (a short page = done) and returned
+ * whole. Chats are few enough not to need a "load more"; loading the COMPLETE set also lets
+ * the hub reconcile stale unread badges (a chat I was removed from / that was deleted can no
+ * longer be opened to clear its notifications, so the hub marks them read on open).
+ */
+async function fetchAllMyChats(): Promise<Chat[]> {
+  const out: Chat[] = [];
+  let cursor: ChatsCursor | undefined;
+  for (;;) {
+    const page = await fetchMyChats(cursor);
+    out.push(...page);
+    if (page.length < PAGE_SIZE) break; // reached the end
+    const last = page[page.length - 1];
+    cursor = { beforeTimestamp: last.timestamp, beforeId: last.id };
+  }
+  return out;
+}
+
+/**
+ * My chats, loaded whole and refetched fresh every mount. The list is membership/activity
+ * state that drifts the moment anyone adds/kicks/leaves/messages — caching it was the source
+ * of stale-row bugs — so staleTime/gcTime are 0 and it always refetches on mount.
  */
 export function useMyChats() {
-  return useInfiniteQuery({
+  return useQuery<Chat[]>({
     queryKey: chatsListKey,
-    queryFn: ({ pageParam }) => fetchMyChats(pageParam),
-    initialPageParam: undefined as ChatsCursor | undefined,
-    getNextPageParam: (lastPage): ChatsCursor | undefined => {
-      if (lastPage.length < PAGE_SIZE) return undefined; // reached the end
-      const last = lastPage[lastPage.length - 1];
-      return { beforeTimestamp: last.timestamp, beforeId: last.id };
-    },
-    // The list is membership/activity state that drifts the moment anyone adds, kicks,
-    // leaves or messages — caching it was the source of stale-row bugs. Always refetch
-    // fresh on mount and never serve a cached copy (staleTime/gcTime 0) so the hub
-    // mirrors the server every time it's opened.
+    queryFn: fetchAllMyChats,
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: 'always',
@@ -171,6 +176,9 @@ export function useLeaveChat(chatId: string) {
     mutationFn: () => api.post<void>(`/chat/chats/${chatId}/leave`),
     onSuccess: () => {
       qc.removeQueries({ queryKey: chatDetailKey(chatId) });
+      // Clear any unread badge for a chat I'm leaving NOW — once I'm out I can never open
+      // it to mark its notifications read, so it would otherwise badge forever.
+      void markBucketRead(`chat:${chatId}`);
       void invalidateList(qc);
     },
   });
@@ -183,6 +191,9 @@ export function useDeleteChat(chatId: string) {
     mutationFn: () => api.del<void>(`/chat/chats/${chatId}`),
     onSuccess: () => {
       qc.removeQueries({ queryKey: chatDetailKey(chatId) });
+      // The chat is gone — clear its unread badge now, since it can never be opened to
+      // mark those notifications read.
+      void markBucketRead(`chat:${chatId}`);
       void invalidateList(qc);
     },
   });
