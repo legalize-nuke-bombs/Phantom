@@ -26,7 +26,7 @@
 //
 // Balances/amounts are internal USD; the deposit coin is Gram/GRAM (coin enum TON).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   useMutation,
@@ -58,6 +58,7 @@ import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
 import { formatUsd } from '@/shared/lib/money';
 import { formatTime } from '@/shared/lib/time';
 import { useRefreshBalance, useWallet } from '@/shared/lib/wallet';
+import { markTypeRead } from '@/shared/realtime/badges';
 import type { LevelName, ShortUser, User } from '@/shared/types';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
@@ -917,6 +918,12 @@ function PresentRow({
 /* ── Page ──────────────────────────────────────────────────────────────────*/
 export default function WalletPage() {
   const [tab, setTab] = useState<TabId>('balance');
+
+  // Opening the Подарки tab = "seeing" the gifts: clear their unread notifications
+  // (server + local ledger) so the sidebar wallet badge falls to 0.
+  useEffect(() => {
+    if (tab === 'presents') void markTypeRead('PRESENT_RECEIVED');
+  }, [tab]);
 
   const section = useMemo(() => {
     switch (tab) {

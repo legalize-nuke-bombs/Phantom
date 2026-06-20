@@ -1,0 +1,74 @@
+// Realtime contract — mirrors the backend notification/chat *Representation classes
+// (com.example.phantom.notification.*, com.example.phantom.chat.message.*). Verified
+// from source, not ENDPOINTS.md. Everything the server pushes over STOMP AND every
+// item the REST notification feed returns is a NotificationEnvelope: a typed wrapper
+// whose `payload` shape depends on `type`.
+
+import type { ShortUser } from '@/shared/types';
+
+/** NotificationType enum (com.example.phantom.notification.NotificationType). */
+export type NotificationType =
+  | 'PRESENT_RECEIVED'
+  | 'BANNED'
+  | 'UNBANNED'
+  | 'YOUR_MESSAGE_DELETED'
+  | 'MESSAGE_RECEIVED'
+  | 'MESSAGE_DELETED'
+  | 'NEW_CHAT'
+  | 'ROLE_CLAIMED'
+  | 'WELCOME'
+  | 'LEVEL_UP'
+  | 'BROADCAST'
+  | 'LOTTERY_IS_ENDING'
+  | 'LOTTERY_ENDED'
+  | 'YOU_WON_LOTTERY'
+  | 'MASTER_WALLET_SET'
+  | 'SWEEP_SCHEDULE_SET'
+  | 'NEW_SWEEP'
+  | 'NEW_WITHDRAWAL'
+  | 'WITHDRAWAL_FAILED';
+
+/**
+ * NotificationRepresentation — the envelope for every pushed/persisted notification.
+ * Same shape over WS and over GET /api/notifications. `payload` is type-dependent
+ * (e.g. a ChatMessage for MESSAGE_RECEIVED, a PresentPayload for PRESENT_RECEIVED).
+ */
+export interface NotificationEnvelope<P = unknown> {
+  id: number;
+  timestamp: number; // epoch seconds
+  type: NotificationType;
+  payload: P;
+}
+
+/** FileRepresentation — a message attachment (no attachment support in v1). */
+export interface FileRef {
+  id: string; // UUID
+  timestamp: number;
+  user: ShortUser;
+  name: string;
+  size: number;
+}
+
+/**
+ * MessageRepresentation — payload of MESSAGE_RECEIVED / MESSAGE_DELETED, and the item
+ * shape of GET /api/chat/messages. NOTE: chatId is a STRING server-side (the global
+ * chat's numeric id 1 arrives as "1").
+ */
+export interface ChatMessage {
+  id: number;
+  chatId: string;
+  user: ShortUser;
+  timestamp: number; // epoch seconds
+  content: string;
+  attachment: FileRef | null;
+}
+
+/** PresentRepresentation — payload of PRESENT_RECEIVED. */
+export interface PresentPayload {
+  id: number;
+  claimed: boolean;
+  timestamp: number;
+  amount: string; // decimal
+  description: string | null;
+  sender: ShortUser | null;
+}

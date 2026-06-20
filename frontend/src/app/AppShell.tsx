@@ -18,6 +18,8 @@ import clsx from 'clsx';
 import { useWallet } from '@/shared/lib/wallet';
 import { formatUsd } from '@/shared/lib/money';
 import { useAuth } from '@/shared/auth/AuthContext';
+import { useUnreadCount } from '@/shared/realtime/badges';
+import type { NotificationType } from '@/shared/realtime/types';
 
 interface NavItem {
   to: string;
@@ -25,12 +27,14 @@ interface NavItem {
   icon: LucideIcon;
   /** Render the live wallet balance inline next to the label. */
   showBalance?: boolean;
+  /** Show a live unread-count badge (from the realtime ledger) for this type. */
+  badge?: NotificationType;
 }
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Главная', icon: HomeIcon },
   { to: '/profile', label: 'Профиль', icon: UserIcon },
-  { to: '/wallet', label: 'Кошелёк', icon: WalletIcon, showBalance: true },
+  { to: '/wallet', label: 'Кошелёк', icon: WalletIcon, showBalance: true, badge: 'PRESENT_RECEIVED' },
   { to: '/games', label: 'Игры', icon: Gamepad2 },
   { to: '/chat/global', label: 'Глобальный чат', icon: Globe },
   { to: '/chat/groups', label: 'Групповые чаты', icon: MessagesSquare },
@@ -47,6 +51,16 @@ function Wordmark() {
   );
 }
 
+/** A small unread-count pill; renders nothing at zero. */
+function NavBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-ton-deep px-1.5 text-[11px] font-bold leading-none text-white">
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
+
 function SidebarLink({
   item,
   balance,
@@ -57,6 +71,7 @@ function SidebarLink({
   onNavigate: () => void;
 }) {
   const Icon = item.icon;
+  const badgeCount = useUnreadCount(item.badge ?? null);
   return (
     <NavLink
       to={item.to}
@@ -71,6 +86,7 @@ function SidebarLink({
     >
       <Icon size={20} />
       <span>{item.label}</span>
+      <NavBadge count={badgeCount} />
       {item.showBalance ? (
         <span className="ml-auto text-sm font-medium text-ton">{formatUsd(balance)}</span>
       ) : null}

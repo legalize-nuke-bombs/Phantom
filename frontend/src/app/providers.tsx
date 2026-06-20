@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/shared/auth/AuthContext';
+import { RealtimeProvider } from '@/shared/realtime/RealtimeProvider';
 
 export default function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -19,7 +20,9 @@ export default function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <RealtimeProvider>{children}</RealtimeProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
