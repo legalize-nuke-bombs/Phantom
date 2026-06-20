@@ -27,7 +27,7 @@ public class NotificationService {
     private final ReadNotificationRepository readNotificationRepository;
     private final RateLimitService rateLimitService;
 
-    private static final int MAX_NOTIFICATIONS = 50000;
+    private static final int MAX_NOTIFICATIONS = 100000;
 
     public NotificationService(UserRepository userRepository, TopicService topicService, NotificationRepository notificationRepository, ReadNotificationRepository readNotificationRepository, RateLimitService rateLimitService) {
         this.userRepository = userRepository;
@@ -79,21 +79,20 @@ public class NotificationService {
         return null;
     }
 
-    @Scheduled(fixedDelay = 10L * 60 * 1000)
+    @Scheduled(fixedDelay = 5L * 60 * 1000)
     @Transactional
     public void cleaningOld() {
-        log.info("cleaning old notifications, max notifications set as {}...", MAX_NOTIFICATIONS);
-
         long count = notificationRepository.count();
         log.info("found {} notifications", count);
 
         if (count >= MAX_NOTIFICATIONS) {
-            List<Notification> oldest = notificationRepository.findOldest(PageRequest.of(0, MAX_NOTIFICATIONS / 2));
+            List<Notification> oldest = notificationRepository.findOldest(PageRequest.of(0, (int)(count / 2)));
             log.info("{} notifications will be deleted", oldest.size());
             notificationRepository.deleteAll(oldest);
-            log.info("deletion done");
+            log.info("cleaning done");
         }
-
-        log.info("cleaning old notifications done");
+        else {
+            log.info("cleaning skipped: max number of notifications set as {}", MAX_NOTIFICATIONS);
+        }
     }
 }
