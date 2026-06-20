@@ -7,6 +7,9 @@ import {
   Gamepad2,
   Globe,
   MessagesSquare,
+  HardDrive,
+  Megaphone,
+  ShieldCheck,
   Trophy,
   Bell,
   LogOut,
@@ -18,7 +21,8 @@ import clsx from 'clsx';
 import { useWallet } from '@/shared/lib/wallet';
 import { formatUsd } from '@/shared/lib/money';
 import { useAuth } from '@/shared/auth/AuthContext';
-import { useUnreadCount } from '@/shared/realtime/badges';
+import { useUnreadCount, usePersonalChatsUnread } from '@/shared/realtime/badges';
+import { useMyCapabilities } from '@/shared/lib/roles';
 import type { Bucket } from '@/shared/realtime/store';
 
 interface NavItem {
@@ -29,6 +33,12 @@ interface NavItem {
   showBalance?: boolean;
   /** Show a live unread-count badge (from the realtime store) for this bucket. */
   badge?: Bucket;
+  /** Aggregate unread across all personal chats (every chat:* bucket except global). */
+  aggregateChats?: boolean;
+  /** Only show this item to owners (capability-gated, never role-name-gated). */
+  ownerOnly?: boolean;
+  /** Only show this item to chat moderators (owners carry the flag too). */
+  modOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
@@ -37,9 +47,12 @@ const NAV: NavItem[] = [
   { to: '/wallet', label: 'Кошелёк', icon: WalletIcon, showBalance: true, badge: 'gift' },
   { to: '/games', label: 'Игры', icon: Gamepad2 },
   { to: '/chat/global', label: 'Глобальный чат', icon: Globe, badge: 'chat:1' },
-  { to: '/chat/groups', label: 'Групповые чаты', icon: MessagesSquare },
+  { to: '/chat/groups', label: 'Чаты', icon: MessagesSquare, aggregateChats: true },
+  { to: '/disk', label: 'Облако', icon: HardDrive },
   { to: '/progress', label: 'Прогресс', icon: Trophy },
   { to: '/notifications', label: 'Уведомления', icon: Bell, badge: 'misc' },
+  { to: '/moderation', label: 'Модерация', icon: Megaphone, modOnly: true },
+  { to: '/owner', label: 'Владелец', icon: ShieldCheck, ownerOnly: true, badge: 'owner' },
 ];
 
 function Wordmark() {
@@ -71,7 +84,9 @@ function SidebarLink({
   onNavigate: () => void;
 }) {
   const Icon = item.icon;
-  const badgeCount = useUnreadCount(item.badge ?? null);
+  const bucketCount = useUnreadCount(item.badge ?? null);
+  const personalChatsCount = usePersonalChatsUnread();
+  const badgeCount = item.aggregateChats ? personalChatsCount : bucketCount;
   return (
     <NavLink
       to={item.to}
@@ -110,6 +125,7 @@ function Sidebar({
 }) {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { isOwner, isChatModerator } = useMyCapabilities();
 
   async function handleLogout() {
     onClose();
@@ -137,7 +153,9 @@ function Sidebar({
         </button>
       </div>
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-        {NAV.map((item) => (
+        {NAV.filter(
+          (item) => (!item.ownerOnly || isOwner) && (!item.modOnly || isChatModerator),
+        ).map((item) => (
           <SidebarLink key={item.to} item={item} balance={balance} onNavigate={onClose} />
         ))}
         <button

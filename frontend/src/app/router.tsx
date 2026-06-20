@@ -25,8 +25,9 @@ const LotteryPage = lazy(() => import('@/features/lottery/LotteryPage'));
 const GlobalChatPage = lazy(
   () => import('@/features/communication/GlobalChatPage'),
 );
-const GroupChatsPage = lazy(
-  () => import('@/features/communication/GroupChatsPage'),
+const ChatsPage = lazy(() => import('@/features/communication/ChatsPage'));
+const ChatConversationPage = lazy(
+  () => import('@/features/communication/ChatConversationPage'),
 );
 const ProgressPage = lazy(() => import('@/features/progress/ProgressPage'));
 const LeaderboardPage = lazy(
@@ -35,6 +36,9 @@ const LeaderboardPage = lazy(
 const LevelsPage = lazy(() => import('@/features/progress/LevelsPage'));
 const SettingsPage = lazy(() => import('@/features/profile/SettingsPage'));
 const ReferralPage = lazy(() => import('@/features/referral/ReferralPage'));
+const OwnerPage = lazy(() => import('@/features/owner/OwnerPage'));
+const DiskPage = lazy(() => import('@/features/disk/DiskPage'));
+const ModerationPage = lazy(() => import('@/features/moderation/ModerationPage'));
 
 function PageSuspense({ children }: { children: ReactNode }) {
   return (
@@ -205,7 +209,15 @@ export const router = createBrowserRouter([
         path: 'chat/groups',
         element: (
           <PageSuspense>
-            <GroupChatsPage />
+            <ChatsPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'chat/groups/:chatId',
+        element: (
+          <PageSuspense>
+            <ChatConversationPage />
           </PageSuspense>
         ),
       },
@@ -248,6 +260,30 @@ export const router = createBrowserRouter([
         element: (
           <PageSuspense>
             <NotificationsPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'disk',
+        element: (
+          <PageSuspense>
+            <DiskPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'moderation',
+        element: (
+          <PageSuspense>
+            <ModerationPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'owner',
+        element: (
+          <PageSuspense>
+            <OwnerPage />
           </PageSuspense>
         ),
       },

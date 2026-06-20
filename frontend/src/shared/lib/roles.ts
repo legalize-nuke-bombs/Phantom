@@ -31,6 +31,13 @@ export interface Capabilities {
   isOwner: boolean;
 }
 
+/** RU labels per role enum name — for notifications, profiles, owner UI. Unknown → raw name. */
+export const ROLE_LABELS: Record<string, string> = {
+  USER: 'Игрок',
+  CHAT_MODERATOR: 'Модератор чата',
+  OWNER: 'Владелец',
+};
+
 const NO_CAPABILITIES: Capabilities = { isChatModerator: false, isOwner: false };
 
 const STORAGE_KEY = 'phantom.roles';

@@ -25,7 +25,7 @@ import { useAuth } from '@/shared/auth/AuthContext';
 import { api } from '@/shared/api/client';
 import { sfx } from '@/shared/lib/sound';
 import { mergeIncomingMessage, removeMessageFromCache } from '@/shared/chat/chatCache';
-import { putNotifications, removeNotifications, allIds, ensureOwner, clearStore } from './store';
+import { bucketFor, putNotifications, removeNotifications, allIds, ensureOwner, clearStore } from './store';
 import type { ChatMessage, NotificationEnvelope } from './types';
 
 type RealtimeStatus = 'idle' | 'connecting' | 'connected';
@@ -184,13 +184,25 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         putNotifications([env]); // someone else's → badge the chat:<id> bucket
         return;
       }
-      // gift + misc both chime.
-      putNotifications([env]); // routes into the gift / misc bucket
-      sfx.notify();
+      // NEW_CHAT: a topology change handled like a chat signal — badge the new chat's
+      // bucket SILENTLY (mirrors MESSAGE_RECEIVED, so the "Чаты" aggregate ticks),
+      // re-subscribe to its topic, and refresh the (uncached) chats list. No chime, never
+      // the misc inbox.
+      if (env.type === 'NEW_CHAT') {
+        putNotifications([env]); // bucketFor → chat:<newChatId>
+        void runResync();
+        void queryClient.invalidateQueries({ queryKey: ['chats'] });
+        return;
+      }
+
+      // Everything else is stored; it chimes UNLESS it routes to the quiet owner stream
+      // (owner ops live under "Владелец" and are read on entry there, never chiming).
+      putNotifications([env]); // routes into the gift / owner / misc bucket
+      if (bucketFor(env) !== 'owner') sfx.notify();
       if (env.type === 'PRESENT_RECEIVED') {
         void queryClient.invalidateQueries({ queryKey: ['presents'] });
-      } else if (env.type === 'NEW_CHAT' || env.type === 'ROLE_CLAIMED') {
-        void runResync(); // topology changed → re-subscribe + re-drain
+      } else if (env.type === 'ROLE_CLAIMED') {
+        void runResync(); // our capabilities changed → re-subscribe + re-evaluate access
       }
     }
 
@@ -243,9 +255,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Drain the authoritative unread set → buckets (putNotifications routes gift/chat/misc).
+      // Drain the authoritative unread set → buckets (putNotifications routes gift/chat/owner/misc).
       const { items, complete } = await drainUnread();
       putNotifications(items);
+
+      // A role change usually arrives while we were briefly disconnected (the access change
+      // kicks the socket), so it lands in this drain rather than live dispatch. Chime ONCE
+      // if a newly-seen ROLE_CLAIMED showed up, so the user still hears their role change.
+      if (items.some((n) => n.type === 'ROLE_CLAIMED' && !knownIds.has(n.id))) {
+        sfx.notify();
+      }
 
       // Reconcile the store DOWN to the server truth. The drain is the full unread set, so
       // a row we knew before this resync that it no longer reports — read on another device,

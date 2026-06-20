@@ -20,6 +20,7 @@ import type {
   GameHistoryEntry,
 } from '@/shared/types';
 import LotteryStatusCard from '@/features/lottery/LotteryStatusCard';
+import PlatformCloudCard from '@/features/disk/PlatformCloudCard';
 import Amount from '@/shared/ui/Amount';
 import Card from '@/shared/ui/Card';
 import CoinGlyph from '@/shared/ui/CoinGlyph';
@@ -267,6 +268,7 @@ export default function HomePage() {
       <PlatformStats />
       <GamesGrid />
       <LotteryStatusCard />
+      <PlatformCloudCard />
       <RecentGames />
     </div>
   );

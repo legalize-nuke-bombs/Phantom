@@ -10,23 +10,23 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/shared/api/client';
 import type { ChatMessage } from '@/shared/realtime/types';
-import { chatMessagesKey, mergeIncomingMessage } from './chatCache';
+import { chatMessagesKey, mergeIncomingMessage, removeMessageFromCache } from './chatCache';
 
 /** The global chat is a fixed backend entity (GlobalChatConstants.ID). */
-export const GLOBAL_CHAT_ID = 1;
+export const GLOBAL_CHAT_ID = '1';
 
 /** Max message length the backend accepts (MessageConstants.MAX_MESSAGE_CONTENT_LENGTH). */
 export const MAX_MESSAGE_LENGTH = 1000;
 
 const PAGE_SIZE = 30;
 
-function fetchMessages(chatId: number, before: number | undefined): Promise<ChatMessage[]> {
+function fetchMessages(chatId: string, before: number | undefined): Promise<ChatMessage[]> {
   const params = new URLSearchParams({ chatId: String(chatId), limit: String(PAGE_SIZE) });
   if (before !== undefined) params.set('before', String(before));
   return api.get<ChatMessage[]>(`/chat/messages?${params}`);
 }
 
-export function useChatMessages(chatId: number) {
+export function useChatMessages(chatId: string) {
   return useInfiniteQuery({
     queryKey: chatMessagesKey(chatId),
     queryFn: ({ pageParam }) => fetchMessages(chatId, pageParam),
@@ -38,11 +38,26 @@ export function useChatMessages(chatId: number) {
   });
 }
 
-export function useSendMessage(chatId: number) {
+export function useSendMessage(chatId: string) {
   const qc = useQueryClient();
   return useMutation<ChatMessage, ApiError, string>({
     mutationFn: (content) => api.post<ChatMessage>('/chat/messages', { chatId, content }),
     // Show it immediately; the WS echo of our own message dedups by id in the cache.
     onSuccess: (message) => mergeIncomingMessage(qc, message),
+  });
+}
+
+/**
+ * Delete a message (DELETE /api/chat/messages/{id} → 204). The realtime layer already
+ * drops the message from every client's cache on the MESSAGE_DELETED frame; we still
+ * remove it locally on success so the author sees it vanish instantly without waiting
+ * for the round-trip (removeMessageFromCache is id-keyed, so the later WS frame is a
+ * harmless no-op). Caller passes the chatId so we can target the right cache.
+ */
+export function useDeleteMessage(chatId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, ApiError, number>({
+    mutationFn: (id) => api.del<void>(`/chat/messages/${id}`),
+    onSuccess: (_void, id) => removeMessageFromCache(qc, { id, chatId }),
   });
 }

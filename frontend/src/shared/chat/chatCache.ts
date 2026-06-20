@@ -11,14 +11,14 @@ import type { ChatMessage } from '@/shared/realtime/types';
 
 export type ChatPages = InfiniteData<ChatMessage[], number | undefined>;
 
-/** Query key for one chat's message history. chatId is the numeric id (global = 1). */
-export function chatMessagesKey(chatId: number) {
+/** Query key for one chat's message history. chatId is the string id (global = "1"). */
+export function chatMessagesKey(chatId: string) {
   return ['chat', chatId, 'messages'] as const;
 }
 
 /** Merge a freshly-arrived (or just-sent) message into its chat's cache, deduped by id. */
 export function mergeIncomingMessage(qc: QueryClient, message: ChatMessage): void {
-  qc.setQueryData<ChatPages>(chatMessagesKey(Number(message.chatId)), (old) => {
+  qc.setQueryData<ChatPages>(chatMessagesKey(message.chatId), (old) => {
     if (!old) return old; // chat not open / not loaded — it'll fetch fresh on open
     if (old.pages.some((page) => page.some((m) => m.id === message.id))) return old;
     const pages = old.pages.slice();
@@ -32,7 +32,7 @@ export function removeMessageFromCache(
   qc: QueryClient,
   ref: { id: number; chatId: string },
 ): void {
-  qc.setQueryData<ChatPages>(chatMessagesKey(Number(ref.chatId)), (old) => {
+  qc.setQueryData<ChatPages>(chatMessagesKey(ref.chatId), (old) => {
     if (!old) return old;
     return { ...old, pages: old.pages.map((page) => page.filter((m) => m.id !== ref.id)) };
   });

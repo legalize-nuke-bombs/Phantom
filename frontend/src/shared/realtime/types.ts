@@ -4,7 +4,7 @@
 // item the REST notification feed returns is a NotificationEnvelope: a typed wrapper
 // whose `payload` shape depends on `type`.
 
-import type { ShortUser } from '@/shared/types';
+import type { Role, ShortUser } from '@/shared/types';
 
 /** NotificationType enum (com.example.phantom.notification.NotificationType). */
 export type NotificationType =
@@ -71,4 +71,16 @@ export interface PresentPayload {
   amount: string; // decimal
   description: string | null;
   sender: ShortUser | null;
+}
+
+/** RoleClaimedPayload — payload of ROLE_CLAIMED. `user` = who changed it; `role` = the new role. */
+export interface RoleClaimedPayload {
+  user: ShortUser;
+  role: Role;
+}
+
+/** BroadcastPayload — payload of BROADCAST. `user` = the moderator/owner who sent it. */
+export interface BroadcastPayload {
+  user: ShortUser;
+  content: string;
 }

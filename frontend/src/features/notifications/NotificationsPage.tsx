@@ -35,6 +35,7 @@ import { formatTime } from '@/shared/lib/time';
 import { formatUsd } from '@/shared/lib/money';
 import { markBucketRead } from '@/shared/realtime/badges';
 import { bucketRows } from '@/shared/realtime/store';
+import { ROLE_LABELS } from '@/shared/lib/roles';
 import Card from '@/shared/ui/Card';
 import Spinner from '@/shared/ui/Spinner';
 
@@ -150,14 +151,24 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
     tone: 'text-ice',
     describe: (p) => {
       const content = str(p, 'content');
-      return content ? snippet(content) : undefined;
+      if (!content) return undefined;
+      const who = actor(p); // BroadcastRepresentation carries the sender
+      return who ? `${who}: ${snippet(content)}` : snippet(content);
     },
   },
   ROLE_CLAIMED: {
     icon: Crown,
     label: 'Новая роль',
     tone: 'text-ton',
-    describe: () => 'Вам выдана новая роль',
+    describe: (p) => {
+      // RoleClaimedRepresentation: { user (who changed it), role (the new role) }.
+      const who = actor(p);
+      const role = str(p, 'role');
+      const roleLabel = role ? ROLE_LABELS[role] ?? role : undefined;
+      if (who && roleLabel) return `${who} назначил вам роль «${roleLabel}»`;
+      if (roleLabel) return `Вам выдана роль «${roleLabel}»`;
+      return 'Вам выдана новая роль';
+    },
   },
   NEW_CHAT: {
     icon: UserPlus,

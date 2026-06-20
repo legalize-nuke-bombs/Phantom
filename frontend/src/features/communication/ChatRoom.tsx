@@ -5,7 +5,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { MessagesSquare, Send } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -14,52 +13,42 @@ import { errorMessage } from '@/shared/api/errors';
 import { MAX_MESSAGE_LENGTH, useChatMessages, useSendMessage } from '@/shared/chat/useChat';
 import { markBucketRead, useUnreadCount } from '@/shared/realtime/badges';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
-import { formatTime } from '@/shared/lib/time';
-import type { ChatMessage } from '@/shared/realtime/types';
-import type { LevelName } from '@/shared/types';
+import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
+import { formatTime, fromEpoch } from '@/shared/lib/time';
 import Button from '@/shared/ui/Button';
-import RankBadge from '@/shared/ui/RankBadge';
 import Spinner from '@/shared/ui/Spinner';
+import MessageBubble from './MessageBubble';
 
-function MessageRow({
-  message,
-  own,
-  level,
-}: {
-  message: ChatMessage;
-  own: boolean;
-  level: LevelName | null;
-}) {
+// Local "Сегодня / Вчера / <date>" labeller — formatTime has no relative-day style, so
+// we day-bucket here. Comparing local midnights (not raw epoch diffs) keeps the boundary
+// on the user's calendar day regardless of how many hours apart two messages are.
+function dayLabel(seconds: number, now: Date): string {
+  const date = fromEpoch(seconds);
+  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOf(now) - startOf(date)) / 86_400_000);
+  if (days === 0) return 'Сегодня';
+  if (days === 1) return 'Вчера';
+  return formatTime(seconds, 'date');
+}
+
+// Two timestamps fall on the same calendar day? (drives the day-divider breaks)
+function sameDay(a: number, b: number): boolean {
+  const x = fromEpoch(a);
+  const y = fromEpoch(b);
   return (
-    <li className="flex gap-2.5">
-      <Link to={`/u/${message.user.id}`} className="mt-0.5 shrink-0">
-        <RankBadge level={level} size={32} />
-      </Link>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <Link
-            to={`/u/${message.user.id}`}
-            className={clsx(
-              'truncate text-sm font-medium hover:underline',
-              own ? 'text-ton' : 'text-fg',
-            )}
-          >
-            {message.user.displayName}
-          </Link>
-          <span className="shrink-0 text-[11px] text-muted">
-            {formatTime(message.timestamp, 'time')}
-          </span>
-        </div>
-        <p className="whitespace-pre-wrap break-words text-sm text-fg">{message.content}</p>
-      </div>
-    </li>
+    x.getFullYear() === y.getFullYear() &&
+    x.getMonth() === y.getMonth() &&
+    x.getDate() === y.getDate()
   );
 }
 
-export default function ChatRoom({ chatId }: { chatId: number }) {
+export default function ChatRoom({ chatId }: { chatId: string }) {
   const { user } = useAuth();
   const query = useChatMessages(chatId);
   const send = useSendMessage(chatId);
+  // The backend refuses to send in ANY chat without SEND_MESSAGE, so gate the composer
+  // itself (covers global + group). When locked we swap the input for the lock banner.
+  const composer = useFeatureGate('SEND_MESSAGE');
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -72,6 +61,25 @@ export default function ChatRoom({ chatId }: { chatId: number }) {
   // Rank-ghost avatars: batch the senders' levels (privacy-hidden users fall back to ◇).
   const senderIds = useMemo(() => [...new Set(messages.map((m) => m.user.id))], [messages]);
   const { data: levels } = useExperienceBatch(senderIds);
+
+  // Precompute display grouping once per message change (keeps the map() below pure and
+  // calls `new Date()` once, not per row): a divider when the calendar day changes, and
+  // a run-start when the sender changes from the previous message.
+  const rows = useMemo(() => {
+    const now = new Date();
+    return messages.map((m, i) => {
+      const prev = i > 0 ? messages[i - 1] : null;
+      const divider =
+        !prev || !sameDay(prev.timestamp, m.timestamp) ? dayLabel(m.timestamp, now) : null;
+      return {
+        message: m,
+        divider,
+        // First of a sender-run: a fresh sender, or the first row after a day divider
+        // (a divider visually splits the column, so the next message re-shows its header).
+        runStart: !prev || prev.user.id !== m.user.id || divider !== null,
+      };
+    });
+  }, [messages]);
 
   // Stick to the bottom when the newest message changes (first load + new arrivals).
   // Loading older history leaves the newest id unchanged, so the view isn't yanked down.
@@ -91,7 +99,7 @@ export default function ChatRoom({ chatId }: { chatId: number }) {
 
   function submit() {
     const content = draft.trim();
-    if (!content || send.isPending) return;
+    if (!content || send.isPending || composer.locked) return;
     send.mutate(content, { onSuccess: () => setDraft('') });
   }
   function onFormSubmit(e: FormEvent) {
@@ -142,46 +150,72 @@ export default function ChatRoom({ chatId }: { chatId: number }) {
             <p className="text-sm text-muted">Сообщений пока нет — будьте первым</p>
           </div>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {messages.map((m) => (
-              <MessageRow
-                key={m.id}
-                message={m}
-                own={m.user.id === user?.id}
-                level={levelFor(levels, m.user.id)}
-              />
+          // Spacing lives on each row (not a uniform list gap) so a run reads as one
+          // tight cluster: small gap inside a run, a roomier gap when the sender changes.
+          <ul className="flex flex-col">
+            {rows.map(({ message: m, divider, runStart }, i) => (
+              <li key={m.id} className={clsx(i > 0 && (runStart ? 'mt-3' : 'mt-0.5'))}>
+                {divider ? (
+                  <div className="flex justify-center py-2">
+                    <span className="rounded-full bg-panel-2 px-2.5 py-0.5 text-[11px] text-muted">
+                      {divider}
+                    </span>
+                  </div>
+                ) : null}
+                <MessageBubble
+                  message={m}
+                  chatId={chatId}
+                  myId={user?.id}
+                  own={m.user.id === user?.id}
+                  level={levelFor(levels, m.user.id)}
+                  showHeader={runStart}
+                />
+              </li>
             ))}
           </ul>
         )}
       </div>
 
-      <form onSubmit={onFormSubmit} className="border-t border-edge p-3">
-        {send.isError ? (
-          <p className="mb-2 text-xs text-lose">
-            {errorMessage(send.error, 'Не удалось отправить сообщение')}
-          </p>
-        ) : null}
-        <div className="flex items-end gap-2">
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            maxLength={MAX_MESSAGE_LENGTH}
-            rows={1}
-            placeholder="Сообщение…"
-            disabled={send.isPending}
-            className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-xl border border-edge bg-panel-2 px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-ton focus:outline-none disabled:opacity-50"
-          />
-          <Button
-            type="submit"
-            loading={send.isPending}
-            disabled={draft.trim() === ''}
-            className="h-11 shrink-0 px-4"
-          >
-            <Send size={16} strokeWidth={2} />
-          </Button>
+      {composer.locked ? (
+        // Locked: replace the whole composer with the lock banner (mirrors how gifts
+        // gate SEND_PRESENT). The backend would reject a send anyway.
+        <div className="border-t border-edge p-4">
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-sm text-muted">
+              Отправка сообщений откроется по мере роста вашего ранга.
+            </p>
+            <FeatureLock feature="SEND_MESSAGE" />
+          </div>
         </div>
-      </form>
+      ) : (
+        <form onSubmit={onFormSubmit} className="border-t border-edge p-3">
+          {send.isError ? (
+            <p className="mb-2 text-xs text-lose">
+              {errorMessage(send.error, 'Не удалось отправить сообщение')}
+            </p>
+          ) : null}
+          <div className="flex items-end gap-2">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={onKeyDown}
+              maxLength={MAX_MESSAGE_LENGTH}
+              rows={1}
+              placeholder="Сообщение…"
+              disabled={send.isPending}
+              className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-xl border border-edge bg-panel-2 px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-ton focus:outline-none disabled:opacity-50"
+            />
+            <Button
+              type="submit"
+              loading={send.isPending}
+              disabled={draft.trim() === ''}
+              className="h-11 shrink-0 px-4"
+            >
+              <Send size={16} strokeWidth={2} />
+            </Button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

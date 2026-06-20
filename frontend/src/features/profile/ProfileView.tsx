@@ -13,16 +13,17 @@
 // carries the two nav links (Settings / Referrals) so they're impossible to miss,
 // instead of inlining those flows or burying them at the bottom.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
   EyeOff,
   Gamepad2,
   Gift,
   History,
+  MessageCircle,
   Search,
   Settings,
   ShieldCheck,
@@ -32,8 +33,10 @@ import clsx from 'clsx';
 
 import { api, ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
+import { useAuth } from '@/shared/auth/AuthContext';
+import { useStartDirectChat } from '@/shared/chat/chats';
 import { useMyExperience } from '@/shared/lib/experience';
-import { useLevels } from '@/shared/lib/levelFeatures';
+import { FeatureLock, useFeatureGate, useLevels } from '@/shared/lib/levelFeatures';
 import { formatTime } from '@/shared/lib/time';
 import { RANKS_ASC } from '@/shared/types';
 import type {
@@ -93,17 +96,33 @@ function useUserStats(userId: number) {
   });
 }
 
-/** One user's recent games; resolves to HIDDEN on 403, never throws for privacy. */
+const HISTORY_PAGE_SIZE = 20;
+
+/**
+ * One user's games, cursor-paginated (GET /api/games/history/{id}?limit&before).
+ * The backend orders by game id DESC and filters `id < before`, so the cursor for
+ * the next page is the LAST (smallest) id we hold; a short page means the end.
+ * A 403 (INFO_HIDDEN) on the first page resolves to the HIDDEN sentinel — never an
+ * error — so privacy stays a first-class state; later pages can't 403 once access
+ * is granted, but typing each page as Gated keeps getNextPageParam sound.
+ */
 function useUserHistory(userId: number) {
-  return useQuery<Gated<GameHistoryEntry[]>>({
+  return useInfiniteQuery({
     queryKey: ['games', 'history', 'user', userId],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }): Promise<Gated<GameHistoryEntry[]>> => {
+      const qs = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
+      if (pageParam != null) qs.set('before', String(pageParam));
       try {
-        return await api.get<GameHistoryEntry[]>(`/games/history/${userId}`);
+        return await api.get<GameHistoryEntry[]>(`/games/history/${userId}?${qs.toString()}`);
       } catch (err) {
         if (err instanceof ApiError && err.status === 403) return HIDDEN;
         throw err;
       }
+    },
+    initialPageParam: null as number | null,
+    getNextPageParam: (lastPage): number | null | undefined => {
+      if (isHidden(lastPage) || lastPage.length < HISTORY_PAGE_SIZE) return undefined;
+      return lastPage[lastPage.length - 1].id;
     },
   });
 }
@@ -372,27 +391,50 @@ function StatsCard({ userId }: { userId: number }) {
    we omit `withUser` and the game name leads each row. */
 function HistoryCard({ userId }: { userId: number }) {
   const query = useUserHistory(userId);
+
+  // Collapse the pages back to a single Gated value: a hidden first page keeps the
+  // section hidden; otherwise flatten the array pages into one list for GatedBody.
+  const history = useMemo<Gated<GameHistoryEntry[]> | undefined>(() => {
+    const pages = query.data?.pages;
+    if (!pages || pages.length === 0) return undefined;
+    if (isHidden(pages[0])) return HIDDEN;
+    return pages.flatMap((page) => (isHidden(page) ? [] : page));
+  }, [query.data]);
+
   return (
     <Section icon={<History size={16} strokeWidth={2} />} title="История игр">
       <GatedBody
         loading={query.isLoading}
         error={query.error}
-        data={query.data}
+        data={history}
         hiddenMessage="История игр скрыта"
         errorFallback="Не удалось загрузить историю"
       >
-        {(history) =>
-          history.length === 0 ? (
+        {(entries) =>
+          entries.length === 0 ? (
             <div className="flex items-center gap-2 py-1 text-sm text-muted">
               <Gamepad2 size={15} strokeWidth={2} />
               Пока нет сыгранных игр
             </div>
           ) : (
-            <ul className="divide-y divide-edge">
-              {history.map((entry) => (
-                <GameHistoryRow key={entry.id} entry={entry} />
-              ))}
-            </ul>
+            <>
+              <ul className="divide-y divide-edge">
+                {entries.map((entry) => (
+                  <GameHistoryRow key={entry.id} entry={entry} />
+                ))}
+              </ul>
+              {query.hasNextPage ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => query.fetchNextPage()}
+                  loading={query.isFetchingNextPage}
+                  className="mt-4 w-full"
+                >
+                  Показать ещё
+                </Button>
+              ) : null}
+            </>
           )
         }
       </GatedBody>
@@ -447,6 +489,38 @@ function PlayerSearch() {
   );
 }
 
+/* ── "Написать" — start/open a 1:1 DM with this user (non-own profiles) ────────
+   Gated on SEND_MESSAGE: locked → disabled + a FeatureLock hint. Finds an existing
+   DM with this user or creates one (shared/chat/chats#useStartDirectChat), then
+   routes to its conversation. */
+function WriteButton({ targetId }: { targetId: number }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { locked } = useFeatureGate('SEND_MESSAGE');
+  const startChat = useStartDirectChat();
+
+  function handleWrite() {
+    if (locked || user == null) return;
+    startChat.mutate(
+      { target: { id: targetId }, myId: user.id },
+      { onSuccess: (chatId) => navigate(`/chat/groups/${chatId}`) },
+    );
+  }
+
+  return (
+    <div className="mt-5 flex flex-col gap-2 border-t border-edge pt-4">
+      <Button onClick={handleWrite} disabled={locked} loading={startChat.isPending}>
+        <MessageCircle size={17} strokeWidth={2} />
+        Написать
+      </Button>
+      {locked ? <FeatureLock feature="SEND_MESSAGE" /> : null}
+      {startChat.isError ? (
+        <p className="text-sm text-lose">{errorMessage(startChat.error, 'Не удалось открыть чат')}</p>
+      ) : null}
+    </div>
+  );
+}
+
 /* ── profile body (header + cards [+ own nav]) ─────────────────────────── */
 function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
   // The full user record. Own → /me (kept warm by AuthContext); else → /by-id.
@@ -494,7 +568,7 @@ function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
     <div className="flex flex-col gap-5 sm:gap-6">
       <Card className="p-5 sm:p-6">
         <ProfileHeader user={user} level={level} />
-        {isOwn ? <OwnNav /> : null}
+        {isOwn ? <OwnNav /> : <WriteButton targetId={user.id} />}
       </Card>
 
       {isOwn ? <PlayerSearch /> : null}

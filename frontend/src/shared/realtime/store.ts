@@ -93,8 +93,19 @@ export function bucketFor(env: NotificationEnvelope): Bucket | null {
       return 'gift';
     case 'MESSAGE_RECEIVED':
       return `chat:${(env.payload as ChatMessage).chatId}`;
+    case 'NEW_CHAT':
+      // Being added to a chat is a chat signal, not inbox junk — badge that chat's
+      // bucket (so the "Чаты" aggregate ticks) exactly like an incoming message.
+      return `chat:${(env.payload as { id: string }).id}`;
     case 'MESSAGE_DELETED':
       return null;
+    // Owner-only operational events: a quiet "Владелец" stream, never the misc inbox.
+    case 'NEW_WITHDRAWAL':
+    case 'WITHDRAWAL_FAILED':
+    case 'NEW_SWEEP':
+    case 'MASTER_WALLET_SET':
+    case 'SWEEP_SCHEDULE_SET':
+      return 'owner';
     default:
       return 'misc';
   }
@@ -160,7 +171,32 @@ function countBucket(bucket: Bucket): number {
   return n;
 }
 
+/** The global chat's bucket — the one personal-chat aggregates exclude. */
+const GLOBAL_CHAT_BUCKET: Bucket = 'chat:1';
+
+/**
+ * Unread rows across ALL personal/group chats: every `chat:<id>` bucket EXCEPT the
+ * global chat. A primitive number so useSyncExternalStore stays referentially stable
+ * (an unchanged count never re-renders the nav). See usePersonalChatsUnread.
+ */
+function countPersonalChats(): number {
+  let n = 0;
+  for (const r of rows.values()) {
+    if (r.bucket.startsWith('chat:') && r.bucket !== GLOBAL_CHAT_BUCKET) n++;
+  }
+  return n;
+}
+
 /** Live unread count for one bucket (0 when bucket is null), reactive across the app. */
 export function useUnreadCount(bucket: Bucket | null): number {
   return useSyncExternalStore(subscribe, () => (bucket == null ? 0 : countBucket(bucket)));
+}
+
+/**
+ * Live unread total across every personal/group chat (all `chat:<id>` buckets minus
+ * the global chat:1) — for the "Чаты" nav item's aggregate badge. Reactive, returns a
+ * primitive so it doesn't churn renders.
+ */
+export function usePersonalChatsUnread(): number {
+  return useSyncExternalStore(subscribe, countPersonalChats);
 }

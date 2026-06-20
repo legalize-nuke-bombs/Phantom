@@ -29,6 +29,34 @@ export const ERROR_MESSAGES: Record<string, string> = {
   BANNED: 'Вы заблокированы',
   RATE_LIMITED: 'Слишком часто — подождите немного',
 
+  // chat / members
+  CHAT_NOT_FOUND: 'Чат не найден',
+  MESSAGE_NOT_FOUND: 'Сообщение не найдено',
+  TOO_MANY_MEMBERS: 'В чате слишком много участников',
+  ALREADY_ADDED: 'Этот игрок уже в чате',
+  CANT_SELF_ADD: 'Нельзя добавить самого себя',
+  CANT_SELF_KICK: 'Нельзя исключить самого себя',
+
+  // disk / files
+  FILE_NOT_FOUND: 'Файл не найден',
+  FILENAME_TOO_LONG: 'Слишком длинное имя файла',
+  DISK_QUOTA_EXCEEDED: 'Превышен лимит хранилища',
+  DISK_USAGE_NOT_FOUND: 'Данные о хранилище не найдены',
+  LENGTH_REQUIRED: 'Не удалось определить размер файла',
+
+  // owner
+  NOT_OWNER: 'Доступно только владельцу',
+  OWNER_KEY_INVALID: 'Неверный ключ владельца',
+  OWNER_KEY_MALFORMED: 'Некорректный формат ключа владельца',
+  CANT_CHANGE_OWN_ROLE: 'Нельзя изменить свою роль',
+  CANT_DELETE_SELF: 'Нельзя удалить свой аккаунт',
+  ROLE_UNCHANGED: 'Пользователь уже имеет эту роль',
+  BAD_MNEMONIC: 'Некорректная seed-фраза',
+  MASTER_WALLET_NOT_SET: 'Мастер-кошелёк не задан',
+  SWEEP_SCHEDULE_NOT_FOUND: 'Расписание сбора не задано',
+  UNSUPPORTED_COIN: 'Монета не поддерживается',
+  UPSTREAM_ERROR: 'Ошибка внешнего сервиса',
+
   // generic
   VALIDATION_ERROR: 'Проверьте правильность заполнения',
   MALFORMED_REQUEST: 'Некорректный запрос',

@@ -11,7 +11,7 @@ import { bucketIds, bucketRows, removeNotifications } from './store';
 import type { Bucket } from './store';
 import type { PresentPayload } from './types';
 
-export { useUnreadCount } from './store';
+export { useUnreadCount, usePersonalChatsUnread } from './store';
 
 /** Mark every unread notification in a bucket read — server first, then the local store. */
 export async function markBucketRead(bucket: Bucket): Promise<void> {
