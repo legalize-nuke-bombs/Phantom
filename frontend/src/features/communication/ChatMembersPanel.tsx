@@ -3,7 +3,7 @@
 // or kick; everyone can leave; the owner can delete the whole chat. After a leave/delete the
 // chat is gone for me, so the caller navigates back to the list (onClosed).
 
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Ban, Crown, LogOut, Trash2, UserPlus } from 'lucide-react';
 
 import { useAuth } from '@/shared/auth/AuthContext';
@@ -160,9 +160,6 @@ export interface ChatMembersPanelProps {
   chat: Chat;
   /** Called after a successful leave/delete — the chat no longer exists for me. */
   onLeft: () => void;
-  /** Optional content pinned at the panel's top — the conversation folds its back-arrow +
-   *  chat title in here (desktop) so it needs no separate header row eating chat height. */
-  topSlot?: ReactNode;
 }
 
 /**
@@ -171,7 +168,7 @@ export interface ChatMembersPanelProps {
  * kick / delete) and everyone's leave. After a leave/delete the chat is gone for me, so the
  * caller navigates away (onLeft).
  */
-export default function ChatMembersPanel({ chat, onLeft, topSlot }: ChatMembersPanelProps) {
+export default function ChatMembersPanel({ chat, onLeft }: ChatMembersPanelProps) {
   const { user } = useAuth();
   const myId = user?.id ?? 0;
   const chatId = chat.id;
@@ -201,7 +198,6 @@ export default function ChatMembersPanel({ chat, onLeft, topSlot }: ChatMembersP
       className="flex h-full flex-col overflow-hidden rounded-xl border border-edge bg-panel"
       aria-label="Участники чата"
     >
-      {topSlot ? <div className="shrink-0 border-b border-edge">{topSlot}</div> : null}
       <header className="flex h-11 shrink-0 items-center border-b border-edge px-4">
         <h2 className="text-sm font-semibold text-fg">Участники · {chat.members.length}</h2>
       </header>
