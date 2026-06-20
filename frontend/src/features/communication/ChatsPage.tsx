@@ -140,7 +140,7 @@ export default function ChatsPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-3">
+    <div className="flex h-full w-full flex-col gap-3">
       <header className="flex shrink-0 items-center gap-3">
         <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">Чаты</h1>
         <div className="ml-auto flex items-center gap-2">

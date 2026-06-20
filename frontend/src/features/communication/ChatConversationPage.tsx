@@ -72,36 +72,44 @@ export default function ChatConversationPage() {
 
   const memberCount = chat.members.length;
 
-  // Mirrors the global chat page (h-full column, a light title row, then the ChatRoom core),
-  // just with the extras a group chat needs: a back arrow, the chat's avatar/title, and the
-  // monolithic members column.
+  // The back-arrow + chat title/avatar (the chat's identity) — folded into the TOP of the
+  // members panel on desktop so the conversation has NO header row eating vertical height,
+  // and shown as a compact top bar on mobile (where the members panel stacks below).
+  const identity = (
+    <>
+      <Link
+        to="/chat/groups"
+        aria-label="Назад к чатам"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-panel-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
+      >
+        <ArrowLeft size={18} />
+      </Link>
+      <HeaderAvatar chat={chat} myId={myId} />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-fg">{chatTitle(chat, myId)}</p>
+        <p className="truncate text-xs text-muted">{memberCount} участников</p>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="flex shrink-0 items-center gap-3">
-        <Link
-          to="/chat/groups"
-          aria-label="Назад к чатам"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-panel-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
-        >
-          <ArrowLeft size={18} />
-        </Link>
-        <HeaderAvatar chat={chat} myId={myId} />
-        <div className="min-w-0">
-          <h1 className="truncate text-base font-semibold tracking-tight text-fg sm:text-lg">
-            {chatTitle(chat, myId)}
-          </h1>
-          <p className="truncate text-xs text-muted">{memberCount} участников</p>
-        </div>
-      </div>
+      {/* Mobile: a compact header (on desktop this same identity folds into the panel top). */}
+      <div className="flex shrink-0 items-center gap-3 md:hidden">{identity}</div>
 
-      {/* Conversation + the monolithic members column, always shown on the right (md+).
-          On mobile the members panel stacks below the chat. */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 md:flex-row">
-        <div className="min-h-0 flex-1">
-          <ChatRoom chatId={chatId} />
+        {/* Members panel: the LEFT column on desktop (back-arrow + title folded into its top),
+            stacked below the chat on mobile. */}
+        <div className="order-2 shrink-0 md:order-1 md:w-72">
+          <ChatMembersPanel
+            chat={chat}
+            onLeft={() => navigate('/chat/groups')}
+            topSlot={<div className="hidden items-center gap-2.5 p-3 md:flex">{identity}</div>}
+          />
         </div>
-        <div className="shrink-0 md:w-72">
-          <ChatMembersPanel chat={chat} onLeft={() => navigate('/chat/groups')} />
+        {/* Chat fills the rest, full height — no top header row stealing space. */}
+        <div className="order-1 min-h-0 flex-1 md:order-2">
+          <ChatRoom chatId={chatId} />
         </div>
       </div>
     </div>
