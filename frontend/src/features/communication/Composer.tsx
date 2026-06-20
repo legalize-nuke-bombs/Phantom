@@ -273,7 +273,7 @@ export default function Composer({ send, locked }: { send: SendMutation; locked:
                   className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-fg transition-colors hover:bg-panel-2 focus:outline-none focus-visible:bg-panel-2"
                 >
                   <Upload size={16} strokeWidth={2} className="text-muted" />
-                  С компьютера
+                  С устройства
                 </button>
                 <button
                   type="button"
