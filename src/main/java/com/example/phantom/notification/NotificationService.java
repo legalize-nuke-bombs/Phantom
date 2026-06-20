@@ -27,7 +27,7 @@ public class NotificationService {
     private final ReadNotificationRepository readNotificationRepository;
     private final RateLimitService rateLimitService;
 
-    private static final int MAX_NOTIFICATIONS = 100000;
+    private static final int MAX_NOTIFICATIONS = 10000;
 
     public NotificationService(UserRepository userRepository, TopicService topicService, NotificationRepository notificationRepository, ReadNotificationRepository readNotificationRepository, RateLimitService rateLimitService) {
         this.userRepository = userRepository;

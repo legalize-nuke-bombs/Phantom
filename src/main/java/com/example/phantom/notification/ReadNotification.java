@@ -22,7 +22,7 @@ public class ReadNotification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "notification_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Notification notification;
