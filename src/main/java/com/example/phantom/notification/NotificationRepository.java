@@ -39,7 +39,7 @@ ORDER BY n.id DESC
             @Param("notReadOnly") Boolean notReadOnly,
 
             @Param("userId") Long userId,
-            @Param("userRegistrationTImestamp") Long userRegistrationTimestamp,
+            @Param("userRegistrationTimestamp") Long userRegistrationTimestamp,
 
             @Param("accessibleTopicIds") List<String> accessibleTopicIds,
 
