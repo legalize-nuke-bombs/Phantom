@@ -38,6 +38,8 @@ public class NotificationService {
     }
 
     public List<NotificationRepresentation> get(Long userId, Boolean notReadOnly, Long before, Integer limit) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
+
         rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
 
         Pageable pageable = PageRequest.of(0, limit);
@@ -46,6 +48,7 @@ public class NotificationService {
                 NotificationDestinationType.TOPIC,
                 notReadOnly,
                 userId,
+                user.getRegisteredAt(),
                 topicService.get(userId),
                 before,
                 pageable

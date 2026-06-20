@@ -29,6 +29,7 @@ WHERE (
 )
 AND (:before IS NULL OR n.id < :before)
 AND (:notReadOnly = false OR rn.id IS NULL)
+AND (:userRegistrationTimestamp IS NULL OR n.timestamp >= :userRegistrationTimestamp)
 ORDER BY n.id DESC
 """)
     List<Notification> findRelevant(
@@ -38,6 +39,7 @@ ORDER BY n.id DESC
             @Param("notReadOnly") Boolean notReadOnly,
 
             @Param("userId") Long userId,
+            @Param("userRegistrationTImestamp") Long userRegistrationTimestamp,
 
             @Param("accessibleTopicIds") List<String> accessibleTopicIds,
 
