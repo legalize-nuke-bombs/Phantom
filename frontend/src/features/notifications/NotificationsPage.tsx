@@ -11,6 +11,8 @@
 // — subtitle + empty state — is written to make that scope feel intentional, not broken.
 
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Bell,
   CheckCheck,
@@ -97,6 +99,26 @@ function actor(payload: unknown, key = 'user'): string | undefined {
   return str(field(payload, key), 'displayName');
 }
 
+/**
+ * A clickable user link (displayName → /u/{id}) from a UserShort-shaped object — a bare
+ * displayName is not an identity, so anywhere we show one it links to the real profile.
+ */
+function userLinkFrom(u: unknown): ReactNode {
+  const id = num(u, 'id');
+  const name = str(u, 'displayName');
+  if (id == null || !name) return null;
+  return (
+    <Link to={`/u/${id}`} className="font-medium text-fg hover:text-ton hover:underline">
+      {name}
+    </Link>
+  );
+}
+
+/** A clickable user link from `payload[key]` (default 'user'). */
+function userLink(payload: unknown, key = 'user'): ReactNode {
+  return userLinkFrom(field(payload, key));
+}
+
 /** Clamp a free-text snippet so a long broadcast never blows up the row. */
 function snippet(text: string, max = 120): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
@@ -109,7 +131,7 @@ interface NotificationKind {
   label: string;
   /** Accent colour token for the icon; defaults to the neutral Gram blue. */
   tone?: string;
-  describe?: (payload: unknown) => string | undefined;
+  describe?: (payload: unknown) => ReactNode;
 }
 
 const REGISTRY: Record<NotificationType, NotificationKind> = {
@@ -152,8 +174,8 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
     describe: (p) => {
       const content = str(p, 'content');
       if (!content) return undefined;
-      const who = actor(p); // BroadcastRepresentation carries the sender
-      return who ? `${who}: ${snippet(content)}` : snippet(content);
+      const who = userLink(p); // BroadcastRepresentation carries the sender
+      return who ? <>{who}: {snippet(content)}</> : snippet(content);
     },
   },
   ROLE_CLAIMED: {
@@ -162,10 +184,10 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
     tone: 'text-ton',
     describe: (p) => {
       // RoleClaimedRepresentation: { user (who changed it), role (the new role) }.
-      const who = actor(p);
+      const who = userLink(p);
       const role = str(p, 'role');
       const roleLabel = role ? ROLE_LABELS[role] ?? role : undefined;
-      if (who && roleLabel) return `${who} назначил вам роль «${roleLabel}»`;
+      if (who && roleLabel) return <>{who} назначил вам роль «{roleLabel}»</>;
       if (roleLabel) return `Вам выдана роль «${roleLabel}»`;
       return 'Вам выдана новая роль';
     },
@@ -182,7 +204,11 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
     icon: MessageSquareX,
     label: 'Ваше сообщение удалено',
     tone: 'text-lose',
-    describe: () => 'Модератор удалил ваше сообщение',
+    // Payload is the moderator (UserShortRepresentation) who deleted it — link to them.
+    describe: (p) => {
+      const who = userLinkFrom(p);
+      return who ? <>Модератор {who} удалил ваше сообщение</> : 'Модератор удалил ваше сообщение';
+    },
   },
   BANNED: {
     icon: ShieldAlert,
@@ -200,16 +226,16 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
     icon: WalletIcon,
     label: 'Мастер-кошелёк',
     describe: (p) => {
-      const who = actor(p);
-      return who ? `${who} обновил мастер-кошелёк` : undefined;
+      const who = userLink(p);
+      return who ? <>{who} обновил мастер-кошелёк</> : undefined;
     },
   },
   SWEEP_SCHEDULE_SET: {
     icon: CalendarClock,
     label: 'Расписание сборов',
     describe: (p) => {
-      const who = actor(p);
-      return who ? `${who} изменил расписание сборов` : undefined;
+      const who = userLink(p);
+      return who ? <>{who} изменил расписание сборов</> : undefined;
     },
   },
   NEW_SWEEP: {
@@ -280,7 +306,7 @@ function NotificationRow({ item }: { item: NotificationItem }) {
         {/* Description · time on one muted line; when there's no description the time
             stands alone, so the row never shows an empty second line. */}
         <p className="mt-0.5 text-xs leading-snug text-muted">
-          {description ? `${description} · ${time}` : time}
+          {description ? <>{description} · {time}</> : time}
         </p>
       </div>
     </li>

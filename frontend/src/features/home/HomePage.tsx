@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
   Users,
   Gamepad2,
@@ -22,6 +22,7 @@ import type {
 import LotteryStatusCard from '@/features/lottery/LotteryStatusCard';
 import PlatformCloudCard from '@/features/disk/PlatformCloudCard';
 import Amount from '@/shared/ui/Amount';
+import Button from '@/shared/ui/Button';
 import Card from '@/shared/ui/Card';
 import CoinGlyph from '@/shared/ui/CoinGlyph';
 import GameHistoryRow from '@/shared/ui/GameHistoryRow';
@@ -152,22 +153,33 @@ function PlatformStats() {
 
 /* ── Recent games feed ─────────────────────────────────────────────────── */
 /* Rows use the shared <GameHistoryRow>; this is the cross-player feed, so we pass
-   `withUser` to lead each row with the player's name. */
+   `withUser` to lead each row with the player's name. Cursor-paginated by game id
+   (GET /api/games/history?limit&before, newest first): a modest page keeps it a
+   tasteful home widget, with a "Показать ещё" button to pull in older games. */
+
+const RECENT_GAMES_PAGE_SIZE = 8;
 
 function RecentGames() {
   const { user } = useAuth();
 
-  const history = useQuery({
+  const history = useInfiniteQuery({
     queryKey: ['games', 'history', 'platform'],
-    queryFn: () => api.get<GameHistoryEntry[]>('/games/history'),
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: String(RECENT_GAMES_PAGE_SIZE) });
+      if (pageParam !== undefined) params.set('before', String(pageParam));
+      return api.get<GameHistoryEntry[]>(`/games/history?${params}`);
+    },
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (last) =>
+      last.length < RECENT_GAMES_PAGE_SIZE ? undefined : last[last.length - 1].id,
     enabled: user != null,
     staleTime: 15_000,
   });
 
+  const entries = history.data?.pages.flat() ?? [];
+
   // Batch the players' ranks so each feed row shows the real rank avatar, not a fallback.
-  const { data: levels } = useExperienceBatch(
-    (history.data ?? []).map((e) => e.user.id),
-  );
+  const { data: levels } = useExperienceBatch(entries.map((e) => e.user.id));
 
   return (
     <section className="space-y-3">
@@ -185,14 +197,14 @@ function RecentGames() {
         <Card className="p-6 text-center text-sm text-muted">
           {errorMessage(history.error)}
         </Card>
-      ) : !history.data || history.data.length === 0 ? (
+      ) : entries.length === 0 ? (
         <Card className="p-8 text-center text-sm text-muted">
           Пока нет сыгранных игр
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
           <ul className="divide-y divide-edge px-4">
-            {history.data.map((entry) => (
+            {entries.map((entry) => (
               <GameHistoryRow
                 key={entry.id}
                 entry={entry}
@@ -201,6 +213,20 @@ function RecentGames() {
               />
             ))}
           </ul>
+          {history.hasNextPage ? (
+            <div className="border-t border-edge p-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full"
+                loading={history.isFetchingNextPage}
+                onClick={() => history.fetchNextPage()}
+              >
+                Показать ещё
+              </Button>
+            </div>
+          ) : null}
         </Card>
       )}
     </section>

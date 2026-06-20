@@ -10,7 +10,7 @@ import clsx from 'clsx';
 
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
-import { MAX_MESSAGE_LENGTH, useChatMessages, useSendMessage } from '@/shared/chat/useChat';
+import { GLOBAL_CHAT_ID, MAX_MESSAGE_LENGTH, useChatMessages, useSendMessage } from '@/shared/chat/useChat';
 import { markBucketRead, useUnreadCount } from '@/shared/realtime/badges';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
@@ -46,9 +46,11 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
   const { user } = useAuth();
   const query = useChatMessages(chatId);
   const send = useSendMessage(chatId);
-  // The backend refuses to send in ANY chat without SEND_MESSAGE, so gate the composer
-  // itself (covers global + group). When locked we swap the input for the lock banner.
-  const composer = useFeatureGate('SEND_MESSAGE');
+  // Sending is feature-gated by the backend in every chat, but we only SHOW the lock in the
+  // GLOBAL chat (the public square — you earn the rank to talk there). In a group chat you
+  // were added to, the composer stays open; the gating users care about is creating chats /
+  // adding members, handled on those actions.
+  const composerLocked = useFeatureGate('SEND_MESSAGE').locked && chatId === GLOBAL_CHAT_ID;
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -99,7 +101,7 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
 
   function submit() {
     const content = draft.trim();
-    if (!content || send.isPending || composer.locked) return;
+    if (!content || send.isPending || composerLocked) return;
     send.mutate(content, { onSuccess: () => setDraft('') });
   }
   function onFormSubmit(e: FormEvent) {
@@ -176,7 +178,7 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
         )}
       </div>
 
-      {composer.locked ? (
+      {composerLocked ? (
         // Locked: replace the whole composer with the lock banner (mirrors how gifts
         // gate SEND_PRESENT). The backend would reject a send anyway.
         <div className="border-t border-edge p-4">

@@ -15,7 +15,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
@@ -23,7 +23,6 @@ import {
   Gamepad2,
   Gift,
   History,
-  MessageCircle,
   Search,
   Settings,
   ShieldCheck,
@@ -33,10 +32,8 @@ import clsx from 'clsx';
 
 import { api, ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
-import { useAuth } from '@/shared/auth/AuthContext';
-import { useStartDirectChat } from '@/shared/chat/chats';
 import { useMyExperience } from '@/shared/lib/experience';
-import { FeatureLock, useFeatureGate, useLevels } from '@/shared/lib/levelFeatures';
+import { useLevels } from '@/shared/lib/levelFeatures';
 import { formatTime } from '@/shared/lib/time';
 import { RANKS_ASC } from '@/shared/types';
 import type {
@@ -489,38 +486,6 @@ function PlayerSearch() {
   );
 }
 
-/* ── "Написать" — start/open a 1:1 DM with this user (non-own profiles) ────────
-   Gated on SEND_MESSAGE: locked → disabled + a FeatureLock hint. Finds an existing
-   DM with this user or creates one (shared/chat/chats#useStartDirectChat), then
-   routes to its conversation. */
-function WriteButton({ targetId }: { targetId: number }) {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const { locked } = useFeatureGate('SEND_MESSAGE');
-  const startChat = useStartDirectChat();
-
-  function handleWrite() {
-    if (locked || user == null) return;
-    startChat.mutate(
-      { target: { id: targetId }, myId: user.id },
-      { onSuccess: (chatId) => navigate(`/chat/groups/${chatId}`) },
-    );
-  }
-
-  return (
-    <div className="mt-5 flex flex-col gap-2 border-t border-edge pt-4">
-      <Button onClick={handleWrite} disabled={locked} loading={startChat.isPending}>
-        <MessageCircle size={17} strokeWidth={2} />
-        Написать
-      </Button>
-      {locked ? <FeatureLock feature="SEND_MESSAGE" /> : null}
-      {startChat.isError ? (
-        <p className="text-sm text-lose">{errorMessage(startChat.error, 'Не удалось открыть чат')}</p>
-      ) : null}
-    </div>
-  );
-}
-
 /* ── profile body (header + cards [+ own nav]) ─────────────────────────── */
 function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
   // The full user record. Own → /me (kept warm by AuthContext); else → /by-id.
@@ -568,7 +533,7 @@ function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
     <div className="flex flex-col gap-5 sm:gap-6">
       <Card className="p-5 sm:p-6">
         <ProfileHeader user={user} level={level} />
-        {isOwn ? <OwnNav /> : <WriteButton targetId={user.id} />}
+        {isOwn ? <OwnNav /> : null}
       </Card>
 
       {isOwn ? <PlayerSearch /> : null}

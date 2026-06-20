@@ -8,8 +8,8 @@
 //   • the file list — name · size · uploaded date, with per-file download + delete,
 //     cursor-paginated ("Показать ещё").
 //
-// All wiring lives in ./useDisk (TanStack Query + raw fetch for the multipart upload
-// and the blob download). The total quota is derived from the unlocked tier, so the
+// All wiring lives in ./useDisk (TanStack Query + raw XHR for the multipart upload; the
+// download is a native browser navigation). The total quota is derived from the unlocked tier, so the
 // bar always has a ceiling even though usage/personal only returns used bytes.
 
 import type { ReactNode } from 'react';

@@ -99,12 +99,12 @@ export function bucketFor(env: NotificationEnvelope): Bucket | null {
       return `chat:${(env.payload as { id: string }).id}`;
     case 'MESSAGE_DELETED':
       return null;
-    // Owner-only operational events: a quiet "Владелец" stream, never the misc inbox.
+    // Owner-only FINANCIAL events: a quiet "Владелец" stream, never the misc inbox. Config
+    // changes (master wallet / sweep schedule) are NOT here — they go to the misc inbox
+    // with sound like any other notable account event.
     case 'NEW_WITHDRAWAL':
     case 'WITHDRAWAL_FAILED':
     case 'NEW_SWEEP':
-    case 'MASTER_WALLET_SET':
-    case 'SWEEP_SCHEDULE_SET':
       return 'owner';
     default:
       return 'misc';

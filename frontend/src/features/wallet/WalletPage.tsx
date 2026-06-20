@@ -112,7 +112,7 @@ interface Present {
 const COIN: CoinType = 'TON';
 
 const PRESENTS_QUERY_KEY = ['presents', 'received'] as const;
-const PRESENTS_LIMIT = 50;
+const PRESENTS_PAGE_SIZE = 20;
 
 /* ── clipboard ─────────────────────────────────────────────────────────────
  * Small reusable copy hook with a transient "copied" flag, mirroring the
@@ -882,9 +882,18 @@ function ReceivedPresentsCard() {
   const refreshBalance = useRefreshBalance();
   const qc = useQueryClient();
 
-  const presents = useQuery<Present[]>({
+  // Received gifts, newest first, cursor-paginated by present id
+  // (GET /api/presents?limit&before). A short page means there are no more.
+  const presents = useInfiniteQuery({
     queryKey: PRESENTS_QUERY_KEY,
-    queryFn: () => api.get<Present[]>(`/presents?limit=${PRESENTS_LIMIT}`),
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: String(PRESENTS_PAGE_SIZE) });
+      if (pageParam !== undefined) params.set('before', String(pageParam));
+      return api.get<Present[]>(`/presents?${params}`);
+    },
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (last) =>
+      last.length < PRESENTS_PAGE_SIZE ? undefined : last[last.length - 1].id,
   });
 
   async function afterClaim() {
@@ -914,7 +923,7 @@ function ReceivedPresentsCard() {
     onSuccess: afterClaim,
   });
 
-  const items = presents.data ?? [];
+  const items = presents.data?.pages.flat() ?? [];
   // Batch-load sender ranks so each gift shows the real level, not a ◇ placeholder.
   const senderIds = items
     .map((p) => p.sender?.id)
@@ -973,6 +982,19 @@ function ReceivedPresentsCard() {
             />
           ))}
         </ul>
+        {presents.hasNextPage ? (
+          <div className="mt-4 flex justify-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              loading={presents.isFetchingNextPage}
+              onClick={() => presents.fetchNextPage()}
+            >
+              Показать ещё
+            </Button>
+          </div>
+        ) : null}
       </>
     );
   }

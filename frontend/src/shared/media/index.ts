@@ -13,3 +13,4 @@ export {
   MAX_SIDE,
   type MediaDescriptor,
 } from './media';
+export { fileTypeIcon, fileTypeGlyph, type FileTypeIcon } from './fileTypeIcon';

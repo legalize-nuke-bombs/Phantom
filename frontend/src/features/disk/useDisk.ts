@@ -13,8 +13,10 @@
 // Total quota for the signed-in user = plusRule when DISK_PLUS is unlocked, else
 // baseRule. base = 1 GiB / 10000 files, plus = 10 GiB / 100000 files.
 //
-// The shared JSON `api` client cannot carry a file body, so upload (multipart) and
-// download (blob) go through raw fetch with credentials:'include' for the auth cookie.
+// The shared JSON `api` client cannot carry a file body, so upload goes through raw
+// XHR (multipart, with credentials for the auth cookie). Download is a NATIVE browser
+// navigation to the cookie-authed bytes URL (no fetch/Blob) so multi-GB files stream
+// straight to disk via the browser's own download UI.
 
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -305,49 +307,33 @@ export function useUpload(): UploadController {
   return { phase, progress, error, fileName, start, cancel, reset };
 }
 
-/* ── download (blob → browser save) ──────────────────────────────────────────
- * Fetch the bytes with the auth cookie, read as a Blob, then trigger a save via a
- * temporary object URL + a synthetic <a download>. The object URL is always revoked,
- * even if the click throws, so we don't leak it. */
+/* ── download (NATIVE browser download) ───────────────────────────────────────
+ * GET /api/disk/files/{id} is cookie-authenticated and already sets
+ *   Content-Disposition: attachment; filename=…
+ * so a plain navigation to it streams straight to disk via the browser's own download
+ * UI — zero JS buffering. We trigger that with a transient <a href download>: the
+ * anchor approach (over window.location.assign) lets several downloads coexist and
+ * keeps the current SPA route intact.
+ *
+ * This replaces the old fetch()+Blob path, which read the WHOLE file into memory before
+ * saving — for a multi-GB file that hung/OOMed and the native download UI never showed.
+ *
+ * NOTE: the backend rate-limits downloads (RateLimitService) to 4 GB / 8h on DISK_BASE
+ * and 40 GB / 8h on DISK_PLUS, so a single >4 GB download on a base-tier account is
+ * refused server-side. With a native navigation that refusal surfaces as the browser's
+ * own error page rather than a catchable JS error — a backend tuning concern, not this
+ * layer's. We can't read the response status here (no fetch), so the mutation resolves
+ * as soon as the click is dispatched. */
 export async function downloadFile(file: DiskFile): Promise<void> {
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}/disk/files/${file.id}`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-  } catch {
-    throw new ApiError(0, 'Нет соединения с сервером');
-  }
-
-  if (!res.ok) {
-    const text = await res.text();
-    let code: string | undefined;
-    if (text) {
-      try {
-        const obj = JSON.parse(text) as Record<string, unknown>;
-        if (typeof obj.code === 'string') code = obj.code;
-      } catch {
-        /* non-JSON body */
-      }
-    }
-    throw new ApiError(res.status, res.statusText || 'Ошибка скачивания', code);
-  }
-
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.name || 'file';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } finally {
-    // Defer the revoke a tick so the click's navigation has definitely started.
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  }
+  const a = document.createElement('a');
+  a.href = `${API_BASE}/disk/files/${file.id}`;
+  // `download` asks the browser to save rather than navigate; the Content-Disposition
+  // filename from the backend still wins, but this is a sensible same-origin hint.
+  a.download = file.name || 'file';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 export function useDownloadFile() {
