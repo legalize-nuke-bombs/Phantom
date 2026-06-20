@@ -184,13 +184,14 @@ function startSpin(): SpinHandle {
   };
 }
 
-// Slot pattern match — tiered low → jackpot by the pattern's payout multiplier k. Payouts
-// span k≈0.1 (common rows/columns) up to ·500 (the jackpot family), so spread the four cues
-// across that range (see the pattern table in SlotsPage).
-function matchUrlFor(k: number): string {
-  if (k >= 20) return matchJackpotUrl;
-  if (k >= 5) return matchHighUrl;
-  if (k >= 1) return matchMidUrl;
+// A win, escalated by the win/bet RATIO — bigger relative payouts get a bigger cue. With no
+// ratio (a flat binary win like coinflip) we play the base win sting. Slot patterns pass
+// their per-pattern k (= that pattern's win/bet), upgrader its target multiplier, cases the
+// won/cost ratio — all the same scale, so one threshold ladder covers them.
+function winUrlFor(ratio: number): string {
+  if (ratio >= 20) return matchJackpotUrl;
+  if (ratio >= 5) return matchHighUrl;
+  if (ratio >= 2) return matchMidUrl;
   return matchLowUrl;
 }
 
@@ -199,8 +200,7 @@ function matchUrlFor(k: number): string {
 /** The flat SFX surface every page calls. */
 export const sfx = {
   startSpin,
-  win: () => play(winUrl),
-  match: (k: number) => play(matchUrlFor(k)),
+  win: (ratio?: number) => play(ratio == null ? winUrl : winUrlFor(ratio)),
   lose: () => play(loseUrl),
   notify: () => play(notifyUrl),
 } as const;

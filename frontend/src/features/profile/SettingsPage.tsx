@@ -299,6 +299,7 @@ function SecuritySettingsForm() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -313,6 +314,7 @@ function SecuritySettingsForm() {
       setCurrentPassword('');
       setUsername('');
       setPassword('');
+      setConfirmPassword('');
     },
   });
 
@@ -320,9 +322,16 @@ function SecuritySettingsForm() {
   const usernameInvalid =
     u.length > 0 && (u.length < USERNAME_MIN || u.length > USERNAME_MAX || !USERNAME_RE.test(u));
   const passwordTooShort = password.length > 0 && password.length < PASSWORD_MIN;
+  // The confirm field only matters when a new password is actually being set.
+  const passwordMismatch = password.length > 0 && confirmPassword !== password;
   const nothingToChange = u.length === 0 && password.length === 0;
   const blocked =
-    !currentPassword || nothingToChange || usernameInvalid || passwordTooShort || mutation.isPending;
+    !currentPassword ||
+    nothingToChange ||
+    usernameInvalid ||
+    passwordTooShort ||
+    passwordMismatch ||
+    mutation.isPending;
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -378,6 +387,22 @@ function SecuritySettingsForm() {
               {PASSWORD_MIN}–{PASSWORD_MAX} символов: заглавная, строчная и цифра
             </p>
           ) : null}
+        </div>
+
+        <div>
+          <PasswordInput
+            label="Повторите новый пароль"
+            value={confirmPassword}
+            onChange={(v) => {
+              setConfirmPassword(v);
+              mutation.reset();
+            }}
+            autoComplete="new-password"
+            placeholder="необязательно"
+          />
+          {passwordMismatch && (
+            <p className="mt-1.5 text-xs text-lose">Пароли не совпадают</p>
+          )}
         </div>
       </div>
 

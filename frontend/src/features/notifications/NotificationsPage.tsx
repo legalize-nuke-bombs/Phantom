@@ -312,7 +312,7 @@ export default function NotificationsPage() {
       ) : items.length === 0 ? (
         // The common case — only unread events ever land here, so an empty feed means
         // "вы всё просмотрели", not a broken/empty inbox. Make it read as deliberate:
-        // a soft check, one reassuring line, and a quiet note on where the rest lives.
+        // a soft check and one reassuring line.
         <Card className="px-6 py-12 text-center">
           <span
             aria-hidden
@@ -322,8 +322,7 @@ export default function NotificationsPage() {
           </span>
           <p className="mt-4 text-sm font-medium text-fg">Вы всё просмотрели</p>
           <p className="mx-auto mt-1 max-w-xs text-sm leading-snug text-muted">
-            Здесь появляются новые события аккаунта. Подарки ищите в Кошельке, сообщения —
-            в чатах.
+            Здесь появляются новые события аккаунта.
           </p>
         </Card>
       ) : (
@@ -337,8 +336,7 @@ export default function NotificationsPage() {
           </Card>
           {/* Reinforce the scope below the feed so a partial list never reads as a bug. */}
           <p className="mt-3 px-1 text-xs leading-snug text-muted/70">
-            Только новые события — прочитанные не сохраняются. Подарки и сообщения живут в
-            Кошельке и чатах.
+            Только новые события — прочитанные не сохраняются.
           </p>
         </>
       )}

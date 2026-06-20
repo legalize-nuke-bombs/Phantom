@@ -32,9 +32,13 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  // Catch typos: the confirm field must match before we let the form submit.
+  const passwordMismatch = confirmPassword.length > 0 && confirmPassword !== password;
 
   // Set once registration succeeds — gates the one-time recovery-key step.
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
@@ -43,6 +47,10 @@ export default function RegisterPage() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending) return;
+    if (password !== confirmPassword) {
+      setError('Пароли не совпадают');
+      return;
+    }
 
     setError(null);
     setPending(true);
@@ -188,6 +196,19 @@ export default function RegisterPage() {
             required
             disabled={pending}
           />
+          <Input
+            label="Повторите пароль"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="new-password"
+            minLength={8}
+            maxLength={40}
+            required
+            disabled={pending}
+            error={passwordMismatch ? 'Пароли не совпадают' : undefined}
+          />
 
           {refId != null && (
             <div className="rounded-xl border border-edge bg-panel-2 px-3 py-2.5 text-sm text-muted">
@@ -202,7 +223,13 @@ export default function RegisterPage() {
             </p>
           )}
 
-          <Button type="submit" size="lg" loading={pending} className="mt-1 w-full">
+          <Button
+            type="submit"
+            size="lg"
+            loading={pending}
+            disabled={passwordMismatch}
+            className="mt-1 w-full"
+          >
             {pending ? 'Создаём аккаунт…' : 'Зарегистрироваться'}
           </Button>
         </form>

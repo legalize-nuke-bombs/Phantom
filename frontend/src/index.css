@@ -49,6 +49,9 @@ html,
 body,
 #root {
   height: 100%;
+  /* App-like surface: drop double-tap zoom + the 300ms tap delay (pinch is blocked in
+     main.tsx; the viewport meta alone doesn't hold on iOS Safari). */
+  touch-action: manipulation;
 }
 
 body {

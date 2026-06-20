@@ -68,9 +68,10 @@ function OpenInner({ caseView }: { caseView: CaseView }) {
     setPhase('revealed');
     // Outcome sound: a win sting, or the lose cue when nothing came back.
     const wonValue = round.result ? Number(round.result.result) : 0;
+    const cost = Number(caseView.cost);
     if (wonValue <= 0) sfx.lose();
-    else sfx.win();
-  }, [round.result]);
+    else sfx.win(cost > 0 ? wonValue / cost : undefined);
+  }, [round.result, caseView.cost]);
 
   const result = round.result;
   const reelResult = phase === 'spinning' || phase === 'revealed' ? result : null;

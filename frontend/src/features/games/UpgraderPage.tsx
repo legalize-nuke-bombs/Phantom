@@ -413,7 +413,7 @@ export default function UpgraderPage() {
       const win = Number(res.result) > 0;
       outcomeCue.current = () => {
         if (!win) sfx.lose();
-        else sfx.win();
+        else sfx.win(selected.mult);
       };
       setPhase((p) => ({ ...p, win }));
     } catch {

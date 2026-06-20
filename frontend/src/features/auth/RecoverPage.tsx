@@ -26,6 +26,7 @@ export default function RecoverPage() {
   const [recoveryKey, setRecoveryKey] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -34,7 +35,9 @@ export default function RecoverPage() {
   // Mirror the backend: a recovery key plus at least one field to change.
   const hasKey = recoveryKey.trim().length > 0;
   const hasChange = newUsername.trim().length > 0 || newPassword.length > 0;
-  const canSubmit = hasKey && hasChange && !pending;
+  // The confirm field only matters when a new password is actually being set.
+  const passwordMismatch = newPassword.length > 0 && confirmPassword !== newPassword;
+  const canSubmit = hasKey && hasChange && !passwordMismatch && !pending;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,6 +45,10 @@ export default function RecoverPage() {
 
     if (!hasChange) {
       setError('Измените хотя бы одно поле — имя или пароль');
+      return;
+    }
+    if (newPassword.length > 0 && newPassword !== confirmPassword) {
+      setError('Пароли не совпадают');
       return;
     }
 
@@ -132,6 +139,17 @@ export default function RecoverPage() {
             minLength={8}
             maxLength={40}
             disabled={pending}
+          />
+          <Input
+            label="Повторите пароль"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Повторите новый пароль"
+            autoComplete="new-password"
+            maxLength={40}
+            disabled={pending}
+            error={passwordMismatch ? 'Пароли не совпадают' : undefined}
           />
 
           {error && (

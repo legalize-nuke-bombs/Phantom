@@ -269,7 +269,7 @@ export default function SlotsPage() {
             // Snap to the exact server total on the final reveal (avoids fp drift).
             running = isLast ? total : running + betAmount * Number(m.k);
             setWinShown(running);
-            sfx.match(Number(m.k));
+            sfx.win(Number(m.k));
           }, i * PATTERN_STEP_MS),
         );
       });
