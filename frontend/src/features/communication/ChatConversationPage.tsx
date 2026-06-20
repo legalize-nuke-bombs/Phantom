@@ -3,8 +3,9 @@
 // which fills the rest and owns all messaging. ChatRoom is a black box keyed by a string
 // chatId — we never touch its internals.
 
+import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MessagesSquare, Users } from 'lucide-react';
+import { ArrowLeft, MessagesSquare, Users, X } from 'lucide-react';
 
 import ChatRoom from '@/features/communication/ChatRoom';
 import ChatMembersPanel from '@/features/communication/ChatMembersPanel';
@@ -42,6 +43,7 @@ export default function ChatConversationPage() {
   const { user } = useAuth();
   const myId = user?.id ?? 0;
   const navigate = useNavigate();
+  const [membersOpen, setMembersOpen] = useState(false);
 
   const chatId = param ?? '';
   const detail = useChatDetail(chatId);
@@ -70,10 +72,12 @@ export default function ChatConversationPage() {
     );
   }
 
+  const memberCount = chat.members.length;
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      {/* A small, unobtrusive title row — the global chat's heading look, plus a back arrow
-          and the chat's avatar. The member count lives in the panel, so it's not repeated. */}
+      {/* A small, unobtrusive title row — the global chat's heading look + a back arrow and
+          the chat avatar. On mobile, a participants button opens the members sheet. */}
       <div className="flex shrink-0 items-center gap-2">
         <Link
           to="/chat/groups"
@@ -86,17 +90,57 @@ export default function ChatConversationPage() {
         <h1 className="truncate text-lg font-semibold tracking-tight text-fg sm:text-xl">
           {chatTitle(chat, myId)}
         </h1>
+        {/* Mobile only — the members panel is a sheet there, opened from here. */}
+        <button
+          type="button"
+          onClick={() => setMembersOpen(true)}
+          aria-label="Участники"
+          className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-panel-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton md:hidden"
+        >
+          <Users size={18} />
+          {memberCount}
+        </button>
       </div>
 
-      {/* Chat (left) + the monolithic members column (right) — stacks on mobile. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 md:flex-row">
+      {/* Chat fills the row; the members panel is the right column on DESKTOP only — on
+          mobile it would steal half the screen, so there it's a sheet instead. */}
+      <div className="flex min-h-0 flex-1 gap-3">
         <div className="min-h-0 flex-1">
           <ChatRoom chatId={chatId} />
         </div>
-        <div className="shrink-0 md:w-72">
+        <div className="hidden shrink-0 md:block md:w-72">
           <ChatMembersPanel chat={chat} onLeft={() => navigate('/chat/groups')} />
         </div>
       </div>
+
+      {/* Mobile: members as a right-side sheet so the chat keeps the full height by default. */}
+      {membersOpen ? (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <button
+            type="button"
+            className="flex-1 bg-black/60"
+            onClick={() => setMembersOpen(false)}
+            aria-label="Закрыть"
+          />
+          <div className="relative w-full max-w-[19rem]">
+            <button
+              type="button"
+              onClick={() => setMembersOpen(false)}
+              aria-label="Закрыть"
+              className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-lg text-muted transition-colors hover:bg-panel-2 hover:text-fg"
+            >
+              <X size={18} />
+            </button>
+            <ChatMembersPanel
+              chat={chat}
+              onLeft={() => {
+                setMembersOpen(false);
+                navigate('/chat/groups');
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
