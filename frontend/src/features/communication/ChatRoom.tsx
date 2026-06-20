@@ -12,17 +12,27 @@ import clsx from 'clsx';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
 import { MAX_MESSAGE_LENGTH, useChatMessages, useSendMessage } from '@/shared/chat/useChat';
+import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { formatTime } from '@/shared/lib/time';
 import type { ChatMessage } from '@/shared/realtime/types';
+import type { LevelName } from '@/shared/types';
 import Button from '@/shared/ui/Button';
 import RankBadge from '@/shared/ui/RankBadge';
 import Spinner from '@/shared/ui/Spinner';
 
-function MessageRow({ message, own }: { message: ChatMessage; own: boolean }) {
+function MessageRow({
+  message,
+  own,
+  level,
+}: {
+  message: ChatMessage;
+  own: boolean;
+  level: LevelName | null;
+}) {
   return (
     <li className="flex gap-2.5">
       <Link to={`/u/${message.user.id}`} className="mt-0.5 shrink-0">
-        <RankBadge level={null} size={32} />
+        <RankBadge level={level} size={32} />
       </Link>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
@@ -58,6 +68,10 @@ export default function ChatRoom({ chatId }: { chatId: number }) {
     [query.data],
   );
 
+  // Rank-ghost avatars: batch the senders' levels (privacy-hidden users fall back to ◇).
+  const senderIds = useMemo(() => [...new Set(messages.map((m) => m.user.id))], [messages]);
+  const { data: levels } = useExperienceBatch(senderIds);
+
   // Stick to the bottom when the newest message changes (first load + new arrivals).
   // Loading older history leaves the newest id unchanged, so the view isn't yanked down.
   const newestId = messages.length ? messages[messages.length - 1].id : undefined;
@@ -84,21 +98,21 @@ export default function ChatRoom({ chatId }: { chatId: number }) {
 
   if (query.isLoading) {
     return (
-      <div className="grid h-[70vh] place-items-center rounded-xl border border-edge bg-panel">
+      <div className="grid h-full place-items-center rounded-xl border border-edge bg-panel">
         <Spinner size={28} />
       </div>
     );
   }
   if (query.isError) {
     return (
-      <div className="grid h-[70vh] place-items-center rounded-xl border border-edge bg-panel px-6 text-center">
+      <div className="grid h-full place-items-center rounded-xl border border-edge bg-panel px-6 text-center">
         <p className="text-sm text-lose">{errorMessage(query.error, 'Не удалось загрузить чат')}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-[70vh] flex-col overflow-hidden rounded-xl border border-edge bg-panel">
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-edge bg-panel">
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3">
         {query.hasNextPage ? (
           <div className="flex justify-center pb-3">
@@ -121,7 +135,12 @@ export default function ChatRoom({ chatId }: { chatId: number }) {
         ) : (
           <ul className="flex flex-col gap-3">
             {messages.map((m) => (
-              <MessageRow key={m.id} message={m} own={m.user.id === user?.id} />
+              <MessageRow
+                key={m.id}
+                message={m}
+                own={m.user.id === user?.id}
+                level={levelFor(levels, m.user.id)}
+              />
             ))}
           </ul>
         )}
