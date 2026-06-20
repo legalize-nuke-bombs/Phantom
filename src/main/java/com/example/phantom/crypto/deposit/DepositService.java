@@ -3,11 +3,14 @@ package com.example.phantom.crypto.deposit;
 import com.example.phantom.crypto.*;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,17 +27,20 @@ public class DepositService {
     private final CryptoWalletRepository cryptoWalletRepository;
     private final DepositRepository depositRepository;
     private final CoinProviderRegistry coinProviderRegistry;
+    private final RateLimitService rateLimitService;
 
     public DepositService(
             WalletService walletService,
             CryptoWalletRepository cryptoWalletRepository,
             DepositRepository depositRepository,
-            CoinProviderRegistry coinProviderRegistry
+            CoinProviderRegistry coinProviderRegistry,
+            RateLimitService rateLimitService
     ) {
         this.walletService = walletService;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.depositRepository = depositRepository;
         this.coinProviderRegistry = coinProviderRegistry;
+        this.rateLimitService = rateLimitService;
     }
 
     public List<Deposit> fetchDeposits(User user, CoinType coin) {
@@ -82,6 +88,11 @@ public class DepositService {
         }
 
         return deposits;
+    }
+
+    public List<Deposit> getDeposits(Long userId, CoinType coin, Long before, Integer limit) {
+        rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
+        return depositRepository.findByUserIdAndCoinWithUsers(userId, coin, before, PageRequest.of(0, limit));
     }
 
     public static class DepositsAreAlreadyAppliedException extends Exception {

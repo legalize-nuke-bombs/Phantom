@@ -75,6 +75,10 @@ public class CryptoService {
         return deposits.stream().map(DepositRepresentation::new).toList();
     }
 
+    public List<DepositRepresentation> getDeposits(Long userId, CoinType coin, Long before, Integer limit) {
+        return depositService.getDeposits(userId, coin, before, limit).stream().map(DepositRepresentation::new).toList();
+    }
+
     public WithdrawalRepresentation withdraw(Long userId, CoinType coin, WithdrawRequest request) {
         String address = request.getAddress();
         BigDecimal amount = request.getAmount();
@@ -93,17 +97,21 @@ public class CryptoService {
         return representation;
     }
 
-    public List<WithdrawalRepresentation> checkPendingWithdrawals(Long userId) {
-        log.info("checking pending withdrawals for {} ...", userId);
+    public List<WithdrawalRepresentation> checkPendingWithdrawals(Long userId, CoinType coin) {
+        log.info("checking {} pending withdrawals for {} ...", coin, userId);
 
         User user = getUser(userId);
         rateLimit(user);
 
-        List<Withdrawal> checked = withdrawalService.checkPendingStatuses(userId);
+        List<Withdrawal> checked = withdrawalService.checkPendingStatuses(userId, coin);
         withdrawalService.applyCheckedStatuses(userId, checked);
 
-        log.info("found {} pending withdrawals for {}", checked.size(), user.getId());
+        log.info("found {} {} pending withdrawals for {}", checked.size(), coin, user.getId());
         return checked.stream().map(WithdrawalRepresentation::new).toList();
+    }
+
+    public List<WithdrawalRepresentation> getWithdrawals(Long userId, CoinType coin, Long before, Integer limit) {
+        return withdrawalService.getWithdrawals(userId, coin, before, limit).stream().map(WithdrawalRepresentation::new).toList();
     }
 
     private User getUser(Long userId) {

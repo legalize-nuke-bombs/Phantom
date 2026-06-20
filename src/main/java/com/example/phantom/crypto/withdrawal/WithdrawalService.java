@@ -10,10 +10,14 @@ import com.example.phantom.notification.topic.Topic;
 import com.example.phantom.notification.topic.globaltopic.GlobalTopicService;
 import com.example.phantom.owner.masterwallet.MasterWalletSetting;
 import com.example.phantom.owner.masterwallet.MasterWalletSettingRepository;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.wallet.Wallet;
 import com.example.phantom.wallet.WalletService;
+import lombok.With;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +36,7 @@ public class WithdrawalService {
     private final CoinProviderRegistry coinProviderRegistry;
     private final NotificationPublishService notificationPublishService;
     private final GlobalTopicService globalTopicService;
+    private final RateLimitService rateLimitService;
 
     public WithdrawalService(
             WalletService walletService,
@@ -40,7 +45,8 @@ public class WithdrawalService {
             MasterWalletSettingRepository masterWalletSettingRepository,
             CoinProviderRegistry coinProviderRegistry,
             NotificationPublishService notificationPublishService,
-            GlobalTopicService globalTopicService
+            GlobalTopicService globalTopicService,
+            RateLimitService rateLimitService
     ) {
         this.walletService = walletService;
         this.withdrawalRepository = withdrawalRepository;
@@ -49,6 +55,7 @@ public class WithdrawalService {
         this.coinProviderRegistry = coinProviderRegistry;
         this.notificationPublishService = notificationPublishService;
         this.globalTopicService = globalTopicService;
+        this.rateLimitService = rateLimitService;
     }
 
     @Transactional
@@ -112,8 +119,8 @@ public class WithdrawalService {
         return withdrawalRepository.save(withdrawal);
     }
 
-    public List<Withdrawal> checkPendingStatuses(Long userId) {
-        List<Withdrawal> pending = withdrawalRepository.findByUserIdAndStatus(userId, TransferStatus.PENDING);
+    public List<Withdrawal> checkPendingStatuses(Long userId, CoinType coin) {
+        List<Withdrawal> pending = withdrawalRepository.findByUserIdAndCoinAndStatus(userId, coin, TransferStatus.PENDING);
 
         for (Withdrawal withdrawal : pending) {
             if (withdrawal.getHash() == null) {
@@ -135,6 +142,11 @@ public class WithdrawalService {
         }
 
         return pending;
+    }
+
+    public List<Withdrawal> getWithdrawals(Long userId, CoinType coin, Long before, Integer limit) {
+        rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
+        return withdrawalRepository.findByUserIdAndCoinWithUsers(userId, coin, before, PageRequest.of(0, limit));
     }
 
     @Transactional

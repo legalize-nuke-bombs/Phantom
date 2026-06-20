@@ -6,13 +6,16 @@ import com.example.phantom.crypto.withdrawal.WithdrawalRepresentation;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
+@Validated
 @RequestMapping("/api/wallets/me/crypto")
 public class CryptoController {
 
@@ -36,6 +39,16 @@ public class CryptoController {
         return ResponseEntity.ok(service.checkDeposits(userId, getCoin(coin)));
     }
 
+    @GetMapping("/{coin}/deposits")
+    public ResponseEntity<List<DepositRepresentation>> getDeposits(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable String coin,
+            @RequestParam(required = false) Long before,
+            @RequestParam(defaultValue = "20") @Min(1) Integer limit
+    ) {
+        return ResponseEntity.ok(service.getDeposits(userId, getCoin(coin), before, limit));
+    }
+
     @PostMapping("/{coin}/withdraw")
     public ResponseEntity<WithdrawalRepresentation> withdraw(
             @AuthenticationPrincipal Long userId,
@@ -44,10 +57,21 @@ public class CryptoController {
         return ResponseEntity.ok(service.withdraw(userId, getCoin(coin), request));
     }
 
-    @PostMapping("/check-pending-withdrawals")
+    @PostMapping("/{coin}/check-pending-withdrawals")
     public ResponseEntity<List<WithdrawalRepresentation>> checkPendingWithdrawals(
-            @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(service.checkPendingWithdrawals(userId));
+            @AuthenticationPrincipal Long userId,
+            @PathVariable String coin) {
+        return ResponseEntity.ok(service.checkPendingWithdrawals(userId, getCoin(coin)));
+    }
+
+    @GetMapping("/{coin}/withdrawals")
+    public ResponseEntity<List<WithdrawalRepresentation>> getWithdrawals(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable String coin,
+            @RequestParam(required = false) Long before,
+            @RequestParam(defaultValue = "20") @Min(1) Integer limit
+            ) {
+        return ResponseEntity.ok(service.getWithdrawals(userId, getCoin(coin), before, limit));
     }
 
     private CoinType getCoin(String coin) {
