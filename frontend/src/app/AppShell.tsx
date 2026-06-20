@@ -203,7 +203,9 @@ export default function AppShell() {
       <Sidebar balance={balance} open={open} onClose={() => setOpen(false)} />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <main className="mx-auto w-full max-w-5xl min-h-0 flex-1 overflow-y-auto px-4 pb-10 pt-16 md:px-6 md:pb-8 md:pt-6">
+        {/* Full-width content area — pages that want a readable column self-center with their
+            own `mx-auto max-w-*`; full-width pages (the chat) fill it edge-to-edge. */}
+        <main className="w-full min-h-0 flex-1 overflow-y-auto px-4 pb-10 pt-16 md:px-6 md:pb-8 md:pt-6">
           <Outlet />
         </main>
       </div>

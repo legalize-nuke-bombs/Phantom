@@ -76,7 +76,7 @@ export default function MessageBubble({
     // `group` so the desktop hover reveal can target the trash control. Row wrapper is
     // a <div>: ChatRoom owns the <li> so it can hang day-dividers + spacing off the same
     // list item without nesting <li> elements.
-    <div className={clsx('group flex gap-2.5', own && 'flex-row-reverse')}>
+    <div className="group flex gap-2.5">
       {/* Avatar gutter — the badge on a run's first row, an empty spacer otherwise. */}
       {showHeader ? (
         <Link to={`/u/${message.user.id}`} className="mt-0.5 shrink-0">
@@ -86,9 +86,10 @@ export default function MessageBubble({
         <span aria-hidden className="shrink-0" style={{ width: AVATAR }} />
       )}
 
-      <div className={clsx('flex min-w-0 max-w-[75%] flex-col', own && 'items-end')}>
-        {/* Sender name only opens a run; own messages don't need to label themselves. */}
-        {showHeader && !own ? (
+      <div className="flex min-w-0 max-w-[40rem] flex-col">
+        {/* Sender name opens a run — shown for EVERYONE, since own messages are left-aligned
+            too now (Telegram-ish feed: all messages start at the left). */}
+        {showHeader ? (
           <Link
             to={`/u/${message.user.id}`}
             className="mb-0.5 truncate px-1 text-xs font-medium text-muted hover:underline"
@@ -97,17 +98,17 @@ export default function MessageBubble({
           </Link>
         ) : null}
 
-        {/* Bubble + delete control share a row so the control sits beside the bubble on
-            the side opposite the avatar, without disturbing the bubble's own layout. */}
-        <div className={clsx('flex items-end gap-1', own && 'flex-row-reverse')}>
+        {/* Bubble + delete control share a row; the control sits to the right of the bubble. */}
+        <div className="flex items-end gap-1">
           {/* Message stack: the text bubble, then any attachment on its OWN line below.
               Attachments are NOT boxed inside the bubble — they sit free underneath it. */}
-          <div className={clsx('flex min-w-0 flex-col gap-1', own && 'items-end')}>
+          <div className="flex min-w-0 flex-col gap-1">
             {hasText ? (
               <div
                 className={clsx(
                   'rounded-2xl px-3 py-2',
-                  // Own = TON-blue tint, right side; others = neutral panel, left side.
+                  // Everyone is left-aligned; own vs others is told by COLOUR — own gets the
+                  // TON-blue tint, others the neutral panel.
                   own ? 'bg-ton-deep/15 text-fg' : 'bg-panel-2 text-fg',
                 )}
               >
@@ -121,7 +122,7 @@ export default function MessageBubble({
             ) : null}
 
             {message.attachment ? (
-              <div className={clsx('flex flex-col', own && 'items-end')}>
+              <div className="flex flex-col">
                 {/* The send time lives INSIDE the attachment (a corner), so an attachment-only
                     message needs no separate timestamp line. With text, the bubble shows it. */}
                 <AttachmentView

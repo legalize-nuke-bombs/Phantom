@@ -289,7 +289,7 @@ function GamesGrid() {
 
 export default function HomePage() {
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-5xl space-y-8">
       <Hero />
       <PlatformStats />
       <GamesGrid />
