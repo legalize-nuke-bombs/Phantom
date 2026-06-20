@@ -58,10 +58,15 @@ export const IDLE_GRID: string[][] = Array.from({ length: ROWS }, () => [
 // ── Timing ──────────────────────────────────────────────────────────────────
 /** How many filler frames each column scrolls through before its final 3. */
 export const FILLER_LEN = 40;
-/** First column's total spin time (ms). */
-export const BASE_SPIN_MS = 1600;
-/** Extra spin time per column → clatter stops left→right. */
-export const STAGGER_MS = 360;
+/** First column's total deceleration time (ms) once the result is in. */
+export const BASE_SPIN_MS = 2400;
+/** Extra deceleration time per column → clatter stops left→right. */
+export const STAGGER_MS = 520;
+/**
+ * Free-scroll speed while waiting for the server (px per ms), expressed against a
+ * cell height. Lower = slower, more readable whirl.
+ */
+export const FREE_SCROLL_PX_PER_MS_PER_CELL = 1 / 95;
 
 /** Total ms from spin start until the LAST column has come to rest. */
 export function settleMs(): number {

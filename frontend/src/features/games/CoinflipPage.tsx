@@ -62,12 +62,17 @@ const other = (s: Side): Side => (s === 'heads' ? 'tails' : 'heads');
 
 /* ── flip animation tuning ──────────────────────────────────────────────── */
 
-const FLIP_MS = 2200; // total flight time
-const FLIP_TURNS = 6; // whole turns before settling — enough to read as a real flip
+const SETTLE_MS = 1500; // deceleration from free spin onto the outcome face
+const SETTLE_TURNS = 4; // whole turns added during the settle — keeps it lively
+const FREE_SPEED = 360 / 600; // free-spin angular speed (deg/ms) ≈ 0.6 turn/s … brisk
 const EASE_OUT = (t: number) => 1 - Math.pow(1 - t, 3); // cubic: fast → slow → stop
+const TILT = 'rotateX(12deg)'; // fixed 3D tilt baked into every transform write
 
 /** The resting Y-rotation (deg) that shows `side` toward the viewer. */
 const faceAngle = (s: Side): number => (s === 'heads' ? 0 : 180);
+
+/** Compose the coin transform, always preserving the fixed 3D tilt. */
+const coinTransform = (yDeg: number): string => `${TILT} rotateY(${yDeg}deg)`;
 
 /* ── screen state ───────────────────────────────────────────────────────── */
 
@@ -133,17 +138,22 @@ const initialState: State = {
 /** One metallic face of the coin. A diamond "герб" vs. a GRAM "цифра". */
 function CoinFace({ side, back }: { side: Side; back?: boolean }) {
   const info = SIDE_INFO[side];
+  const heads = side === 'heads';
   return (
     <div
       className="absolute inset-0 rounded-full [backface-visibility:hidden]"
+      // The back face is rotated a half-turn so it faces away at rest; without this
+      // both faces would stack frontwards and look identical through the flip.
       style={{ transform: back ? 'rotateY(180deg)' : undefined }}
     >
-      {/* Brushed-metal disc: a radial sheen over a steel→deep-ton body. */}
+      {/* Brushed-metal disc — the two faces use distinct sheens so they read apart
+          mid-spin: Герб is a brighter ice-blue, Цифра a deeper steel-ton. */}
       <div
         className="absolute inset-0 rounded-full"
         style={{
-          background:
-            'radial-gradient(circle at 32% 26%, #aef0ff 0%, #4cc4ff 26%, #149bf0 55%, #0a73c4 78%, #064a82 100%)',
+          background: heads
+            ? 'radial-gradient(circle at 32% 26%, #d4f6ff 0%, #6fd2ff 26%, #1ea6f5 55%, #0d7fce 78%, #075596 100%)'
+            : 'radial-gradient(circle at 32% 26%, #8fd6ff 0%, #2f9be6 26%, #0d72c0 55%, #084f8c 78%, #042f57 100%)',
           boxShadow:
             'inset 0 3px 10px rgba(255,255,255,0.55), inset 0 -10px 22px rgba(0,0,0,0.5)',
         }}
@@ -153,9 +163,13 @@ function CoinFace({ side, back }: { side: Side; back?: boolean }) {
         className="absolute inset-0 rounded-full ring-2 ring-ice/50"
         style={{ boxShadow: 'inset 0 0 0 5px rgba(2,30,55,0.55)' }}
       />
-      {/* Inner bevel that frames the emblem. */}
-      <div className="absolute inset-[14%] grid place-items-center rounded-full border border-ice/25 bg-black/10">
-        {side === 'heads' ? (
+      {/* Inner bevel that frames the emblem. The back face's content is counter-
+          mirrored (scaleX -1) so the digit reads the right way round, not reversed. */}
+      <div
+        className="absolute inset-[14%] grid place-items-center rounded-full border border-ice/25 bg-black/10"
+        style={back ? { transform: 'scaleX(-1)' } : undefined}
+      >
+        {heads ? (
           <span
             className="text-5xl drop-shadow-[0_2px_4px_rgba(0,8,20,0.6)] sm:text-6xl"
             aria-hidden
@@ -193,7 +207,12 @@ const Coin = ({ innerRef }: { innerRef: React.RefObject<HTMLDivElement | null> }
     <div
       ref={innerRef}
       className="relative size-36 will-change-transform sm:size-40"
-      style={{ transformStyle: 'preserve-3d', transform: 'rotateY(0deg)' }}
+      // A small fixed rotateX tilt makes the rotateY flip read as a true 3D turn
+      // (you see the disc's edge sweep through) rather than a flat swap.
+      style={{
+        transformStyle: 'preserve-3d',
+        transform: coinTransform(0),
+      }}
       aria-hidden
     >
       <CoinFace side="heads" />
@@ -218,6 +237,9 @@ export default function CoinflipPage() {
   const coinRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const spinRef = useRef<SpinHandle | null>(null);
+  // The coin's live Y-rotation (deg). Drives the handoff from the free spin into the
+  // settle so the deceleration continues from wherever the coin currently is.
+  const angleRef = useRef(0);
 
   const multiplier = settingsQuery.data ? Number(settingsQuery.data.multiplier) : 1.8;
   const minimalBet = settingsQuery.data ? Number(settingsQuery.data.minimalBet) : 1;
@@ -239,26 +261,54 @@ export default function CoinflipPage() {
   );
 
   /**
-   * Animate the coin from its current angle to a final angle that shows `landedSide`,
-   * decelerating with a cubic ease-out so it eases to a clean stop on the outcome
-   * face. Resolves when the motion finishes.
+   * Stage 1 — free spin. Start turning the coin IMMEDIATELY on click at a constant
+   * angular speed, before the server answers, so there's no static pause. Runs until
+   * `settleTo` takes over (it cancels this RAF). Resets angle to 0 each flip so the
+   * settle's whole-turn maths stays in a tidy range.
    */
-  const animateTo = useCallback((landedSide: Side): Promise<void> => {
+  const startFreeSpin = useCallback(() => {
     const el = coinRef.current;
-    const target = FLIP_TURNS * 360 + faceAngle(landedSide);
+    if (!el) return;
+    angleRef.current = 0;
+    let last = performance.now();
+    const loop = (now: number) => {
+      const dt = now - last;
+      last = now;
+      angleRef.current += FREE_SPEED * dt;
+      el.style.transform = coinTransform(angleRef.current);
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+  }, []);
+
+  /**
+   * Stage 2 — settle. Hand off from the free spin (cancel it) and ease from the
+   * current angle to the next angle that both adds a few whole turns AND shows
+   * `landedSide`, decelerating with a cubic ease-out to a clean stop on the outcome.
+   * Resolves when the motion finishes.
+   */
+  const settleTo = useCallback((landedSide: Side): Promise<void> => {
+    const el = coinRef.current;
     return new Promise((resolve) => {
       if (!el) {
         resolve();
         return;
       }
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      const from = angleRef.current;
+      // Land on the right face after a few whole extra turns: align to the face within
+      // the current turn, then pad with SETTLE_TURNS full rotations for a lively stop.
+      const align = ((faceAngle(landedSide) - (from % 360) + 360) % 360);
+      const target = from + align + SETTLE_TURNS * 360;
       const start = performance.now();
       const tick = (nowTs: number) => {
-        const p = Math.min(1, (nowTs - start) / FLIP_MS);
-        const eased = EASE_OUT(p);
-        el.style.transform = `rotateY(${eased * target}deg)`;
+        const p = Math.min(1, (nowTs - start) / SETTLE_MS);
+        angleRef.current = from + (target - from) * EASE_OUT(p);
+        el.style.transform = coinTransform(angleRef.current);
         if (p < 1) {
           rafRef.current = requestAnimationFrame(tick);
         } else {
+          angleRef.current = target;
           rafRef.current = null;
           resolve();
         }
@@ -276,15 +326,18 @@ export default function CoinflipPage() {
 
     dispatch({ type: 'startFlip' });
     spinRef.current = sfx.startSpin();
+    // Start spinning RIGHT NOW — the coin is already turning before we ask the server,
+    // so there's never a static pause waiting on the network.
+    startFreeSpin();
 
     try {
       const result = await round.play({ bet });
       const isWin = Number(result.result) > 0;
       const landedSide: Side = isWin ? side : other(side);
 
-      // Drive the deceleration to rest on the outcome, then reveal — the result is
-      // gated on the coin actually stopping, never on the network round-trip.
-      await animateTo(landedSide);
+      // Hand the free spin off into the deceleration onto the outcome, then reveal —
+      // the result is gated on the coin actually stopping, never on the round-trip.
+      await settleTo(landedSide);
       spinRef.current?.stop();
       spinRef.current = null;
 
@@ -305,7 +358,10 @@ export default function CoinflipPage() {
       }
       spinRef.current?.stop();
       spinRef.current = null;
-      if (coinRef.current) coinRef.current.style.transform = `rotateY(${faceAngle(side)}deg)`;
+      angleRef.current = faceAngle(side);
+      if (coinRef.current) {
+        coinRef.current.style.transform = coinTransform(faceAngle(side));
+      }
       dispatch({ type: 'reset' });
     }
   };
@@ -431,11 +487,15 @@ export default function CoinflipPage() {
         />
       </div>
 
-      {/* Potential win */}
-      <div className="mb-4 flex items-center justify-between rounded-xl border border-edge bg-panel px-3.5 py-2.5 text-sm">
-        <span className="text-muted">Выигрыш при победе</span>
-        <Amount value={potentialWin} className="font-semibold" />
-      </div>
+      {/* Potential win — a small muted caption, not a boxed field. */}
+      <p className="mb-4 text-xs text-muted">
+        Выигрыш при победе:{' '}
+        {betValid ? (
+          <Amount value={potentialWin} className="font-medium text-ice" />
+        ) : (
+          <span className="font-medium text-fg">—</span>
+        )}
+      </p>
 
       {/* Flip / replay — one click, always playable */}
       <Button

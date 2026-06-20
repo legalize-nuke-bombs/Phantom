@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { Search, MessagesSquare, UserX } from 'lucide-react';
+import { MessagesSquare, UserX } from 'lucide-react';
 
 /* ── Group chats ────────────────────────────────────────────────────────────
    PLACEHOLDER ONLY — no behaviour is wired here. A large central stand-in for
@@ -36,7 +36,6 @@ export default function GroupChatsPage() {
         </h1>
         <div className="ml-auto flex items-center gap-0.5">
           <ToolbarButton icon={UserX} label="Чёрный список" />
-          <ToolbarButton icon={Search} label="Поиск игрока по ID" />
         </div>
       </header>
 

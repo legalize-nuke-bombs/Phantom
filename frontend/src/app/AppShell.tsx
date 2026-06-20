@@ -18,7 +18,6 @@ import clsx from 'clsx';
 import { useWallet } from '@/shared/lib/wallet';
 import { formatUsd } from '@/shared/lib/money';
 import { useAuth } from '@/shared/auth/AuthContext';
-import Button from '@/shared/ui/Button';
 
 interface NavItem {
   to: string;
@@ -95,10 +94,8 @@ function Sidebar({
 }) {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const [confirmLogout, setConfirmLogout] = useState(false);
 
   async function handleLogout() {
-    setConfirmLogout(false);
     onClose();
     await logout();
     navigate('/login');
@@ -129,55 +126,14 @@ function Sidebar({
         ))}
         <button
           type="button"
-          onClick={() => setConfirmLogout(true)}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:bg-panel-2 hover:text-lose"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-lose transition-colors hover:bg-lose/10"
         >
           <LogOut size={20} />
           <span>Выйти</span>
         </button>
       </nav>
-
-      {confirmLogout ? (
-        <LogoutConfirm
-          onCancel={() => setConfirmLogout(false)}
-          onConfirm={handleLogout}
-        />
-      ) : null}
     </aside>
-  );
-}
-
-/** Lightweight centered confirm shown before logging out. */
-function LogoutConfirm({
-  onCancel,
-  onConfirm,
-}: {
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={onCancel}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Выйти из аккаунта"
-    >
-      <div
-        className="w-full max-w-xs rounded-2xl border border-edge bg-panel p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="text-base font-medium text-fg">Выйти из аккаунта?</p>
-        <div className="mt-5 flex gap-2">
-          <Button variant="ghost" className="flex-1" onClick={onCancel}>
-            Отмена
-          </Button>
-          <Button variant="primary" className="flex-1" onClick={onConfirm}>
-            Выйти
-          </Button>
-        </div>
-      </div>
-    </div>
   );
 }
 

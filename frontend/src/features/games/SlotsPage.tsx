@@ -45,6 +45,7 @@ import {
   columnSpinMs,
   settleMs,
   easeOutQuint,
+  FREE_SCROLL_PX_PER_MS_PER_CELL,
 } from './slots/reel';
 
 // ── Backend shapes ───────────────────────────────────────────────────────────
@@ -90,8 +91,8 @@ function readSpin(result: GameResult): SpinPayload | null {
  * the seven/wild ·10 slot) clear 1.
  */
 const RICH_PATTERN_K = 1;
-/** Gap between successive pattern reveals (light-up + short sound). */
-const PATTERN_STEP_MS = 520;
+/** Gap between successive pattern reveals (light-up + short sound + sum bump). */
+const PATTERN_STEP_MS = 760;
 
 // ── Reel column ─────────────────────────────────────────────────────────────
 interface ReelColumnProps {
@@ -198,6 +199,10 @@ export default function SlotsPage() {
   // Light-up of the winning cells during the per-pattern walk (null = none).
   const [highlight, setHighlight] = useState<boolean[][] | null>(null);
 
+  // Running winnings shown during the walk: starts at 0 and climbs by each
+  // pattern's contribution (bet × its k) as it lights up. Lands on result.result.
+  const [winShown, setWinShown] = useState(0);
+
   // The round we're presenting (drives the payout + provably-fair reveal).
   const [shown, setShown] = useState<GameResult | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -248,18 +253,26 @@ export default function SlotsPage() {
     return m ? m.map((row) => row.map((v) => v === 1)) : null;
   }, []);
 
-  // Walk the matched patterns in the server's (value) order: light each one's cells
-  // and play one short cue, ~0.5s apart. A single lose if nothing matched.
+  // Walk the matched patterns in the server's (value) order: light each one's cells,
+  // play one short cue, and add its contribution (bet × its k) to the running win —
+  // so the shown sum climbs from 0 to result.result across the walk. ~0.76s apart.
+  // A single lose if nothing matched.
   const walkOutcome = useCallback(
-    (matches: PatternMatch[]) => {
+    (matches: PatternMatch[], betAmount: number, total: number) => {
+      setWinShown(0);
       if (matches.length === 0) {
         sfx.lose();
         return;
       }
+      let running = 0;
       matches.forEach((m, i) => {
+        const isLast = i === matches.length - 1;
         timers.current.push(
           setTimeout(() => {
             setHighlight(maskOf(m.patternName));
+            // Snap to the exact server total on the final reveal (avoids fp drift).
+            running = isLast ? total : running + betAmount * Number(m.k);
+            setWinShown(running);
             if (Number(m.k) >= RICH_PATTERN_K) sfx.bigWin();
             else sfx.smallWin();
           }, i * PATTERN_STEP_MS),
@@ -273,20 +286,71 @@ export default function SlotsPage() {
     [maskOf],
   );
 
-  // Drive all 5 columns from one RAF loop; each eases from a deep filler offset up
-  // to its rest point, finishing at staggered times.
-  const animate = useCallback(
-    (finalStrips: string[][], result: GameResult) => {
-      const start = performance.now();
+  // Live per-column offsets, mirrored in a ref so the deceleration can hand off from
+  // wherever the free-scroll currently is (no snap).
+  const offsetsRef = useRef<number[]>(Array.from({ length: COLS }, () => 0));
+  const applyOffsets = useCallback((next: number[]) => {
+    offsetsRef.current = next;
+    setOffsets(next);
+  }, []);
+
+  // Stage 1 — free scroll: each column whirls upward forever (wrapped over the
+  // filler block) while we wait for the server. Started immediately on click, so
+  // there's no static pause before motion. Cleared by clearAll / handoff.
+  const startFreeScroll = useCallback(() => {
+    const cell = () => cellPxRef.current || 1;
+    // Wrap over the strip MINUS the visible window so the window never scrolls off
+    // the end into blank space; since every filler cell is random, the wrap-jump is
+    // invisible. (Strip length is FILLER_LEN.)
+    const wrap = () => (FILLER_LEN - ROWS) * cell();
+    let last = performance.now();
+    const loop = (now: number) => {
+      const dt = now - last;
+      last = now;
+      const speed = FREE_SCROLL_PX_PER_MS_PER_CELL * cell(); // px/ms
+      const w = wrap();
+      const next = offsetsRef.current.map((o) => {
+        // scroll up (more negative); wrap back into (-w, 0] so it never runs off.
+        let v = o - speed * dt;
+        if (v <= -w) v += w;
+        return v;
+      });
+      applyOffsets(next);
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+  }, [applyOffsets]);
+
+  // Stage 2 — deceleration: swap in the final strips and ease each column from its
+  // current (free-scroll) offset onto its rest point, staggered L→R.
+  const decelerate = useCallback(
+    (finalStrips: string[][], result: GameResult, betAmount: number) => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
       const rests = finalStrips.map((s) => restOffset(s.length));
+      // Hand off from the live whirl with NO snap: the rest sits at the filler-block
+      // boundary and the current wrapped offset is within one block above it, so we
+      // glide straight down onto rest. Guarantee a minimum travel so a column caught
+      // near the boundary still decelerates visibly (shift it up by whole blocks).
+      const cell = cellPxRef.current || 1;
+      const block = FILLER_LEN * cell;
+      const minTravel = 6 * cell;
+      const from = offsetsRef.current.map((o, x) => {
+        let v = o;
+        while (v - rests[x] < minTravel) v += block;
+        return v;
+      });
       const durations = finalStrips.map((_, x) => columnSpinMs(x));
+      const start = performance.now();
 
       const tick = (now: number) => {
         const elapsed = now - start;
-        setOffsets(
+        applyOffsets(
           finalStrips.map((_, x) => {
             const t = Math.min(1, elapsed / durations[x]);
-            return rests[x] * easeOutQuint(t); // from 0 (filler) → rest
+            return from[x] + (rests[x] - from[x]) * easeOutQuint(t);
           }),
         );
 
@@ -294,15 +358,19 @@ export default function SlotsPage() {
           rafRef.current = requestAnimationFrame(tick);
         } else {
           rafRef.current = null;
-          setOffsets(finalStrips.map((s) => restOffset(s.length)));
+          applyOffsets(rests);
           const parsed = readSpin(result);
           setPhase('done');
-          walkOutcome(parsed ? parsed.matches : []);
+          walkOutcome(
+            parsed ? parsed.matches : [],
+            betAmount,
+            Number(result.result) || 0,
+          );
         }
       };
       rafRef.current = requestAnimationFrame(tick);
     },
-    [restOffset, walkOutcome],
+    [restOffset, walkOutcome, applyOffsets],
   );
 
   const spin = useCallback(async () => {
@@ -311,30 +379,50 @@ export default function SlotsPage() {
     // One click resets everything — no stale loop/timer/highlight can fire.
     clearAll();
     setHighlight(null);
+    setWinShown(0);
     setShown(null);
     setPhase('spinning');
     sfx.startSpin();
+
+    // Fresh filler strips and start whirling RIGHT AWAY — don't wait for the server.
+    const fillerStrips = Array.from({ length: COLS }, () => randomFiller(FILLER_LEN));
+    setStrips(fillerStrips);
+    applyOffsets(Array.from({ length: COLS }, () => 0));
+    startFreeScroll();
+
+    const betAmount = Number(bet) || 0;
 
     let result: GameResult;
     try {
       result = await round.play({ bet });
     } catch {
       clearAll();
+      applyOffsets(Array.from({ length: COLS }, () => 0));
       setPhase('idle');
       return;
     }
 
     const parsed = readSpin(result);
     const finalGrid = parsed ? parsed.grid : IDLE_GRID;
+    // Final strips: same filler length so the rest point lines up with the whirl,
+    // with the column's resolved 3 symbols planted at the bottom.
     const finalStrips = Array.from({ length: COLS }, (_, x) =>
       buildStrip(column(finalGrid, x)),
     );
 
     setStrips(finalStrips);
     setShown(result);
-    setOffsets(Array.from({ length: COLS }, () => 0)); // filler showing, pre-animate
-    animate(finalStrips, result);
-  }, [round, phase, betValid, bet, clearAll, animate]);
+    decelerate(finalStrips, result, betAmount);
+  }, [
+    round,
+    phase,
+    betValid,
+    bet,
+    clearAll,
+    applyOffsets,
+    startFreeScroll,
+    decelerate,
+  ]);
 
   const spinning = phase === 'spinning';
   const busy = round.busy || spinning;
@@ -387,7 +475,7 @@ export default function SlotsPage() {
               <span className="text-xs uppercase tracking-wide text-muted">
                 Ваш выигрыш
               </span>
-              <Amount value={shown?.result ?? 0} className="text-2xl font-bold" />
+              <Amount value={winShown} className="text-2xl font-bold" />
             </div>
           ) : spinning ? (
             <span className="text-sm text-muted">Крутим…</span>

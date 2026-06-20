@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { MessagesSquare, ScrollText, Search, ShieldBan } from 'lucide-react';
+import { MessagesSquare, ScrollText, ShieldBan } from 'lucide-react';
 import { useMyCapabilities } from '@/shared/lib/roles';
 
 /* ── Global chat ────────────────────────────────────────────────────────────
@@ -39,7 +39,6 @@ export default function GlobalChatPage() {
         </h1>
         <div className="ml-auto flex items-center gap-0.5">
           <ToolbarButton icon={ScrollText} label="Лог действий модераторов" />
-          <ToolbarButton icon={Search} label="Поиск игрока по ID" />
           {isChatModerator ? (
             <ToolbarButton icon={ShieldBan} label="Блокировка" />
           ) : null}

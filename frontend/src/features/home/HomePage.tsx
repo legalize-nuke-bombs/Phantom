@@ -190,9 +190,8 @@ function GameRow({
       </div>
       {/* Each amount gets its own fixed-width right-aligned cell so the bet and
           result columns line up across rows of differing magnitudes. */}
-      <div className="flex shrink-0 items-center gap-1.5 text-sm font-medium tabular-nums">
+      <div className="flex shrink-0 items-center gap-4 text-sm font-medium tabular-nums">
         <Amount value={entry.bet} className="inline-block w-14 text-right text-muted sm:w-20" />
-        <span aria-hidden className="text-muted">→</span>
         <Amount value={entry.result} className="inline-block w-14 text-right font-semibold sm:w-20" />
       </div>
     </li>

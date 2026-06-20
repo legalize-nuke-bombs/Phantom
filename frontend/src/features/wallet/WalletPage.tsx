@@ -53,7 +53,7 @@ import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { coinName, coinTicker } from '@/shared/lib/coin';
 import type { CoinType } from '@/shared/lib/coin';
-import { useMyExperience } from '@/shared/lib/experience';
+import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
 import { formatUsd } from '@/shared/lib/money';
 import { formatTime } from '@/shared/lib/time';
@@ -66,6 +66,7 @@ import Input from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
 import Switch from '@/shared/ui/Switch';
 import UserChip from '@/shared/ui/UserChip';
+import UserLookup from '@/shared/ui/UserLookup';
 
 /* ── DTOs (verified against backend *Representation classes) ──────────────── */
 
@@ -611,33 +612,16 @@ function SendPresentCard() {
   const qc = useQueryClient();
   const gate = useFeatureGate('SEND_PRESENT');
 
-  const [receiverId, setReceiverId] = useState('');
+  const [receiverInput, setReceiverInput] = useState('');
+  const [receiver, setReceiver] = useState<User | null>(null);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [anonymous, setAnonymous] = useState(false);
 
-  const receiverIdNum = Number(receiverId);
-  const receiverValid =
-    receiverId.trim() !== '' &&
-    Number.isInteger(receiverIdNum) &&
-    receiverIdNum > 0 &&
-    receiverIdNum !== user?.id;
-
-  // Preview the receiver so the sender confirms who they're paying. Only fires
-  // for a syntactically valid id; a hidden/missing user resolves to an error we
-  // surface inline (and which blocks send).
-  const receiverQuery = useQuery<User>({
-    queryKey: ['user', 'by-id', receiverIdNum],
-    enabled: receiverValid,
-    queryFn: () => api.get<User>(`/users/by-id/${receiverIdNum}`),
-    retry: false,
-  });
-  const receiverExp = useMyExperience(receiverQuery.data?.id);
-
   const send = useMutation<void, ApiError>({
     mutationFn: () =>
       api.post<void>('/presents/send', {
-        receiverId: receiverIdNum,
+        receiverId: receiver?.id,
         amount,
         anonymous,
         description: description.trim() || undefined,
@@ -646,7 +630,8 @@ function SendPresentCard() {
       await refreshBalance();
       // The receiver's inbox is theirs, not ours — nothing local to invalidate,
       // but clear the form for the next gift.
-      setReceiverId('');
+      setReceiverInput('');
+      setReceiver(null);
       setAmount('');
       setDescription('');
       setAnonymous(false);
@@ -656,9 +641,7 @@ function SendPresentCard() {
 
   const numericAmount = Number(amount);
   const amountValid = amount.trim() !== '' && Number.isFinite(numericAmount) && numericAmount >= 1;
-  const receiverLoaded = receiverValid && receiverQuery.isSuccess;
-  const canSubmit =
-    !gate.locked && receiverLoaded && amountValid && !send.isPending;
+  const canSubmit = !gate.locked && receiver != null && amountValid && !send.isPending;
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -682,36 +665,16 @@ function SendPresentCard() {
         </div>
       ) : (
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <div>
-            <Input
-              label="ID получателя"
-              type="number"
-              inputMode="numeric"
-              min="1"
-              step="1"
-              placeholder="Например, 1024"
-              value={receiverId}
-              onChange={(e) => setReceiverId(e.target.value)}
-              disabled={send.isPending}
-              error={
-                receiverId.trim() !== '' && receiverIdNum === user?.id
-                  ? 'Нельзя отправить подарок себе'
-                  : undefined
-              }
-            />
-            {receiverValid && receiverIdNum !== user?.id && (
-              <ReceiverPreview
-                loading={receiverQuery.isLoading}
-                error={
-                  receiverQuery.isError
-                    ? errorMessage(receiverQuery.error, 'Пользователь не найден')
-                    : null
-                }
-                receiver={receiverQuery.data}
-                level={receiverExp.data?.level ?? null}
-              />
-            )}
-          </div>
+          <UserLookup
+            value={receiverInput}
+            onChange={setReceiverInput}
+            onResolve={setReceiver}
+            excludeId={user?.id}
+            excludeMessage="Нельзя отправить подарок себе"
+            label="Получатель"
+            placeholder="ID или @username"
+            disabled={send.isPending}
+          />
 
           <Input
             label="Сумма (USD)"
@@ -766,34 +729,6 @@ function SendPresentCard() {
   );
 }
 
-function ReceiverPreview({
-  loading,
-  error,
-  receiver,
-  level,
-}: {
-  loading: boolean;
-  error: string | null;
-  receiver: User | undefined;
-  level: LevelName | null;
-}) {
-  if (loading) {
-    return (
-      <p className="mt-2 flex items-center gap-2 text-xs text-muted">
-        <Spinner size={14} />
-        Проверяем получателя…
-      </p>
-    );
-  }
-  if (error) return <p className="mt-2 text-xs text-lose">{error}</p>;
-  if (!receiver) return null;
-  return (
-    <div className="mt-2 flex items-center gap-2 rounded-lg border border-edge bg-panel-2 px-2.5 py-2">
-      <UserChip user={receiver} level={level} size={24} link={false} />
-    </div>
-  );
-}
-
 /* received — list + per-item claim + claim-all */
 function ReceivedPresentsCard() {
   const refreshBalance = useRefreshBalance();
@@ -831,6 +766,11 @@ function ReceivedPresentsCard() {
   });
 
   const items = presents.data ?? [];
+  // Batch-load sender ranks so each gift shows the real level, not a ◇ placeholder.
+  const senderIds = items
+    .map((p) => p.sender?.id)
+    .filter((id): id is number => id != null);
+  const { data: senderLevels } = useExperienceBatch(senderIds);
   const hasUnclaimed = items.some((p) => !p.claimed);
   const badge = unclaimedCount.data ?? 0;
 
@@ -856,7 +796,7 @@ function ReceivedPresentsCard() {
     body = (
       <div className="flex items-center gap-2 py-1 text-sm text-muted">
         <Gift size={15} strokeWidth={2} />
-        Пока нет полученных подарков
+        Пока нет подарков
       </div>
     );
   } else {
@@ -872,6 +812,7 @@ function ReceivedPresentsCard() {
             <PresentRow
               key={present.id}
               present={present}
+              level={present.sender ? levelFor(senderLevels, present.sender.id) : null}
               onClaim={() => claimOne.mutate(present.id)}
               claiming={claimOne.isPending && claimOne.variables === present.id}
               disabled={claimOne.isPending || claimAll.isPending}
@@ -887,7 +828,7 @@ function ReceivedPresentsCard() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-muted">
           <Gift size={16} strokeWidth={2} />
-          <h2 className="text-sm font-medium">Полученные подарки</h2>
+          <h2 className="text-sm font-medium">Подарки</h2>
           {badge > 0 && (
             <span className="rounded-md bg-ton-deep px-1.5 py-0.5 text-[10px] font-semibold text-white">
               {badge}
@@ -915,11 +856,13 @@ function ReceivedPresentsCard() {
 
 function PresentRow({
   present,
+  level,
   onClaim,
   claiming,
   disabled,
 }: {
   present: Present;
+  level: LevelName | null;
   onClaim: () => void;
   claiming: boolean;
   disabled: boolean;
@@ -938,7 +881,7 @@ function PresentRow({
           <Amount value={present.amount} className="text-sm font-semibold" />
           <span className="text-xs text-muted">·</span>
           {present.sender ? (
-            <UserChip user={present.sender} size={20} className="text-xs" />
+            <UserChip user={present.sender} level={level} size={20} className="text-xs" />
           ) : (
             <span className="text-xs text-muted">Аноним</span>
           )}

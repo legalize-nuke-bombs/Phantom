@@ -122,27 +122,33 @@ export function useGameRound(game: GameType): UseGameRound {
   const reveal = useCallback(async (): Promise<GameResult> => {
     const committed = serverHashRef.current;
     setRound((r) => ({ ...r, status: 'revealing', error: null }));
+
+    // Only the run itself is allowed to fail the round. Once it resolves, the bet
+    // is placed and the outcome is decided — so verification and the balance
+    // refresh are strictly best-effort and can NEVER throw the round into `error`
+    // (that was the bug: crypto.subtle is absent over http → verify threw → every
+    // game "broke" right after a successful run).
+    let result: GameResult;
     try {
       const clientSeed = generateClientSeed();
-      const result = await runRound(game, clientSeed);
-      // Balance moved — refresh every wallet consumer.
-      await refreshBalance();
-      // Re-derive the committed hash from the now-revealed serverSeed. Without a
-      // committed hash there is nothing to check against, so it's unverified.
-      const verified = committed
-        ? await verifyServerHash(result.serverSeed, committed)
-        : false;
-      setRound((r) => ({
-        ...r,
-        status: 'done',
-        result,
-        verified,
-        error: null,
-      }));
-      return result;
+      result = await runRound(game, clientSeed);
     } catch (e) {
       return fail(e);
     }
+
+    let verified: boolean | null = null;
+    try {
+      verified = committed ? await verifyServerHash(result.serverSeed, committed) : null;
+    } catch {
+      verified = null;
+    }
+
+    setRound((r) => ({ ...r, status: 'done', result, verified, error: null }));
+
+    // Balance moved — refresh consumers, but don't block or fail the result on it.
+    refreshBalance().catch(() => {});
+
+    return result;
   }, [game, refreshBalance, fail]);
 
   const play = useCallback(

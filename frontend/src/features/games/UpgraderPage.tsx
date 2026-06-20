@@ -110,8 +110,8 @@ function pointOnRing(angleDeg: number): { x: number; y: number } {
 interface SpinPhase {
   /** Spin nonce — bump to (re)launch the cursor. 0 = never spun (idle). */
   nonce: number;
-  /** Did the round win? Decides which zone the cursor lands in. */
-  win: boolean;
+  /** Did the round win? null until the server responds (cursor free-spins). */
+  win: boolean | null;
 }
 
 function Ring({
@@ -122,6 +122,7 @@ function Ring({
   settled,
   won,
   payout,
+  onSettled,
 }: {
   chance: number;
   mult: number;
@@ -130,47 +131,86 @@ function Ring({
   settled: boolean;
   won: boolean;
   payout: string | null;
+  /** Fired once the cursor finishes easing onto the outcome angle. */
+  onSettled: () => void;
 }) {
   const fraction = Math.min(Math.max(chance / 100, 0), 1);
   const winArc = C * fraction;
 
   // Cursor angle in degrees (clockwise from the top). Driven by RAF on each spin.
+  // Held in a ref too so a phase change continues from wherever the cursor is
+  // (no snap-back) and onSettled fires from a stable callback.
   const [angle, setAngle] = useState(0);
+  const angleRef = useRef(0);
+  const setAngleBoth = useCallback((a: number) => {
+    angleRef.current = a;
+    setAngle(a);
+  }, []);
   const raf = useRef<number | null>(null);
 
+  const settledRef = useRef(onSettled);
+  useEffect(() => {
+    settledRef.current = onSettled;
+  }, [onSettled]);
+
+  // Two RAF stages, both keyed off the launch nonce + whether the outcome is known:
+  //   1. spinning, outcome not in yet (win == null) → free constant-speed rotation
+  //   2. outcome known                              → ease from the current angle
+  //                                                    onto the matching zone
+  // Splitting them means a result arriving mid-spin doesn't restart the motion — it
+  // hands off from a steady spin into the deceleration. Same shape as the cases Reel.
   useEffect(() => {
     if (phase.nonce === 0) return; // idle, no spin yet
     if (raf.current != null) cancelAnimationFrame(raf.current);
 
-    // Land at a random angle within the matching zone, with a small margin so the
-    // cursor never rests exactly on the win/miss seam.
-    const winSpan = 360 * fraction;
-    const margin = Math.min(8, winSpan / 5 || 0);
-    const target = phase.win
-      ? margin + Math.random() * Math.max(winSpan - 2 * margin, 0)
-      : winSpan + margin + Math.random() * Math.max(360 - winSpan - 2 * margin, 0);
+    if (phase.win == null) {
+      // Stage 1 — free spin clockwise while we wait for the server. Constant speed,
+      // no silence broken; the outcome cue plays on reveal.
+      const speed = 360 / 1100; // deg per ms — a lap every ~1.1s, brisk but readable
+      let last = performance.now();
+      const loop = (now: number) => {
+        const dt = now - last;
+        last = now;
+        setAngleBoth(angleRef.current + speed * dt);
+        raf.current = requestAnimationFrame(loop);
+      };
+      raf.current = requestAnimationFrame(loop);
+    } else {
+      // Stage 2 — ease from wherever the cursor is onto a random angle within the
+      // matching zone, with a small margin so it never rests on the win/miss seam.
+      const winSpan = 360 * fraction;
+      const margin = Math.min(8, winSpan / 5 || 0);
+      const target = phase.win
+        ? margin + Math.random() * Math.max(winSpan - 2 * margin, 0)
+        : winSpan + margin + Math.random() * Math.max(360 - winSpan - 2 * margin, 0);
 
-    const start = angle;
-    const base = (((target - start) % 360) + 360) % 360;
-    const total = base + 360 * LAPS;
-    const t0 = performance.now();
+      const start = angleRef.current;
+      // Normalise to the next occurrence of `target` ahead of the cursor, then add a
+      // few full laps so the long easeOutSextic tail has room to glide to a halt.
+      const base = (((target - start) % 360) + 360) % 360;
+      const total = base + 360 * LAPS;
+      const t0 = performance.now();
+      let done = false;
 
-    // The cursor travels in silence — no per-frame ticks. The single start cue
-    // plays at launch (in `play`); the outcome cue plays on reveal.
-    const tick = (now: number) => {
-      const p = Math.min((now - t0) / SPIN_MS, 1);
-      const next = start + total * easeOutSextic(p);
-      setAngle(next);
-      if (p < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
+      const tick = (now: number) => {
+        const p = Math.min((now - t0) / SPIN_MS, 1);
+        setAngleBoth(start + total * easeOutSextic(p));
+        if (p < 1) {
+          raf.current = requestAnimationFrame(tick);
+        } else if (!done) {
+          done = true;
+          settledRef.current();
+        }
+      };
+      raf.current = requestAnimationFrame(tick);
+    }
 
     return () => {
       if (raf.current != null) cancelAnimationFrame(raf.current);
     };
-    // Re-run only when a new spin is requested.
+    // Re-run when a new spin launches OR when the outcome becomes known (hand-off).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase.nonce]);
+  }, [phase.nonce, phase.win]);
 
   const cursor = pointOnRing(angle);
   const startPt = pointOnRing(0);
@@ -323,17 +363,13 @@ export default function UpgraderPage() {
   // The user's explicit pick (null = none yet → fall back to the safest option).
   const [percent, setPercent] = useState<number | null>(null);
   // Animation phase, decoupled from the round so the verdict only flips once the
-  // cursor finishes its travel.
-  const [phase, setPhase] = useState<SpinPhase>({ nonce: 0, win: false });
+  // cursor finishes its travel. win=null while the cursor free-spins awaiting the
+  // server; it flips to the real outcome to hand off into the deceleration.
+  const [phase, setPhase] = useState<SpinPhase>({ nonce: 0, win: null });
   const [revealed, setRevealed] = useState(false);
-  const spinTimer = useRef<number | null>(null);
-
-  useEffect(
-    () => () => {
-      if (spinTimer.current != null) clearTimeout(spinTimer.current);
-    },
-    [],
-  );
+  // The outcome cue is decided when the server answers but only played once the
+  // cursor lands (in onSettled), so the reveal and the sound stay in lockstep.
+  const outcomeCue = useRef<(() => void) | null>(null);
 
   // Default to the first (safest) option until the user picks one — derived, so no
   // state-syncing effect is needed.
@@ -356,31 +392,40 @@ export default function UpgraderPage() {
   const play = useCallback(async () => {
     if (selected == null || !betValid || spinning) return;
     // Reset any previous result/animation before launching the new round.
-    if (spinTimer.current != null) clearTimeout(spinTimer.current);
     setRevealed(false);
+    outcomeCue.current = null;
     round.reset();
+    // Launch the cursor into free laps IMMEDIATELY on click (win=null), then ask the
+    // server in parallel — no static pause before the motion. When the result lands
+    // we flip phase.win to hand off the running cursor into the deceleration, and the
+    // verdict (+ outcome cue) reveals only once it settles, in onSettled.
+    sfx.startSpin();
+    setPhase({ nonce: Date.now(), win: null });
     try {
       const res = await round.play({
         bet: String(betNum),
         percent: String(selected.percent),
       });
       const win = Number(res.result) > 0;
-      // One short start cue; the cursor then travels in silence (no-op handle).
-      sfx.startSpin();
-      // Launch the cursor; reveal the verdict (and play the outcome cue) only after
-      // it lands.
-      setPhase({ nonce: Date.now(), win });
-      if (spinTimer.current != null) clearTimeout(spinTimer.current);
-      spinTimer.current = window.setTimeout(() => {
-        setRevealed(true);
+      outcomeCue.current = () => {
         if (!win) sfx.lose();
         else if (selected.mult >= BIG_WIN_MULT) sfx.bigWin();
         else sfx.smallWin();
-      }, SPIN_MS);
+      };
+      setPhase((p) => ({ ...p, win }));
     } catch {
-      // round.error carries the localized message; nothing to do here.
+      // round.error carries the localized message; abandon the spin (back to idle).
+      setPhase({ nonce: 0, win: null });
     }
   }, [round, selected, betValid, betNum, spinning]);
+
+  // Fired by the ring once the cursor finishes easing onto the outcome angle: flip
+  // the verdict and play the matching cue, kept in lockstep with the landing.
+  const onSettled = useCallback(() => {
+    setRevealed(true);
+    outcomeCue.current?.();
+    outcomeCue.current = null;
+  }, []);
 
   /* ── states ── */
   if (settingsQuery.isLoading) {
@@ -418,6 +463,7 @@ export default function UpgraderPage() {
           settled={settled}
           won={won}
           payout={payout}
+          onSettled={onSettled}
         />
 
         {/* controls */}

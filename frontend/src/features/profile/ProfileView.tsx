@@ -13,8 +13,9 @@
 // carries the two nav links (Settings / Referrals) so they're impossible to miss,
 // instead of inlining those flows or burying them at the bottom.
 
-import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
@@ -22,6 +23,7 @@ import {
   Gamepad2,
   Gift,
   History,
+  Search,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -48,6 +50,7 @@ import Card from '@/shared/ui/Card';
 import RankBadge from '@/shared/ui/RankBadge';
 import Spinner from '@/shared/ui/Spinner';
 import Amount from '@/shared/ui/Amount';
+import UserLookup from '@/shared/ui/UserLookup';
 
 const ROLE_LABELS: Record<Role, string> = {
   USER: 'Игрок',
@@ -239,6 +242,9 @@ function ProfileHeader({ user, level }: { user: User; level: LevelName | null })
             <ShieldCheck size={13} strokeWidth={2} />
             {ROLE_LABELS[user.role]}
           </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-panel-2 border border-edge px-2.5 py-1 font-mono text-xs text-muted">
+            ID {user.id}
+          </span>
         </div>
         <p
           className="mt-2 text-xs text-muted"
@@ -377,9 +383,8 @@ function HistoryRow({ entry }: { entry: GameHistoryEntry }) {
       </div>
       {/* Each amount gets its OWN fixed-width right-aligned cell, so bets line up
           under bets and results under results across every row. */}
-      <div className="flex shrink-0 items-center gap-1.5 text-sm font-medium tabular-nums">
+      <div className="flex shrink-0 items-center gap-4 text-sm font-medium tabular-nums">
         <Amount value={entry.bet} className="inline-block w-14 text-right text-muted sm:w-20" />
-        <span aria-hidden className="text-muted">→</span>
         <Amount value={entry.result} className="inline-block w-14 text-right font-semibold sm:w-20" />
       </div>
     </li>
@@ -446,6 +451,35 @@ function OwnNav() {
   );
 }
 
+/* ── find another player (by id) → their profile ───────────────────────────── */
+function PlayerSearch() {
+  const navigate = useNavigate();
+  const [value, setValue] = useState('');
+  const [found, setFound] = useState<User | null>(null);
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (found) navigate(`/u/${found.id}`);
+  }
+
+  return (
+    <Section icon={<Search size={16} strokeWidth={2} />} title="Найти игрока">
+      <form onSubmit={onSubmit} className="flex flex-col gap-2">
+        <UserLookup
+          value={value}
+          onChange={setValue}
+          onResolve={setFound}
+          placeholder="ID или @username"
+          linkChip
+        />
+        <Button type="submit" disabled={!found} className="self-start">
+          Перейти к профилю
+        </Button>
+      </form>
+    </Section>
+  );
+}
+
 /* ── profile body (header + cards [+ own nav]) ─────────────────────────── */
 function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
   // The full user record. Own → /me (kept warm by AuthContext); else → /by-id.
@@ -495,6 +529,8 @@ function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
         <ProfileHeader user={user} level={level} />
         {isOwn ? <OwnNav /> : null}
       </Card>
+
+      {isOwn ? <PlayerSearch /> : null}
 
       <XpCard
         experience={experienceQuery.data}
