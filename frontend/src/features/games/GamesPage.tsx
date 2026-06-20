@@ -96,7 +96,7 @@ export default function GamesPage() {
           <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">
             Игры
           </h1>
-          <p className="text-sm text-muted">Выбери игру — все исходы проверяемы</p>
+          <p className="text-sm text-muted">Выбери игру</p>
         </div>
       </header>
 

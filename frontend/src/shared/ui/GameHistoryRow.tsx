@@ -10,31 +10,32 @@
 //   │🎮│  muted metadata · time     ставка $5 ← faint, tucked beneath
 //   └──┘
 //
-// The icon is the game's emoji, EXCEPT coinflip, which renders the blue brand coin
-// (CoinGlyph) so it reads blue app-wide instead of the gold 🪙.
-//
-// Pass `user` to lead with the player (the home feed, across many players); omit it
-// for a single user's own history, where the game name becomes the primary line. The
-// player's name links to their profile but carries NO rank avatar here — the game
-// glyph is the row's only icon, which keeps the line uncluttered.
+// Pass `withUser` to lead with the player (the home feed, across many players): the
+// leading icon is the player's rank avatar (RankBadge, via `level`) and the primary
+// line their name, with the game name on the metadata line. Omit it for a single user's
+// own history, where the game glyph leads (the blue brand coin for coinflip, its emoji
+// otherwise) and the game name is the primary line.
 
 import { Link } from 'react-router-dom';
 
 import { gameMeta } from '@/shared/lib/games';
 import { formatTime } from '@/shared/lib/time';
 import { formatUsd } from '@/shared/lib/money';
-import type { GameHistoryEntry } from '@/shared/types';
+import type { GameHistoryEntry, LevelName } from '@/shared/types';
 import Amount from '@/shared/ui/Amount';
 import CoinGlyph from '@/shared/ui/CoinGlyph';
+import RankBadge from '@/shared/ui/RankBadge';
 
 interface GameHistoryRowProps {
   entry: GameHistoryEntry;
   /**
-   * Lead the row with the player (the platform feed). The primary line becomes the
-   * player's name and the game name drops to the metadata line. Omit on an own-profile
-   * history, where the game name is the primary line and there's no player to show.
+   * Lead the row with the player (the platform feed): the leading icon is the player's
+   * rank avatar and the primary line their name, with the game name on the metadata line.
+   * Omit on an own-profile history, where the game glyph leads and its name is primary.
    */
   withUser?: boolean;
+  /** The player's rank — drives the feed avatar (withUser). Omit on own-history. */
+  level?: LevelName | null;
 }
 
 /** The game's glyph — the blue brand coin for coinflip, its emoji otherwise. */
@@ -53,13 +54,20 @@ function GameGlyph({ entry }: { entry: GameHistoryEntry }) {
   );
 }
 
-export default function GameHistoryRow({ entry, withUser = false }: GameHistoryRowProps) {
+export default function GameHistoryRow({ entry, withUser = false, level }: GameHistoryRowProps) {
   const meta = gameMeta(entry.gameType);
   const time = formatTime(entry.timestamp, 'relative');
 
   return (
     <li className="flex items-center gap-3 py-3">
-      <GameGlyph entry={entry} />
+      {/* Leading icon: the player's rank avatar on the feed, the game glyph on own-history. */}
+      {withUser ? (
+        <Link to={`/u/${entry.user.id}`} className="shrink-0">
+          <RankBadge level={level} size={36} />
+        </Link>
+      ) : (
+        <GameGlyph entry={entry} />
+      )}
 
       {/* Primary line + muted metadata. The player leads on the feed; otherwise the
           game name does. The secondary line stays quiet — that's the decluttering. */}

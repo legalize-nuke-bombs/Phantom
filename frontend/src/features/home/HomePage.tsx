@@ -7,12 +7,12 @@ import {
   Trophy,
   Flame,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 import { api } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { coinName } from '@/shared/lib/coin';
+import { useExperienceBatch, levelFor } from '@/shared/lib/experience';
 import { GAME_META } from '@/shared/lib/games';
 import type {
   UserStats,
@@ -50,21 +50,8 @@ function Hero() {
         </h1>
 
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
-          Честное крипто-казино с прозрачными результатами и мгновенными
-          депозитами в {coinName()}. Каждая игра проверяема — исход нельзя
-          подделать.
+          Крипто-казино с мгновенными депозитами в {coinName()}.
         </p>
-
-        <div className="mt-5 flex flex-wrap gap-2 text-xs text-muted">
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-edge bg-panel-2 px-2.5 py-1">
-            <Sparkles size={13} className="text-ton" />
-            Депозиты в {coinName()}
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-edge bg-panel-2 px-2.5 py-1">
-            <ShieldCheck size={13} className="text-ton" />
-            Честные исходы
-          </span>
-        </div>
       </div>
     </section>
   );
@@ -176,6 +163,11 @@ function RecentGames() {
     staleTime: 15_000,
   });
 
+  // Batch the players' ranks so each feed row shows the real rank avatar, not a fallback.
+  const { data: levels } = useExperienceBatch(
+    (history.data ?? []).map((e) => e.user.id),
+  );
+
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-medium text-muted">Последние игры</h2>
@@ -200,7 +192,12 @@ function RecentGames() {
         <Card className="overflow-hidden p-0">
           <ul className="divide-y divide-edge px-4">
             {history.data.map((entry) => (
-              <GameHistoryRow key={entry.id} entry={entry} withUser />
+              <GameHistoryRow
+                key={entry.id}
+                entry={entry}
+                withUser
+                level={levelFor(levels, entry.user.id)}
+              />
             ))}
           </ul>
         </Card>
