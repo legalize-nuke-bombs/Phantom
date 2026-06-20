@@ -6,6 +6,7 @@ import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 
 @Service
+@Slf4j
 public class BanlistService {
 
     private final UserRepository userRepository;
@@ -76,6 +78,7 @@ public class BanlistService {
 
         notificationPublishService.createUserNotification(target, NotificationType.BANNED, new BanRepresentation(ban));
 
+        log.info("user {} banned user {}", userId, targetId);
         return Map.of("message", "banned");
     }
 
@@ -93,6 +96,7 @@ public class BanlistService {
         notificationPublishService.createUserNotification(target, NotificationType.UNBANNED, null);
 
         banRepository.delete(ban);
+        log.info("user {} unbanned user {}", userId, targetId);
     }
 
     private User getChatModerator(Long userId) {
