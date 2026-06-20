@@ -190,15 +190,22 @@ function Ring({
       const base = (((target - start) % 360) + 360) % 360;
       const total = base + 360 * LAPS;
       const t0 = performance.now();
+      const finalAngle = start + total;
       let done = false;
 
       const tick = (now: number) => {
         const p = Math.min((now - t0) / SPIN_MS, 1);
-        setAngleBoth(start + total * easeOutSextic(p));
-        if (p < 1) {
+        const a = start + total * easeOutSextic(p);
+        setAngleBoth(a);
+        // easeOutSextic's tail is even flatter than quint: the cursor is visually at
+        // rest well before p reaches 1. Finish once it's within half a degree of the
+        // target (≈0.7px of arc on this radius) so the verdict + cue reveal when the
+        // cursor *looks* stopped, not ~0.5s later (the perceived end-of-spin lag).
+        if (p < 1 && Math.abs(finalAngle - a) > 0.5) {
           raf.current = requestAnimationFrame(tick);
         } else if (!done) {
           done = true;
+          setAngleBoth(finalAngle);
           settledRef.current();
         }
       };

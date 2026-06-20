@@ -306,15 +306,24 @@ export function Reel({ caseView, result, spinning, onSettled }: ReelProps) {
       const to = targetX;
       const start = performance.now();
       let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        setX(to);
+        settledRef.current();
+      };
       const ease = (now: number) => {
         const t = Math.min(1, (now - start) / SPIN_MS);
-        setX(from + (to - from) * easeOutQuint(t));
-        if (t < 1) {
+        const x = from + (to - from) * easeOutQuint(t);
+        setX(x);
+        // The easeOutQuint tail is visually flat: once the tile is within a fraction
+        // of a pixel of centre the rest of the motion is imperceptible. Finish then
+        // instead of burning the remaining SPIN_MS, so onSettled fires when the strip
+        // *looks* stopped — not ~0.5s later (the perceived end-of-animation lag).
+        if (t < 1 && Math.abs(to - x) > 0.6) {
           raf = requestAnimationFrame(ease);
-        } else if (!done) {
-          done = true;
-          setX(to);
-          settledRef.current();
+        } else {
+          finish();
         }
       };
       raf = requestAnimationFrame(ease);

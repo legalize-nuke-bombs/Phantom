@@ -278,10 +278,8 @@ export default function SlotsPage() {
           }, i * PATTERN_STEP_MS),
         );
       });
-      // After the last reveal, clear the light-up — the plain final grid stays.
-      timers.current.push(
-        setTimeout(() => setHighlight(null), matches.length * PATTERN_STEP_MS + 500),
-      );
+      // Leave the final (most valuable) pattern lit after the walk — it stays
+      // highlighted until the next spin (spin() resets highlight to null).
     },
     [maskOf],
   );
@@ -347,14 +345,18 @@ export default function SlotsPage() {
 
       const tick = (now: number) => {
         const elapsed = now - start;
-        applyOffsets(
-          finalStrips.map((_, x) => {
-            const t = Math.min(1, elapsed / durations[x]);
-            return from[x] + (rests[x] - from[x]) * easeOutQuint(t);
-          }),
-        );
+        const next = finalStrips.map((_, x) => {
+          const t = Math.min(1, elapsed / durations[x]);
+          return from[x] + (rests[x] - from[x]) * easeOutQuint(t);
+        });
+        applyOffsets(next);
 
-        if (elapsed < settleMs()) {
+        // Finish the moment the reels are visually at rest (every column within a
+        // pixel of its stop), not at the full eased duration — easeOutQuint's flat
+        // tail is imperceptible and otherwise leaves the result feeling ~0.5s laggy.
+        const atRest = next.every((v, x) => Math.abs(v - rests[x]) < 0.6);
+
+        if (!atRest && elapsed < settleMs()) {
           rafRef.current = requestAnimationFrame(tick);
         } else {
           rafRef.current = null;
@@ -479,9 +481,7 @@ export default function SlotsPage() {
             </div>
           ) : spinning ? (
             <span className="text-sm text-muted">Крутим…</span>
-          ) : (
-            <span className="text-sm text-muted">Сделайте ставку и крутите</span>
-          )}
+          ) : null}
         </div>
 
         {/* Controls */}

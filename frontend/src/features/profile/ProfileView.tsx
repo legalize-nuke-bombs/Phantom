@@ -14,8 +14,8 @@
 // instead of inlining those flows or burying them at the bottom.
 
 import { useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
@@ -453,29 +453,17 @@ function OwnNav() {
 
 /* ── find another player (by id) → their profile ───────────────────────────── */
 function PlayerSearch() {
-  const navigate = useNavigate();
   const [value, setValue] = useState('');
-  const [found, setFound] = useState<User | null>(null);
-
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (found) navigate(`/u/${found.id}`);
-  }
-
   return (
     <Section icon={<Search size={16} strokeWidth={2} />} title="Найти игрока">
-      <form onSubmit={onSubmit} className="flex flex-col gap-2">
-        <UserLookup
-          value={value}
-          onChange={setValue}
-          onResolve={setFound}
-          placeholder="ID или @username"
-          linkChip
-        />
-        <Button type="submit" disabled={!found} className="self-start">
-          Перейти к профилю
-        </Button>
-      </form>
+      {/* The resolved player shows as a clickable chip below the field — that IS the
+          navigation, so no separate button is needed. */}
+      <UserLookup
+        value={value}
+        onChange={setValue}
+        placeholder="ID или @username"
+        linkChip
+      />
     </Section>
   );
 }
