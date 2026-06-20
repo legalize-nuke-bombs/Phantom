@@ -177,7 +177,11 @@ export default function AppShell() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen">
+    // Fixed to the viewport (h-dvh) so the shell never grows with content and the BODY never
+    // scrolls — `main` is the single scroll container for normal pages, while full-height
+    // pages (the chat) fill it exactly and scroll INSIDE themselves, keeping the composer and
+    // panel footers pinned. This is the app-shell layout every messenger uses.
+    <div className="flex h-dvh overflow-hidden">
       {/* Mobile: hamburger trigger (no global top bar — just a floating button) */}
       <button
         type="button"
@@ -198,8 +202,8 @@ export default function AppShell() {
 
       <Sidebar balance={balance} open={open} onClose={() => setOpen(false)} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-10 pt-16 md:px-6 md:pb-8 md:pt-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <main className="mx-auto w-full max-w-5xl min-h-0 flex-1 overflow-y-auto px-4 pb-10 pt-16 md:px-6 md:pb-8 md:pt-6">
           <Outlet />
         </main>
       </div>
