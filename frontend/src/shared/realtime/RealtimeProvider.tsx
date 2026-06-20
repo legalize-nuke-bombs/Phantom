@@ -18,7 +18,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Client } from '@stomp/stompjs';
+import { Client, ReconnectionTimeMode } from '@stomp/stompjs';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/AuthContext';
@@ -126,7 +126,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const client = new Client({
       brokerURL,
-      reconnectDelay: 4000,
+      // Fast first retry so an eviction-kick recovers in ~0.5s, but back off
+      // exponentially (cap 10s) if the server is genuinely down — no hammering.
+      reconnectDelay: 500,
+      maxReconnectDelay: 10000,
+      reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
       beforeConnect: async () => {
