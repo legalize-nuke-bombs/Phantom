@@ -15,14 +15,25 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Slf4j
 public class WebSocketSessionManager {
 
+    private final Map<String, WebSocketSession> byId = new ConcurrentHashMap<>();
     private final Map<Long, List<WebSocketSession>> activeSessions = new ConcurrentHashMap<>();
 
-    public void register(Long userId, WebSocketSession session) {
+    public void track(WebSocketSession session) {
+        byId.put(session.getId(), session);
+    }
+
+    public void register(Long userId, String sessionId) {
+        WebSocketSession session = byId.get(sessionId);
+        if (session == null) {
+            log.info("register failed: no tracked ws session {} for user {}", sessionId, userId);
+            return;
+        }
         activeSessions.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>()).add(session);
-        log.info("registered ws session {} for user {}", session.getId(), userId);
+        log.info("registered ws session {} for user {}", sessionId, userId);
     }
 
     public void remove(WebSocketSession session) {
+        byId.remove(session.getId());
         activeSessions.values().forEach(list -> list.remove(session));
         log.info("cleaned ws session {}", session.getId());
     }

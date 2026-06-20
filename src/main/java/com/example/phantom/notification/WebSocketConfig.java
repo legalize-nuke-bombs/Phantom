@@ -3,7 +3,6 @@ package com.example.phantom.notification;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.WebSocketSession;
@@ -51,10 +50,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
                     @Override
                     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-                        if (session.getPrincipal() instanceof UsernamePasswordAuthenticationToken auth) {
-                            Long userId = (Long)auth.getPrincipal();
-                            sessionManager.register(userId, session);
-                        }
+                        sessionManager.track(session);
                         super.afterConnectionEstablished(session);
                     }
 

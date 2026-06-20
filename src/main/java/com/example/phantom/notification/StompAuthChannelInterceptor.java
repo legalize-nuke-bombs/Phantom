@@ -22,10 +22,13 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TopicAccessService topicAccessService;
+    private final WebSocketSessionManager sessionManager;
 
-    public StompAuthChannelInterceptor(JwtTokenProvider jwtTokenProvider, TopicAccessService topicAccessService) {
+    public StompAuthChannelInterceptor(JwtTokenProvider jwtTokenProvider, TopicAccessService topicAccessService,
+                                       WebSocketSessionManager sessionManager) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.topicAccessService = topicAccessService;
+        this.sessionManager = sessionManager;
     }
 
     @Override
@@ -42,6 +45,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 throw new MessagingException("unauthorized");
             }
             accessor.setUser(new UsernamePasswordAuthenticationToken(userId, null, List.of()));
+            sessionManager.register(userId, accessor.getSessionId());
             log.info("user {} connected successful", userId);
         }
         else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
