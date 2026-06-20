@@ -22,12 +22,14 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordValidationService passwordValidationService;
     private final RecoveryKeyService recoveryKeyService;
+    private final UserDeletionService userDeletionService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, RecoveryKeyService recoveryKeyService) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, RecoveryKeyService recoveryKeyService, UserDeletionService userDeletionService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.passwordValidationService = passwordValidationService;
         this.recoveryKeyService = recoveryKeyService;
+        this.userDeletionService = userDeletionService;
     }
 
     public List<RoleRepresentation> getRoles() {
@@ -140,7 +142,6 @@ public class UserService {
             throw new ApiException(ErrorCode.INVALID_PASSWORD);
         }
 
-        userRepository.delete(user);
-        log.info("delete done successful: goodbye, user {}", user.getId());
+        userDeletionService.delete(user);
     }
 }

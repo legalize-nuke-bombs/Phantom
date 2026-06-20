@@ -12,7 +12,9 @@ import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.User;
+import com.example.phantom.user.UserDeletionService;
 import com.example.phantom.user.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 
 @Service
+@Slf4j
 public class OwnerService {
 
     private final UserRepository userRepository;
@@ -32,8 +35,9 @@ public class OwnerService {
     private final RateLimitService rateLimitService;
     private final NotificationPublishService notificationPublishService;
     private final TopicAccessRevalidateService topicAccessRevalidateService;
+    private final UserDeletionService userDeletionService;
 
-    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, RateLimitService rateLimitService, NotificationPublishService notificationPublishService, TopicAccessRevalidateService topicAccessRevalidateService) {
+    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, RateLimitService rateLimitService, NotificationPublishService notificationPublishService, TopicAccessRevalidateService topicAccessRevalidateService, UserDeletionService userDeletionService) {
         this.userRepository = userRepository;
         this.withdrawalRepository = withdrawalRepository;
 
@@ -41,6 +45,7 @@ public class OwnerService {
         this.rateLimitService = rateLimitService;
         this.notificationPublishService = notificationPublishService;
         this.topicAccessRevalidateService = topicAccessRevalidateService;
+        this.userDeletionService = userDeletionService;
     }
 
     @Transactional
@@ -72,8 +77,31 @@ public class OwnerService {
 
         notificationPublishService.createUserNotification(target, NotificationType.ROLE_CLAIMED, null);
         topicAccessRevalidateService.revalidate(targetId);
-
+        log.info("user {} changed user {} role", userId, targetId);
         return Map.of("message", "changed");
+    }
+
+    @Transactional
+    public void deleteUser(Long userId, DeleteUserRequest request) {
+        getOwner(userId);
+
+        Long targetId = request.getTargetId();
+        String ownerKey = request.getOwnerKey();
+
+        if (Objects.equals(userId, targetId)) {
+            throw new ApiException(ErrorCode.CANT_DELETE_SELF);
+        }
+
+        User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+
+        boolean isOwner = ownerAccessService.isOwner(ownerKey);
+
+        if (target.getRole().getOwnerAccess() && !isOwner) {
+            throw new ApiException(ErrorCode.OWNER_KEY_REQUIRED);
+        }
+
+        userDeletionService.delete(target);
+        log.info("user {} deleted user {}", userId, targetId);
     }
 
     public List<WithdrawalRepresentation> getWithdrawalHistory(Long userId, Integer limit, Long before) {
