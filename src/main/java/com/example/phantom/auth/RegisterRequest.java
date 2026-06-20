@@ -23,6 +23,8 @@ public class RegisterRequest {
     @Size(min= PasswordValidationService.PASSWORD_MIN_LENGTH, max= PasswordValidationService.PASSWORD_MAX_LENGTH)
     private String password;
 
+    private Long refId;
+
     @Size(max = 256)
     private String ownerKey;
 

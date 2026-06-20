@@ -75,16 +75,17 @@ public class AuthService {
     }
 
     @Transactional
-    public Map<String, String> register(RegisterRequest request, Long refId) {
+    public Map<String, String> register(RegisterRequest request) {
         String username = request.getUsername();
         String displayName = request.getDisplayName();
         String password = request.getPassword();
-        String adminKey = request.getOwnerKey();
+        Long refId = request.getRefId();
+        String ownerKey = request.getOwnerKey();
         Role role = request.getRole();
 
         passwordValidationService.validate(password);
 
-        boolean isOwner = ownerAccessService.isOwner(adminKey);
+        boolean isOwner = ownerAccessService.isOwner(ownerKey);
 
         if (!isOwner && role != null) {
             throw new ApiException(ErrorCode.OWNER_KEY_REQUIRED);
