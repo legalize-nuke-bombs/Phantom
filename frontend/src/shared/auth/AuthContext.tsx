@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/shared/api/client';
 import type { Role, User } from '@/shared/types';
 
@@ -49,6 +50,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
@@ -85,9 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (username: string, password: string) => {
       // Sets the httpOnly `token` cookie; we then hydrate the user via /users/me.
       await api.post<{ token: string }>('/auth/login', { username, password });
+      // Wipe any previous user's cached data (profile, wallet, deposit address, presents,
+      // …) before loading this one — same browser must not bleed one account into another.
+      queryClient.clear();
       await refresh();
     },
-    [refresh],
+    [refresh, queryClient],
   );
 
   const register = useCallback(async (args: RegisterArgs): Promise<string> => {
@@ -109,8 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore — endpoint may not exist
     }
+    queryClient.clear(); // drop this user's cached data so it can't bleed into the next
     if (mounted.current) setUser(null);
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo<AuthState>(
     () => ({ user, loading, login, register, recover, logout, refresh }),
