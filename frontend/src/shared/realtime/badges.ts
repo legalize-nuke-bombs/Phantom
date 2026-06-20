@@ -6,7 +6,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { api } from '@/shared/api/client';
 import { db, removeNotifications } from './db';
-import type { NotificationType } from './types';
+import type { NotificationType, PresentPayload } from './types';
 
 /** Live count of unread notifications of one type (0 when type is null). */
 export function useUnreadCount(type: NotificationType | null): number {
@@ -25,4 +25,17 @@ export async function markTypeRead(type: NotificationType): Promise<void> {
   if (ids.length === 0) return;
   await api.post('/notifications/read', { ids });
   await removeNotifications(ids);
+}
+
+/**
+ * Mark the PRESENT_RECEIVED notification for one claimed gift read — found by matching
+ * the gift id inside the stored PresentRepresentation payload. No-op if that gift has
+ * no notification (e.g. an old gift predating the realtime layer).
+ */
+export async function markPresentRead(presentId: number): Promise<void> {
+  const rows = await db.notifications.where('type').equals('PRESENT_RECEIVED').toArray();
+  const match = rows.find((r) => (r.payload as PresentPayload | null)?.id === presentId);
+  if (!match) return;
+  await api.post('/notifications/read', { ids: [match.id] });
+  await removeNotifications([match.id]);
 }

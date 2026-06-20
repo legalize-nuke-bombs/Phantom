@@ -210,6 +210,14 @@ function bigWin(): void {
   });
 }
 
+/** Notification chime — a soft two-note ding, distinct from the game outcomes. */
+function notify(): void {
+  withAudio((c, t) => {
+    blip(c, t, { freq: 880, dur: 0.12, type: 'sine', gain: 0.12 }); // A5
+    blip(c, t + 0.1, { freq: 1174.66, dur: 0.2, type: 'sine', gain: 0.12 }); // D6
+  });
+}
+
 /* ── spin loop ──────────────────────────────────────────────────────────── */
 
 export interface SpinHandle {
@@ -243,6 +251,7 @@ export const sfx = {
   lose,
   smallWin,
   bigWin,
+  notify,
   startSpin,
 } as const;
 

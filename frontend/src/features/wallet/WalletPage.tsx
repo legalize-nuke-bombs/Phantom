@@ -26,7 +26,7 @@
 //
 // Balances/amounts are internal USD; the deposit coin is Gram/GRAM (coin enum TON).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   useMutation,
@@ -58,7 +58,7 @@ import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
 import { formatUsd } from '@/shared/lib/money';
 import { formatTime } from '@/shared/lib/time';
 import { useRefreshBalance, useWallet } from '@/shared/lib/wallet';
-import { markTypeRead } from '@/shared/realtime/badges';
+import { markPresentRead, markTypeRead, useUnreadCount } from '@/shared/realtime/badges';
 import type { LevelName, ShortUser, User } from '@/shared/types';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
@@ -111,7 +111,6 @@ interface Present {
 const COIN: CoinType = 'TON';
 
 const PRESENTS_QUERY_KEY = ['presents', 'received'] as const;
-const PRESENTS_COUNT_KEY = ['presents', 'count', 'unclaimed'] as const;
 const PRESENTS_LIMIT = 50;
 
 /* ── clipboard ─────────────────────────────────────────────────────────────
@@ -164,7 +163,15 @@ const TABS: readonly TabDef[] = [
   { id: 'presents', label: 'Подарки', icon: Gift },
 ];
 
-function TabBar({ active, onChange }: { active: TabId; onChange: (id: TabId) => void }) {
+function TabBar({
+  active,
+  onChange,
+  giftCount,
+}: {
+  active: TabId;
+  onChange: (id: TabId) => void;
+  giftCount: number;
+}) {
   return (
     <div
       role="tablist"
@@ -174,6 +181,7 @@ function TabBar({ active, onChange }: { active: TabId; onChange: (id: TabId) => 
       {TABS.map((tab) => {
         const Icon = tab.icon;
         const selected = tab.id === active;
+        const badge = tab.id === 'presents' ? giftCount : 0;
         return (
           <button
             key={tab.id}
@@ -182,11 +190,16 @@ function TabBar({ active, onChange }: { active: TabId; onChange: (id: TabId) => 
             aria-selected={selected}
             onClick={() => onChange(tab.id)}
             className={[
-              'flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-medium transition-colors',
+              'relative flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-medium transition-colors',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-ton',
               selected ? 'bg-ton-deep text-white' : 'text-muted hover:bg-panel-2 hover:text-fg',
             ].join(' ')}
           >
+            {badge > 0 && (
+              <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-ton-deep px-1 text-[10px] font-bold leading-none text-white ring-2 ring-panel">
+                {badge > 9 ? '9+' : badge}
+              </span>
+            )}
             <Icon size={18} strokeWidth={2} />
             <span className="leading-none">{tab.label}</span>
           </button>
@@ -740,29 +753,30 @@ function ReceivedPresentsCard() {
     queryFn: () => api.get<Present[]>(`/presents?limit=${PRESENTS_LIMIT}`),
   });
 
-  // Total unclaimed (independent of the page size above) for the header badge.
-  const unclaimedCount = useQuery<number>({
-    queryKey: PRESENTS_COUNT_KEY,
-    queryFn: async () => {
-      const res = await api.get<{ result: string }>('/presents/count?claimed=false');
-      const n = Number(res.result);
-      return Number.isFinite(n) ? n : 0;
-    },
-  });
-
   async function afterClaim() {
     await refreshBalance();
     qc.invalidateQueries({ queryKey: PRESENTS_QUERY_KEY });
-    qc.invalidateQueries({ queryKey: PRESENTS_COUNT_KEY });
   }
 
+  // Order matters: retire the notification (mark read) BEFORE claiming. The
+  // notification is a disposable signal; the claim is the truth. If mark-read ran
+  // after a successful claim and then failed, the unread notification would survive
+  // and resurrect on the next resync drain — a phantom badge for an already-claimed
+  // gift that can never be cleared (re-claiming fails). Mark-read-first means a failed
+  // claim only leaves the gift unclaimed in the list, fully recoverable.
   const claimOne = useMutation<Present, ApiError, number>({
-    mutationFn: (presentId) => api.post<Present>('/presents/claim', { presentId }),
+    mutationFn: async (presentId) => {
+      await markPresentRead(presentId);
+      return api.post<Present>('/presents/claim', { presentId });
+    },
     onSuccess: afterClaim,
   });
 
   const claimAll = useMutation<{ result: string }, ApiError>({
-    mutationFn: () => api.post<{ result: string }>('/presents/claim-all'),
+    mutationFn: async () => {
+      await markTypeRead('PRESENT_RECEIVED');
+      return api.post<{ result: string }>('/presents/claim-all');
+    },
     onSuccess: afterClaim,
   });
 
@@ -773,7 +787,6 @@ function ReceivedPresentsCard() {
     .filter((id): id is number => id != null);
   const { data: senderLevels } = useExperienceBatch(senderIds);
   const hasUnclaimed = items.some((p) => !p.claimed);
-  const badge = unclaimedCount.data ?? 0;
 
   let body: ReactNode;
   if (presents.isLoading) {
@@ -830,11 +843,6 @@ function ReceivedPresentsCard() {
         <div className="flex items-center gap-2 text-muted">
           <Gift size={16} strokeWidth={2} />
           <h2 className="text-sm font-medium">Подарки</h2>
-          {badge > 0 && (
-            <span className="rounded-md bg-ton-deep px-1.5 py-0.5 text-[10px] font-semibold text-white">
-              {badge}
-            </span>
-          )}
         </div>
         {hasUnclaimed && (
           <Button
@@ -918,12 +926,7 @@ function PresentRow({
 /* ── Page ──────────────────────────────────────────────────────────────────*/
 export default function WalletPage() {
   const [tab, setTab] = useState<TabId>('balance');
-
-  // Opening the Подарки tab = "seeing" the gifts: clear their unread notifications
-  // (server + local ledger) so the sidebar wallet badge falls to 0.
-  useEffect(() => {
-    if (tab === 'presents') void markTypeRead('PRESENT_RECEIVED');
-  }, [tab]);
+  const giftCount = useUnreadCount('PRESENT_RECEIVED');
 
   const section = useMemo(() => {
     switch (tab) {
@@ -950,7 +953,7 @@ export default function WalletPage() {
         </div>
       </div>
 
-      <TabBar active={tab} onChange={setTab} />
+      <TabBar active={tab} onChange={setTab} giftCount={giftCount} />
 
       {section}
     </div>

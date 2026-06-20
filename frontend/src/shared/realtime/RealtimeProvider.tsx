@@ -23,6 +23,7 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { api } from '@/shared/api/client';
+import { sfx } from '@/shared/lib/sound';
 import { db, putNotifications } from './db';
 import type { NotificationEnvelope } from './types';
 
@@ -168,7 +169,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           void runResync(); // topology changed → re-subscribe + re-drain
           break;
         case 'PRESENT_RECEIVED':
-          // signal → the presents list/count are now stale; refetch when next observed.
+          // a gift just landed: chime + the presents cache is now stale (refetch when seen).
+          sfx.notify();
           void queryClient.invalidateQueries({ queryKey: ['presents'] });
           break;
         // case 'MESSAGE_RECEIVED': chat live-merge into the TanStack cache (chat task).
