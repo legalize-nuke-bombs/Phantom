@@ -1,9 +1,5 @@
 package com.example.phantom.chat.banlist;
 
-import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
-import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
-import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepresentation;
-import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
@@ -21,13 +17,11 @@ public class BanlistService {
 
     private final UserRepository userRepository;
     private final BanRepository banRepository;
-    private final ChatModeratorActionRepository chatModeratorActionRepository;
     private final NotificationPublishService notificationPublishService;
 
-    public BanlistService(UserRepository userRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, NotificationPublishService notificationPublishService) {
+    public BanlistService(UserRepository userRepository, BanRepository banRepository, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.banRepository = banRepository;
-        this.chatModeratorActionRepository = chatModeratorActionRepository;
         this.notificationPublishService = notificationPublishService;
     }
 
@@ -37,6 +31,13 @@ public class BanlistService {
             throw new ApiException(ErrorCode.NOT_BANNED);
         }
         return new BanRepresentation(ban);
+    }
+
+    public void validateChatPermission(Long userId) {
+        Ban ban = banRepository.findById(userId).orElse(null);
+        if (ban != null && ban.isActive()) {
+            throw new ApiException(ErrorCode.BANNED);
+        }
     }
 
     @Transactional
@@ -73,27 +74,14 @@ public class BanlistService {
         ban.setReason(reason);
         banRepository.save(ban);
 
-        ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
-        chatModeratorAction.setUser(user);
-        chatModeratorAction.setTimestamp(now);
-        chatModeratorAction.setType(ChatModeratorActionType.BAN);
-        chatModeratorAction.setData(Map.of(
-                "user_id", String.valueOf(targetId),
-                "reason", reason,
-                "duration", String.valueOf(duration)
-        ));
-        chatModeratorActionRepository.save(chatModeratorAction);
-
-        notificationPublishService.createUserNotification(target, NotificationType.BANNED, new ChatModeratorActionRepresentation(chatModeratorAction));
+        notificationPublishService.createUserNotification(target, NotificationType.BANNED, new BanRepresentation(ban));
 
         return Map.of("message", "banned");
     }
 
     @Transactional
-    public void unban(Long userId, Long targetId, UnbanRequest request) {
+    public void unban(Long userId, Long targetId) {
         User user = getChatModerator(userId);
-
-        String reason = request.getReason();
 
         User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
@@ -102,17 +90,7 @@ public class BanlistService {
             throw new ApiException(ErrorCode.NOT_BANNED);
         }
 
-        ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
-        chatModeratorAction.setUser(user);
-        chatModeratorAction.setTimestamp(Instant.now().getEpochSecond());
-        chatModeratorAction.setType(ChatModeratorActionType.UNBAN);
-        chatModeratorAction.setData(Map.of(
-                "user_id", String.valueOf(targetId),
-                "reason", reason
-        ));
-        chatModeratorActionRepository.save(chatModeratorAction);
-
-        notificationPublishService.createUserNotification(target, NotificationType.UNBANNED, new ChatModeratorActionRepresentation(chatModeratorAction));
+        notificationPublishService.createUserNotification(target, NotificationType.UNBANNED, null);
 
         banRepository.delete(ban);
     }

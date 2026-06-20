@@ -1,7 +1,5 @@
 package com.example.phantom.auth;
 
-import com.example.phantom.chat.blacklist.Blacklist;
-import com.example.phantom.chat.blacklist.BlacklistRepository;
 import com.example.phantom.disk.usage.DiskUsage;
 import com.example.phantom.disk.usage.DiskUsageRepository;
 import com.example.phantom.jwt.JwtTokenProvider;
@@ -44,7 +42,6 @@ public class AuthService {
     private final CryptoWalletRepository cryptoWalletRepository;
     private final RefStorageRepository refStorageRepository;
     private final RefMemberRepository refMemberRepository;
-    private final BlacklistRepository blacklistRepository;
     private final DiskUsageRepository diskUsageRepository;
 
     private final JwtTokenProvider jwtTokenProvider;
@@ -55,14 +52,13 @@ public class AuthService {
     private final CoinProviderRegistry coinProviderRegistry;
     private final NotificationPublishService notificationPublishService;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, BlacklistRepository blacklistRepository, DiskUsageRepository diskUsageRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessService ownerAccessService, RecoveryKeyService recoveryKeyService, CoinProviderRegistry coinProviderRegistry, NotificationPublishService notificationPublishService) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, DiskUsageRepository diskUsageRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessService ownerAccessService, RecoveryKeyService recoveryKeyService, CoinProviderRegistry coinProviderRegistry, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.experienceRepository = experienceRepository;
         this.cryptoWalletRepository = cryptoWalletRepository;
         this.refStorageRepository = refStorageRepository;
         this.refMemberRepository = refMemberRepository;
-        this.blacklistRepository = blacklistRepository;
         this.diskUsageRepository = diskUsageRepository;
 
         this.jwtTokenProvider = jwtTokenProvider;
@@ -159,10 +155,6 @@ public class AuthService {
                 throw new RuntimeException("failed to create " + provider.coin() + " wallet");
             }
         }
-
-        Blacklist blacklist = new Blacklist();
-        blacklist.setUser(user);
-        blacklistRepository.save(blacklist);
 
         DiskUsage diskUsage = new DiskUsage();
         diskUsage.setUser(user);

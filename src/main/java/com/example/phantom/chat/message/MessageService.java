@@ -1,13 +1,8 @@
 package com.example.phantom.chat.message;
 
-import com.example.phantom.chat.banlist.Ban;
-import com.example.phantom.chat.banlist.BanRepository;
+import com.example.phantom.chat.banlist.BanlistService;
 import com.example.phantom.chat.chat.Chat;
 import com.example.phantom.chat.chat.ChatRepository;
-import com.example.phantom.chat.chatmoderatoraction.ChatModeratorAction;
-import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepository;
-import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionRepresentation;
-import com.example.phantom.chat.chatmoderatoraction.ChatModeratorActionType;
 import com.example.phantom.disk.File;
 import com.example.phantom.disk.FileRepository;
 import com.example.phantom.exception.ApiException;
@@ -19,6 +14,7 @@ import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import com.example.phantom.user.UserShortRepresentation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,19 +32,17 @@ public class MessageService {
     private final ChatRepository chatRepository;
     private final TopicAccessService topicAccessService;
     private final MessageRepository messageRepository;
-    private final BanRepository banRepository;
-    private final ChatModeratorActionRepository chatModeratorActionRepository;
+    private final BanlistService banlistService;
     private final FileRepository fileRepository;
     private final RateLimitService rateLimitService;
     private final NotificationPublishService notificationPublishService;
 
-    public MessageService(UserRepository userRepository, ChatRepository chatRepository, TopicAccessService topicAccessService, MessageRepository messageRepository, BanRepository banRepository, ChatModeratorActionRepository chatModeratorActionRepository, RateLimitService rateLimitService, FileRepository fileRepository, NotificationPublishService notificationPublishService) {
+    public MessageService(UserRepository userRepository, ChatRepository chatRepository, TopicAccessService topicAccessService, MessageRepository messageRepository, BanlistService banlistService, RateLimitService rateLimitService, FileRepository fileRepository, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
         this.topicAccessService = topicAccessService;
         this.messageRepository = messageRepository;
-        this.banRepository = banRepository;
-        this.chatModeratorActionRepository = chatModeratorActionRepository;
+        this.banlistService = banlistService;
         this.fileRepository = fileRepository;
         this.rateLimitService = rateLimitService;
         this.notificationPublishService = notificationPublishService;
@@ -72,12 +66,7 @@ public class MessageService {
         User user = getUser(userId);
         Chat chat = getChat(request.getChatId(), user);
 
-        if (chat.getTopic().getAllowAuthorized()) {
-            Ban ban = banRepository.findById(user.getId()).orElse(null);
-            if (ban != null && ban.isActive()) {
-                throw new ApiException(ErrorCode.BANNED);
-            }
-        }
+        banlistService.validateChatPermission(userId);
 
         rateLimitService.startAction(user.getId(), RateLimitAction.SEND_MESSAGE, 1L);
 
@@ -112,18 +101,7 @@ public class MessageService {
 
         if (!Objects.equals(user.getId(), message.getUser().getId())) {
             if (user.getRole().getChatModeratorAccess() && !message.getUser().getRole().getChatModeratorAccess() && message.getChat().getTopic().getAllowAuthorized()) {
-                ChatModeratorAction chatModeratorAction = new ChatModeratorAction();
-                chatModeratorAction.setUser(user);
-                chatModeratorAction.setTimestamp(Instant.now().getEpochSecond());
-                chatModeratorAction.setType(ChatModeratorActionType.DELETE_MESSAGE);
-                chatModeratorAction.setData(Map.of(
-                        "user_id", String.valueOf(message.getUser().getId()),
-                        "message_content", message.getContent(),
-                        "message_attachment_id", message.getAttachment() != null ? message.getAttachment().getId().toString() : ""
-                ));
-                chatModeratorActionRepository.save(chatModeratorAction);
-
-                notificationPublishService.createUserNotification(message.getUser(), NotificationType.YOUR_MESSAGE_DELETED, new ChatModeratorActionRepresentation(chatModeratorAction));
+                notificationPublishService.createUserNotification(message.getUser(), NotificationType.YOUR_MESSAGE_DELETED, new UserShortRepresentation(user));
             }
             else {
                 throw new ApiException(ErrorCode.NO_PERMISSION);

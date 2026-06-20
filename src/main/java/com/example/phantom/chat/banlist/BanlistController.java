@@ -33,8 +33,8 @@ public class BanlistController {
     }
 
     @DeleteMapping("/{targetId}")
-    public ResponseEntity<Void> unban(@AuthenticationPrincipal Long userId, @PathVariable Long targetId, @Valid @RequestBody UnbanRequest request) {
-        service.unban(userId, targetId, request);
+    public ResponseEntity<Void> unban(@AuthenticationPrincipal Long userId, @PathVariable Long targetId) {
+        service.unban(userId, targetId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }

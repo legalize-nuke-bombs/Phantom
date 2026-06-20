@@ -1,6 +1,8 @@
 package com.example.phantom.chat.chat;
 
-import com.example.phantom.chat.blacklist.BlacklistService;
+import com.example.phantom.chat.banlist.Ban;
+import com.example.phantom.chat.banlist.BanRepository;
+import com.example.phantom.chat.banlist.BanlistService;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
@@ -32,11 +34,11 @@ public class PersonalChatService {
     private final TopicBuilderService topicBuilderService;
     private final RateLimitService rateLimitService;
     private final Random chatIdsGenerator;
-    private final BlacklistService blacklistService;
+    private final BanlistService banlistService;
     private final NotificationPublishService notificationPublishService;
     private final TopicAccessRevalidateService topicAccessRevalidateService;
 
-    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BlacklistService blacklistService, NotificationPublishService notificationPublishService, TopicAccessRevalidateService topicAccessRevalidateService) {
+    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BanlistService banlistService, NotificationPublishService notificationPublishService, TopicAccessRevalidateService topicAccessRevalidateService) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
         this.topicRepository = topicRepository;
@@ -44,7 +46,7 @@ public class PersonalChatService {
         this.topicBuilderService = topicBuilderService;
         this.rateLimitService = rateLimitService;
         this.chatIdsGenerator = chatIdsGenerator;
-        this.blacklistService = blacklistService;
+        this.banlistService = banlistService;
         this.notificationPublishService = notificationPublishService;
         this.topicAccessRevalidateService = topicAccessRevalidateService;
     }
@@ -52,6 +54,8 @@ public class PersonalChatService {
     @Transactional
     public ChatRepresentation post(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
+
+        banlistService.validateChatPermission(userId);
 
         rateLimitService.startAction(user.getId(), RateLimitAction.CREATE_CHAT, 1);
 
@@ -156,6 +160,8 @@ public class PersonalChatService {
         String topicId = chat.getTopic().getId();
         validateEldership(userId, topicId);
 
+        banlistService.validateChatPermission(userId);
+
         if (Objects.equals(userId, targetId)) {
             throw new ApiException(ErrorCode.CANT_SELF_ADD);
         }
@@ -165,7 +171,6 @@ public class PersonalChatService {
         }
 
         User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
-        blacklistService.validateMessage(userId, targetId);
         rateLimitService.startAction(userId, RateLimitAction.INVITE_TO_CHAT, 1L);
 
         try {

@@ -24,7 +24,6 @@ REST API for a gambling platform.
 * Owner panel
 * Global Chat
 * Global Chat moderators
-* Global Chat moderator action history, can be read by everyone to prevent the role abuse
 * Personal & group chats
 * Disk
 * Chat attachments
