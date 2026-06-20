@@ -102,15 +102,19 @@ async function clearLedger(): Promise<void> {
 }
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const userId = user?.id ?? null;
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<RealtimeStatus>('idle');
 
   useEffect(() => {
+    // While auth is still resolving (user momentarily null on every reload), do nothing —
+    // clearing here would wipe the persisted ledger on every F5 and defeat the whole
+    // point of keeping it. Only act once we actually know: connected user, or logged out.
+    if (loading) return;
     if (userId == null) {
       setStatus('idle');
-      void clearLedger();
+      void clearLedger(); // genuinely logged out
       return;
     }
 
@@ -141,6 +145,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         void runResync();
       },
       onWebSocketClose: () => {
+        // The socket — and every STOMP subscription on it — is dead. Drop the handles
+        // so the next onConnect → resync re-subscribes on the fresh socket instead of
+        // seeing a "full" subs map and assuming it's still subscribed (which silently
+        // dropped all live messages after a server-side kick until a full reload).
+        subs.clear();
         if (!cancelled) setStatus('connecting');
       },
       onStompError: (frame) =>
@@ -246,7 +255,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       subs.clear();
       void client.deactivate();
     };
-  }, [userId, queryClient]);
+  }, [userId, loading, queryClient]);
 
   return <RealtimeContext.Provider value={status}>{children}</RealtimeContext.Provider>;
 }
