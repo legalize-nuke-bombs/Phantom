@@ -50,7 +50,7 @@ public class OwnerService {
 
     @Transactional
     public Map<String, String> changeUserRole(Long userId, ChangeUserRoleRequest request) {
-        getOwner(userId);
+        User user = getOwner(userId);
 
         Long targetId = request.getTargetId();
 
@@ -75,7 +75,7 @@ public class OwnerService {
         target.setRole(role);
         target = userRepository.save(target);
 
-        notificationPublishService.createUserNotification(target, NotificationType.ROLE_CLAIMED, null);
+        notificationPublishService.createUserNotification(target, NotificationType.ROLE_CLAIMED, new RoleClaimedRepresentation(user, role));
         topicAccessRevalidateService.revalidate(targetId);
         log.info("user {} changed user {} role", userId, targetId);
         return Map.of("message", "changed");
