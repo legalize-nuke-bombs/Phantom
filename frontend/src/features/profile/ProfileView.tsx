@@ -33,7 +33,6 @@ import clsx from 'clsx';
 import { api, ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
 import { useMyExperience } from '@/shared/lib/experience';
-import { gameMeta } from '@/shared/lib/games';
 import { useLevels } from '@/shared/lib/levelFeatures';
 import { formatTime } from '@/shared/lib/time';
 import { RANKS_ASC } from '@/shared/types';
@@ -50,6 +49,7 @@ import Card from '@/shared/ui/Card';
 import RankBadge from '@/shared/ui/RankBadge';
 import Spinner from '@/shared/ui/Spinner';
 import Amount from '@/shared/ui/Amount';
+import GameHistoryRow from '@/shared/ui/GameHistoryRow';
 import UserLookup from '@/shared/ui/UserLookup';
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -368,29 +368,8 @@ function StatsCard({ userId }: { userId: number }) {
 }
 
 /* ── personal game history ─────────────────────────────────────────────── */
-function HistoryRow({ entry }: { entry: GameHistoryEntry }) {
-  const meta = gameMeta(entry.gameType);
-  return (
-    <li className="flex items-center justify-between gap-3 py-3">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-fg">
-          <span aria-hidden className="mr-1.5">
-            {meta.emoji}
-          </span>
-          {meta.name}
-        </p>
-        <p className="text-xs text-muted">{formatTime(entry.timestamp, 'relative')}</p>
-      </div>
-      {/* Each amount gets its OWN fixed-width right-aligned cell, so bets line up
-          under bets and results under results across every row. */}
-      <div className="flex shrink-0 items-center gap-4 text-sm font-medium tabular-nums">
-        <Amount value={entry.bet} className="inline-block w-14 text-right text-muted sm:w-20" />
-        <Amount value={entry.result} className="inline-block w-14 text-right font-semibold sm:w-20" />
-      </div>
-    </li>
-  );
-}
-
+/* Rows use the shared <GameHistoryRow>; here it's a single user's own history, so
+   we omit `withUser` and the game name leads each row. */
 function HistoryCard({ userId }: { userId: number }) {
   const query = useUserHistory(userId);
   return (
@@ -411,7 +390,7 @@ function HistoryCard({ userId }: { userId: number }) {
           ) : (
             <ul className="divide-y divide-edge">
               {history.map((entry) => (
-                <HistoryRow key={entry.id} entry={entry} />
+                <GameHistoryRow key={entry.id} entry={entry} />
               ))}
             </ul>
           )

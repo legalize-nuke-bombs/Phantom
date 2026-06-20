@@ -1,4 +1,4 @@
-// Reel mechanics for the FRUITS slot — a genuinely spinning vertical reel.
+// Reel mechanics for the FRUITS slot ("Fruits") — a genuinely spinning vertical reel.
 //
 // Each of the 5 columns is a tall strip of symbol art that scrolls upward. While
 // spinning, the strip translates continuously (driven by a RAF loop in the page).
@@ -41,6 +41,20 @@ export function randomFiller(length: number): string[] {
   );
 }
 
+/**
+ * A SEAMLESS looping strip for the free-scroll whirl: one random tile of
+ * `SPIN_TILE_LEN` cells, repeated `repeats` times. Because the strip is a whole
+ * number of identical tiles, wrapping the offset by exactly one tile height lands
+ * the cell that scrolls in on top of the IDENTICAL cell that scrolled out — the
+ * loop is invisible (no jump, no abrupt re-randomize), so the eye reads one
+ * continuous, cell-aligned reel instead of noise. The tile is freshly random per
+ * spin, so consecutive spins still look different.
+ */
+export function loopingFiller(repeats: number): string[] {
+  const tile = randomFiller(SPIN_TILE_LEN);
+  return Array.from({ length: repeats }, () => tile).flat();
+}
+
 /** Pull column `x` (top→bottom) out of a row-major grid. */
 export function column<T>(grid: T[][], x: number): T[] {
   return grid.map((row) => row[x]);
@@ -58,6 +72,14 @@ export const IDLE_GRID: string[][] = Array.from({ length: ROWS }, () => [
 // ── Timing ──────────────────────────────────────────────────────────────────
 /** How many filler frames each column scrolls through before its final 3. */
 export const FILLER_LEN = 40;
+/**
+ * Length of one free-scroll tile (cells). The whirl strip is this tile repeated, and
+ * the offset wraps by exactly one tile so the loop is seamless. Tall enough that the
+ * tile's contents aren't an obvious short repeat as it streams past.
+ */
+export const SPIN_TILE_LEN = 12;
+/** How many tiles the free-scroll strip stacks (≥2 so a full window is always filled). */
+export const SPIN_TILE_REPEATS = 3;
 /** First column's total deceleration time (ms) once the result is in. */
 export const BASE_SPIN_MS = 2400;
 /** Extra deceleration time per column → clatter stops left→right. */

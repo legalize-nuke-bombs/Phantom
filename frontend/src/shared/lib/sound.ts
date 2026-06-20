@@ -194,7 +194,7 @@ function lose(): void {
 }
 
 // The win cues are deliberately SHORT (a single quick chime each): they double as
-// the per-pattern sounds in Фрукты, played several times ~0.5s apart, so anything
+// the per-pattern sounds in Fruits, played several times ~0.5s apart, so anything
 // longer would smear into mush.
 
 /** Modest win — one short bright ding. For low payouts ("немного"). */

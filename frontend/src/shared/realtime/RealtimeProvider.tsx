@@ -12,7 +12,7 @@
 //      diffing against live subscriptions (new → subscribe, gone → unsubscribe; that
 //      diff IS the eviction mechanism — the backend drops the socket on access change,
 //      we reconnect, the revoked topic is no longer in the list, we don't resub),
-//   3. drain ALL unread notifications to the end into the Dexie ledger.
+//   3. drain ALL unread notifications to the end into the session store.
 // SUBSCRIBE happens BEFORE the drain so nothing slips through the gap; id-dedup covers
 // the overlap. resync also re-runs on NEW_CHAT / ROLE_CLAIMED (topology changed).
 
@@ -25,7 +25,7 @@ import { useAuth } from '@/shared/auth/AuthContext';
 import { api } from '@/shared/api/client';
 import { sfx } from '@/shared/lib/sound';
 import { mergeIncomingMessage, removeMessageFromCache } from '@/shared/chat/chatCache';
-import { db, putNotifications } from './db';
+import { putNotifications, removeNotifications, allIds, ensureOwner, clearStore } from './store';
 import type { ChatMessage, NotificationEnvelope } from './types';
 
 type RealtimeStatus = 'idle' | 'connecting' | 'connected';
@@ -59,8 +59,12 @@ async function fetchAllTopicIds(): Promise<string[]> {
   return out;
 }
 
-/** All unread notifications, paginated to the end (cursor = last, smallest id). */
-async function drainUnread(): Promise<NotificationEnvelope[]> {
+/**
+ * All unread notifications, paginated to the end (cursor = last, smallest id).
+ * `complete` is false only when the safety cap trips — then the result is a PREFIX of the
+ * unread set, not the whole truth, so the caller must not reconcile (prune) against it.
+ */
+async function drainUnread(): Promise<{ items: NotificationEnvelope[]; complete: boolean }> {
   const out: NotificationEnvelope[] = [];
   const limit = 50;
   let before: number | undefined;
@@ -75,31 +79,16 @@ async function drainUnread(): Promise<NotificationEnvelope[]> {
       // Steady-state unread is small (the user marks things read); this only trips for
       // a pathological backlog. Cap + log rather than drain forever or hide it.
       console.warn('[realtime] unread drain hit the 5000 safety cap');
-      break;
+      return { items: out, complete: false };
     }
   }
-  return out;
+  return { items: out, complete: true };
 }
 
 /** The session JWT, read back from the httpOnly cookie, for the STOMP CONNECT header. */
 async function fetchWsToken(): Promise<string> {
   const { token } = await api.get<{ token: string }>('/jwt');
   return token;
-}
-
-// The ledger belongs to one user. Clear it when a DIFFERENT user owns the session
-// (logout, or a switch), but NOT on a reload of the same user — that would defeat the
-// persistence (badge flashing 0→N). Keyed in localStorage so it survives reloads.
-const LEDGER_OWNER_KEY = 'phantom.realtime.owner';
-async function ensureLedgerOwner(userId: number): Promise<void> {
-  if (localStorage.getItem(LEDGER_OWNER_KEY) !== String(userId)) {
-    await db.notifications.clear();
-    localStorage.setItem(LEDGER_OWNER_KEY, String(userId));
-  }
-}
-async function clearLedger(): Promise<void> {
-  await db.notifications.clear();
-  localStorage.removeItem(LEDGER_OWNER_KEY);
 }
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
@@ -110,12 +99,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // While auth is still resolving (user momentarily null on every reload), do nothing —
-    // clearing here would wipe the persisted ledger on every F5 and defeat the whole
-    // point of keeping it. Only act once we actually know: connected user, or logged out.
+    // clearing here would wipe the store on every F5 and defeat the no-flash hydrate. Only
+    // act once we actually know: connected user, or logged out.
     if (loading) return;
     if (userId == null) {
       setStatus('idle');
-      void clearLedger(); // genuinely logged out
+      clearStore(); // genuinely logged out
       return;
     }
 
@@ -172,21 +161,31 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       void dispatchLive(env);
     };
 
-    // A LIVE frame: record it in the ledger (unread, dedup by id) then run any
-    // type-specific side effect. Drained-backlog notifications skip this — they only
-    // populate the ledger (no re-toasting / no recursive resync).
+    // A LIVE frame: record it in the store (unread, dedup by id) then run any type-specific
+    // side effect. Drained-backlog notifications skip this — they only populate the store
+    // (no re-toasting / no recursive resync).
     async function dispatchLive(env: NotificationEnvelope) {
       if (env.type === 'MESSAGE_DELETED') {
         removeMessageFromCache(queryClient, env.payload as ChatMessage);
         return;
       }
-      await putNotifications([env]); // routes into the gift / chat:<id> / misc bucket
       if (env.type === 'MESSAGE_RECEIVED') {
-        // chat: show it live, but stay SILENT — a chiming global chat would be a nuisance.
-        mergeIncomingMessage(queryClient, env.payload as ChatMessage);
+        const msg = env.payload as ChatMessage;
+        // Show it live regardless of author, but stay SILENT — a chiming global chat is a
+        // nuisance.
+        mergeIncomingMessage(queryClient, msg);
+        // Our OWN message, echoed back because we're connected on another device too: never
+        // badge it. Retire the signal server-side and don't store it — otherwise the chat
+        // badge flickers on every message we send (and lingers cross-device).
+        if (msg.user.id === userId) {
+          void api.post('/notifications/read', { ids: [env.id] });
+          return;
+        }
+        putNotifications([env]); // someone else's → badge the chat:<id> bucket
         return;
       }
       // gift + misc both chime.
+      putNotifications([env]); // routes into the gift / misc bucket
       sfx.notify();
       if (env.type === 'PRESENT_RECEIVED') {
         void queryClient.invalidateQueries({ queryKey: ['presents'] });
@@ -215,6 +214,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     async function resyncOnce() {
       if (cancelled || !client.connected || userId == null) return;
+      // Snapshot the store BEFORE we (re)subscribe. Anything that arrives live during this
+      // resync lands in the store but NOT in this set, so the reconcile below can't prune
+      // it — only rows we already knew going in are eligible to be dropped as stale.
+      const knownIds = new Set<number>(allIds());
+
       // Topics we may read = our user topic + everything from /topics. Fetch FIRST (old
       // subs stay live during the network call), then re-subscribe WHOLESALE: drop all,
       // subscribe the full set — no smart diff. Every reconnect/F5 re-subscribes anyway,
@@ -238,15 +242,24 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           console.warn('[realtime] subscribe failed', dest, e);
         }
       }
-      // Drain all unread → buckets (putNotifications routes gift / chat:<id> / misc).
-      await putNotifications(await drainUnread());
+
+      // Drain the authoritative unread set → buckets (putNotifications routes gift/chat/misc).
+      const { items, complete } = await drainUnread();
+      putNotifications(items);
+
+      // Reconcile the store DOWN to the server truth. The drain is the full unread set, so
+      // a row we knew before this resync that it no longer reports — read on another device,
+      // or reaped by the backend's retention sweep — is stale and must go, or its badge would
+      // outlive the notification. Skipped when the drain was capped (a prefix, not the truth).
+      if (complete && !cancelled) {
+        const live = new Set(items.map((n) => n.id));
+        removeNotifications([...knownIds].filter((id) => !live.has(id)));
+      }
     }
 
     setStatus('connecting');
-    void (async () => {
-      await ensureLedgerOwner(userId);
-      if (!cancelled) client.activate();
-    })();
+    ensureOwner(userId);
+    client.activate();
 
     return () => {
       cancelled = true;

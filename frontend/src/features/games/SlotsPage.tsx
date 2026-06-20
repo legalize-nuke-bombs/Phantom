@@ -1,4 +1,4 @@
-// SlotsPage — the FRUITS game ("Фрукты"): a full-width 3×5 reel slot machine
+// SlotsPage — the FRUITS game ("Fruits"): a full-width 3×5 reel slot machine
 // with reels that genuinely spin.
 //
 // Verified against the backend (com.example.phantom.game.fruits.*,
@@ -39,9 +39,12 @@ import {
   COLS,
   artOf,
   randomFiller,
+  loopingFiller,
   column,
   IDLE_GRID,
   FILLER_LEN,
+  SPIN_TILE_LEN,
+  SPIN_TILE_REPEATS,
   columnSpinMs,
   settleMs,
   easeOutQuint,
@@ -292,15 +295,19 @@ export default function SlotsPage() {
     setOffsets(next);
   }, []);
 
-  // Stage 1 — free scroll: each column whirls upward forever (wrapped over the
-  // filler block) while we wait for the server. Started immediately on click, so
-  // there's no static pause before motion. Cleared by clearAll / handoff.
+  // Stage 1 — free scroll: each column whirls upward forever at constant speed while
+  // we wait for the server. Started immediately on click, so there's no static pause
+  // before motion. Cleared by clearAll / handoff.
+  //
+  // The strip is one random tile repeated (loopingFiller), so wrapping the offset by
+  // EXACTLY one tile height lands each scrolled-in cell on the identical scrolled-out
+  // one — a truly seamless loop. The offset itself stays a continuous float (no
+  // per-frame quantization, which would stutter); the cell-aligned period is what
+  // makes the eye read one smooth, continuous reel instead of chaotic noise.
   const startFreeScroll = useCallback(() => {
     const cell = () => cellPxRef.current || 1;
-    // Wrap over the strip MINUS the visible window so the window never scrolls off
-    // the end into blank space; since every filler cell is random, the wrap-jump is
-    // invisible. (Strip length is FILLER_LEN.)
-    const wrap = () => (FILLER_LEN - ROWS) * cell();
+    // One full tile is the loop period; wrapping by it is invisible.
+    const wrap = () => SPIN_TILE_LEN * cell();
     let last = performance.now();
     const loop = (now: number) => {
       const dt = now - last;
@@ -328,16 +335,17 @@ export default function SlotsPage() {
         rafRef.current = null;
       }
       const rests = finalStrips.map((s) => restOffset(s.length));
-      // Hand off from the live whirl with NO snap: the rest sits at the filler-block
-      // boundary and the current wrapped offset is within one block above it, so we
-      // glide straight down onto rest. Guarantee a minimum travel so a column caught
-      // near the boundary still decelerates visibly (shift it up by whole blocks).
+      // Hand off from the live whirl with NO snap: the wrapped offset sits within one
+      // tile above the top of the (random) filler, and the rest sits a full FILLER_LEN
+      // below it, so we glide straight down onto rest. Guarantee a minimum travel so a
+      // column caught right at the wrap still decelerates visibly — shifting it up by
+      // whole TILES keeps the swap onto the final strip's filler invisible.
       const cell = cellPxRef.current || 1;
-      const block = FILLER_LEN * cell;
+      const tile = SPIN_TILE_LEN * cell;
       const minTravel = 6 * cell;
       const from = offsetsRef.current.map((o, x) => {
         let v = o;
-        while (v - rests[x] < minTravel) v += block;
+        while (v - rests[x] < minTravel) v += tile;
         return v;
       });
       const durations = finalStrips.map((_, x) => columnSpinMs(x));
@@ -386,8 +394,11 @@ export default function SlotsPage() {
     setPhase('spinning');
     sfx.startSpin();
 
-    // Fresh filler strips and start whirling RIGHT AWAY — don't wait for the server.
-    const fillerStrips = Array.from({ length: COLS }, () => randomFiller(FILLER_LEN));
+    // Fresh seamless looping strips and start whirling RIGHT AWAY — don't wait for the
+    // server. Each is its own random tile, so the 5 columns scroll independently.
+    const fillerStrips = Array.from({ length: COLS }, () =>
+      loopingFiller(SPIN_TILE_REPEATS),
+    );
     setStrips(fillerStrips);
     applyOffsets(Array.from({ length: COLS }, () => 0));
     startFreeScroll();

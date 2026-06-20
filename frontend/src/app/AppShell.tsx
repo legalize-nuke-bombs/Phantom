@@ -19,7 +19,7 @@ import { useWallet } from '@/shared/lib/wallet';
 import { formatUsd } from '@/shared/lib/money';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { useUnreadCount } from '@/shared/realtime/badges';
-import type { Bucket } from '@/shared/realtime/db';
+import type { Bucket } from '@/shared/realtime/store';
 
 interface NavItem {
   to: string;
@@ -27,7 +27,7 @@ interface NavItem {
   icon: LucideIcon;
   /** Render the live wallet balance inline next to the label. */
   showBalance?: boolean;
-  /** Show a live unread-count badge (from the realtime ledger) for this bucket. */
+  /** Show a live unread-count badge (from the realtime store) for this bucket. */
   badge?: Bucket;
 }
 

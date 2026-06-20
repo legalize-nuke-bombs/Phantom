@@ -28,7 +28,7 @@ import {
 import { formatTime } from '@/shared/lib/time';
 import { formatUsd } from '@/shared/lib/money';
 import { markBucketRead } from '@/shared/realtime/badges';
-import { db } from '@/shared/realtime/db';
+import { bucketRows } from '@/shared/realtime/store';
 import Card from '@/shared/ui/Card';
 import Spinner from '@/shared/ui/Spinner';
 
@@ -273,17 +273,12 @@ export default function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[] | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const rows = await db.notifications.where('bucket').equals('misc').sortBy('id');
-      if (cancelled) return;
-      rows.reverse(); // newest first
-      setItems(rows.map((r) => ({ id: r.id, timestamp: r.timestamp, type: r.type, payload: r.payload })));
-      void markBucketRead('misc');
-    })();
-    return () => {
-      cancelled = true;
-    };
+    // The store is in-memory (synchronous) now — snapshot the misc bucket directly, then
+    // mark it read + clear via the internal layer. No REST, no async.
+    const rows = bucketRows('misc');
+    rows.reverse(); // newest first
+    setItems(rows.map((r) => ({ id: r.id, timestamp: r.timestamp, type: r.type, payload: r.payload })));
+    void markBucketRead('misc');
   }, []);
 
   return (

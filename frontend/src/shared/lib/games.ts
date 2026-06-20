@@ -20,7 +20,7 @@ export interface GameMeta {
  */
 export const GAME_META: Record<GameType, GameMeta> = {
   CASES: { emoji: '📦', name: 'Ящики' },
-  FRUITS: { emoji: '🍇', name: 'Фрукты' },
+  FRUITS: { emoji: '🍇', name: 'Fruits' },
   COINFLIP: { emoji: '🪙', name: 'Монетка' },
   UPGRADER: { emoji: '📈', name: 'Upgrader' },
 };

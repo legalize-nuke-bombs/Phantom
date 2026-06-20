@@ -13,21 +13,18 @@ import { api } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { coinName } from '@/shared/lib/coin';
-import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
-import { GAME_META, gameMeta } from '@/shared/lib/games';
-import { formatTime } from '@/shared/lib/time';
+import { GAME_META } from '@/shared/lib/games';
 import type {
   UserStats,
   PlatformGameStats,
   GameHistoryEntry,
-  LevelName,
 } from '@/shared/types';
 import LotteryStatusCard from '@/features/lottery/LotteryStatusCard';
 import Amount from '@/shared/ui/Amount';
 import Card from '@/shared/ui/Card';
 import CoinGlyph from '@/shared/ui/CoinGlyph';
+import GameHistoryRow from '@/shared/ui/GameHistoryRow';
 import Spinner from '@/shared/ui/Spinner';
-import UserChip from '@/shared/ui/UserChip';
 
 const ru = (n: number): string => n.toLocaleString('ru-RU');
 
@@ -166,37 +163,8 @@ function PlatformStats() {
 }
 
 /* ── Recent games feed ─────────────────────────────────────────────────── */
-
-function GameRow({
-  entry,
-  level,
-}: {
-  entry: GameHistoryEntry;
-  level: LevelName | null;
-}) {
-  const meta = gameMeta(entry.gameType);
-  return (
-    <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0 space-y-0.5">
-        <UserChip user={entry.user} level={level} className="text-sm font-medium" />
-        <p className="flex items-center gap-1 text-xs text-muted">
-          {entry.gameType === 'COINFLIP' ? (
-            <CoinGlyph size={12} />
-          ) : (
-            <span aria-hidden>{meta.emoji}</span>
-          )}
-          {meta.name} · {formatTime(entry.timestamp, 'relative')}
-        </p>
-      </div>
-      {/* Each amount gets its own fixed-width right-aligned cell so the bet and
-          result columns line up across rows of differing magnitudes. */}
-      <div className="flex shrink-0 items-center gap-4 text-sm font-medium tabular-nums">
-        <Amount value={entry.bet} className="inline-block w-14 text-right text-muted sm:w-20" />
-        <Amount value={entry.result} className="inline-block w-14 text-right font-semibold sm:w-20" />
-      </div>
-    </li>
-  );
-}
+/* Rows use the shared <GameHistoryRow>; this is the cross-player feed, so we pass
+   `withUser` to lead each row with the player's name. */
 
 function RecentGames() {
   const { user } = useAuth();
@@ -207,10 +175,6 @@ function RecentGames() {
     enabled: user != null,
     staleTime: 15_000,
   });
-
-  // Batch-load ranks for every player in the feed in a single request.
-  const ids = history.data?.map((entry) => entry.user.id) ?? [];
-  const { data: levels } = useExperienceBatch(ids);
 
   return (
     <section className="space-y-3">
@@ -233,14 +197,10 @@ function RecentGames() {
           Пока нет сыгранных игр
         </Card>
       ) : (
-        <Card className="divide-y divide-edge overflow-hidden p-0">
-          <ul>
+        <Card className="overflow-hidden p-0">
+          <ul className="divide-y divide-edge px-4">
             {history.data.map((entry) => (
-              <GameRow
-                key={entry.id}
-                entry={entry}
-                level={levelFor(levels, entry.user.id)}
-              />
+              <GameHistoryRow key={entry.id} entry={entry} withUser />
             ))}
           </ul>
         </Card>
