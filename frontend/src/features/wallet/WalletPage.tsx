@@ -26,7 +26,7 @@
 //
 // Balances/amounts are internal USD; the deposit coin is Gram/GRAM (coin enum TON).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   useInfiniteQuery,
@@ -59,7 +59,7 @@ import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
 import { formatUsd } from '@/shared/lib/money';
 import { formatTime } from '@/shared/lib/time';
 import { useRefreshBalance, useWallet } from '@/shared/lib/wallet';
-import { markPresentRead, markTypeRead, useUnreadCount } from '@/shared/realtime/badges';
+import { markBucketRead, markPresentRead, useUnreadCount } from '@/shared/realtime/badges';
 import type { LevelName, ShortUser, User } from '@/shared/types';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
@@ -908,7 +908,7 @@ function ReceivedPresentsCard() {
 
   const claimAll = useMutation<{ result: string }, ApiError>({
     mutationFn: async () => {
-      await markTypeRead('PRESENT_RECEIVED');
+      await markBucketRead('gift');
       return api.post<{ result: string }>('/presents/claim-all');
     },
     onSuccess: afterClaim,
@@ -921,6 +921,12 @@ function ReceivedPresentsCard() {
     .filter((id): id is number => id != null);
   const { data: senderLevels } = useExperienceBatch(senderIds);
   const hasUnclaimed = items.some((p) => !p.claimed);
+
+  // Desync regulator: nothing left to claim → any lingering gift notifications are stale,
+  // so mark them read; the badge can't get stuck above the real unclaimed count.
+  useEffect(() => {
+    if (presents.isSuccess && !hasUnclaimed) void markBucketRead('gift');
+  }, [presents.isSuccess, hasUnclaimed]);
 
   let body: ReactNode;
   if (presents.isLoading) {
@@ -1060,7 +1066,7 @@ function PresentRow({
 /* ── Page ──────────────────────────────────────────────────────────────────*/
 export default function WalletPage() {
   const [tab, setTab] = useState<TabId>('balance');
-  const giftCount = useUnreadCount('PRESENT_RECEIVED');
+  const giftCount = useUnreadCount('gift');
 
   const section = useMemo(() => {
     switch (tab) {

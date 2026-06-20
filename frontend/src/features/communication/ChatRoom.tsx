@@ -12,6 +12,7 @@ import clsx from 'clsx';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
 import { MAX_MESSAGE_LENGTH, useChatMessages, useSendMessage } from '@/shared/chat/useChat';
+import { markBucketRead, useUnreadCount } from '@/shared/realtime/badges';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { formatTime } from '@/shared/lib/time';
 import type { ChatMessage } from '@/shared/realtime/types';
@@ -79,6 +80,14 @@ export default function ChatRoom({ chatId }: { chatId: number }) {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [newestId]);
+
+  // Viewing a chat = reading it: clear its unread bucket on open and as new messages
+  // land, so this chat's sidebar badge stays at 0 while it's open.
+  const chatBucket = `chat:${chatId}`;
+  const unreadHere = useUnreadCount(chatBucket);
+  useEffect(() => {
+    if (unreadHere > 0) void markBucketRead(chatBucket);
+  }, [unreadHere, chatBucket]);
 
   function submit() {
     const content = draft.trim();
