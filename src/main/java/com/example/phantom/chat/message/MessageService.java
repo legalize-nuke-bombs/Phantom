@@ -72,9 +72,11 @@ public class MessageService {
         User user = getUser(userId);
         Chat chat = getChat(request.getChatId(), user);
 
-        Ban ban = banRepository.findById(user.getId()).orElse(null);
-        if (ban != null && ban.isActive()) {
-            throw new ApiException(ErrorCode.BANNED);
+        if (chat.getTopic().getAllowAuthorized()) {
+            Ban ban = banRepository.findById(user.getId()).orElse(null);
+            if (ban != null && ban.isActive()) {
+                throw new ApiException(ErrorCode.BANNED);
+            }
         }
 
         rateLimitService.startAction(user.getId(), RateLimitAction.SEND_MESSAGE, 1L);
