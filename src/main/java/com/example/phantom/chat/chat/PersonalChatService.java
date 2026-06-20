@@ -34,8 +34,9 @@ public class PersonalChatService {
     private final Random chatIdsGenerator;
     private final BlacklistService blacklistService;
     private final NotificationPublishService notificationPublishService;
+    private final TopicAccessRevalidateService topicAccessRevalidateService;
 
-    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BlacklistService blacklistService, NotificationPublishService notificationPublishService) {
+    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BlacklistService blacklistService, NotificationPublishService notificationPublishService, TopicAccessRevalidateService topicAccessRevalidateService) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
         this.topicRepository = topicRepository;
@@ -45,6 +46,7 @@ public class PersonalChatService {
         this.chatIdsGenerator = chatIdsGenerator;
         this.blacklistService = blacklistService;
         this.notificationPublishService = notificationPublishService;
+        this.topicAccessRevalidateService = topicAccessRevalidateService;
     }
 
     @Transactional
@@ -117,6 +119,7 @@ public class PersonalChatService {
             log.info("user {} left the chat", userId);
         }
 
+        topicAccessRevalidateService.revalidate(userId);
         return null;
     }
 
@@ -140,8 +143,9 @@ public class PersonalChatService {
         }
 
         topicMemberRepository.deleteByTopicIdUserId(topicId, targetId);
-        log.info("user {} kicked another user", userId);
+        topicAccessRevalidateService.revalidate(targetId);
 
+        log.info("user {} kicked another user", userId);
         List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(topicId);
         return new ChatRepresentation(chat, chatMembers.stream().map(TopicMemberRepresentation::new).toList());
     }
