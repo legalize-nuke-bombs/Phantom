@@ -183,25 +183,7 @@ export default function ChatsPage() {
           <div className="flex flex-col items-center gap-2 px-6 text-center">
             <MessagesSquare size={28} className="text-muted" />
             <p className="text-sm font-medium text-fg">Пока нет чатов</p>
-            <p className="text-xs text-muted">Создайте чат или напишите игроку из его профиля</p>
-            <Button
-              size="sm"
-              className="mt-2"
-              onClick={handleCreate}
-              loading={createChat.isPending}
-              disabled={createLocked}
-            >
-              <Plus size={16} />
-              Новый чат
-            </Button>
-            {/* Same lock hint in the empty state — most likely place a locked user lands. */}
-            {banned ? (
-              <span className="mt-1 inline-flex items-center gap-1 text-xs text-lose">
-                <Ban size={12} /> Вы заблокированы
-              </span>
-            ) : (
-              <FeatureLock feature="SEND_MESSAGE" className="mt-1" />
-            )}
+            <p className="text-xs text-muted">Создайте чат кнопкой «Новый чат» вверху справа</p>
           </div>
         </div>
       ) : (

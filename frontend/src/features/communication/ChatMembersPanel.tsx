@@ -3,9 +3,8 @@
 // or kick; everyone can leave; the owner can delete the whole chat. After a leave/delete the
 // chat is gone for me, so the caller navigates back to the list (onClosed).
 
-import { useEffect, useState } from 'react';
-import { Ban, Crown, LogOut, Trash2, UserPlus, X } from 'lucide-react';
-import clsx from 'clsx';
+import { useState } from 'react';
+import { Ban, Crown, LogOut, Trash2, UserPlus } from 'lucide-react';
 
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
@@ -159,13 +158,17 @@ function AddMemberField({ chatId, myId }: { chatId: string; myId: number }) {
 
 export interface ChatMembersPanelProps {
   chat: Chat;
-  open: boolean;
-  onClose: () => void;
   /** Called after a successful leave/delete — the chat no longer exists for me. */
-  onClosed: () => void;
+  onLeft: () => void;
 }
 
-export default function ChatMembersPanel({ chat, open, onClose, onClosed }: ChatMembersPanelProps) {
+/**
+ * A MONOLITHIC members panel — always visible as the conversation's right column (no toggle,
+ * no overlay). Lists members (owner marked), with the eldest member's owner powers (add /
+ * kick / delete) and everyone's leave. After a leave/delete the chat is gone for me, so the
+ * caller navigates away (onLeft).
+ */
+export default function ChatMembersPanel({ chat, onLeft }: ChatMembersPanelProps) {
   const { user } = useAuth();
   const myId = user?.id ?? 0;
   const chatId = chat.id;
@@ -179,138 +182,96 @@ export default function ChatMembersPanel({ chat, open, onClose, onClosed }: Chat
   const leaveChat = useLeaveChat(chatId);
   const deleteChat = useDeleteChat(chatId);
 
-  // Leaving / deleting is irreversible (and a delete wipes the chat for everyone), so
-  // both ask first via a two-step inline confirm. `confirm` tracks which destructive
-  // action is armed; null = the normal footer.
+  // Leaving / deleting is irreversible (and a delete wipes the chat for everyone), so both
+  // ask first via a two-step inline confirm. `confirm` tracks which action is armed.
   const [confirm, setConfirm] = useState<'leave' | 'delete' | null>(null);
 
-  // Lock body scroll while the sheet is open (it overlays the conversation).
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  // Reset any armed confirmation whenever the sheet closes, so reopening starts clean.
-  useEffect(() => {
-    if (!open) setConfirm(null);
-  }, [open]);
-
   function handleLeave() {
-    leaveChat.mutate(undefined, { onSuccess: onClosed });
+    leaveChat.mutate(undefined, { onSuccess: onLeft });
   }
   function handleDelete() {
-    deleteChat.mutate(undefined, { onSuccess: onClosed });
+    deleteChat.mutate(undefined, { onSuccess: onLeft });
   }
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className={clsx(
-          'fixed inset-0 z-40 bg-black/60 transition-opacity',
-          open ? 'opacity-100' : 'pointer-events-none opacity-0',
-        )}
-        onClick={onClose}
-        aria-hidden
-      />
-      {/* Right-side sheet */}
-      <aside
-        className={clsx(
-          'fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-edge bg-panel shadow-xl transition-transform duration-200',
-          open ? 'translate-x-0' : 'translate-x-full',
-        )}
-        role="dialog"
-        aria-label="Участники чата"
-      >
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-edge px-4">
-          <h2 className="text-sm font-semibold text-fg">
-            Участники · {chat.members.length}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Закрыть"
-            className="text-muted transition-colors hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
-          >
-            <X size={20} />
-          </button>
-        </header>
+    <aside
+      className="flex h-full flex-col overflow-hidden rounded-xl border border-edge bg-panel"
+      aria-label="Участники чата"
+    >
+      <header className="flex h-12 shrink-0 items-center border-b border-edge px-4">
+        <h2 className="text-sm font-semibold text-fg">Участники · {chat.members.length}</h2>
+      </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
-          {/* Owner-only: add a member */}
-          {amOwner ? <AddMemberField chatId={chatId} myId={myId} /> : null}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+        {/* Owner-only: add a member */}
+        {amOwner ? <AddMemberField chatId={chatId} myId={myId} /> : null}
 
-          {/* Member list */}
-          <div className="divide-y divide-edge">
-            {chat.members.map((member) => (
-              <MemberRow
-                key={member.id}
-                member={member}
-                level={levelFor(exp.data, member.user.id)}
-                isOwner={member.user.id === ownerId}
-                canManage={amOwner && member.user.id !== myId}
-                onKick={() => kickMember.mutate(member.user.id)}
-                kicking={kickMember.isPending && kickMember.variables === member.user.id}
-              />
-            ))}
-          </div>
-
-          {kickMember.isError ? (
-            <p className="text-xs text-lose">{errorMessage(kickMember.error, 'Не удалось исключить участника')}</p>
-          ) : null}
+        {/* Member list */}
+        <div className="divide-y divide-edge">
+          {chat.members.map((member) => (
+            <MemberRow
+              key={member.id}
+              member={member}
+              level={levelFor(exp.data, member.user.id)}
+              isOwner={member.user.id === ownerId}
+              canManage={amOwner && member.user.id !== myId}
+              onKick={() => kickMember.mutate(member.user.id)}
+              kicking={kickMember.isPending && kickMember.variables === member.user.id}
+            />
+          ))}
         </div>
 
-        {/* Footer actions: leave (anyone), delete (owner). Both destructive actions are
-            two-step — the first click arms an inline "точно?" confirm row in place. */}
-        <footer className="flex shrink-0 flex-col gap-2 border-t border-edge p-4">
-          {amOwner ? (
-            confirm === 'delete' ? (
-              <ConfirmRow
-                prompt="Удалить чат безвозвратно?"
-                confirmLabel="Удалить"
-                onConfirm={handleDelete}
-                onCancel={() => setConfirm(null)}
-                loading={deleteChat.isPending}
-              />
-            ) : (
-              <Button
-                variant="ghost"
-                onClick={() => setConfirm('delete')}
-                className="border-lose/40 text-lose hover:bg-lose/10"
-              >
-                <Trash2 size={16} />
-                Удалить чат
-              </Button>
-            )
-          ) : null}
+        {kickMember.isError ? (
+          <p className="text-xs text-lose">{errorMessage(kickMember.error, 'Не удалось исключить участника')}</p>
+        ) : null}
+      </div>
 
-          {confirm === 'leave' ? (
+      {/* Footer actions: leave (anyone), delete (owner). Both are two-step — the first click
+          arms an inline "точно?" confirm row in place. */}
+      <footer className="flex shrink-0 flex-col gap-2 border-t border-edge p-4">
+        {amOwner ? (
+          confirm === 'delete' ? (
             <ConfirmRow
-              prompt="Выйти из чата?"
-              confirmLabel="Выйти"
-              onConfirm={handleLeave}
+              prompt="Удалить чат безвозвратно?"
+              confirmLabel="Удалить"
+              onConfirm={handleDelete}
               onCancel={() => setConfirm(null)}
-              loading={leaveChat.isPending}
+              loading={deleteChat.isPending}
             />
           ) : (
-            <Button variant="ghost" onClick={() => setConfirm('leave')}>
-              <LogOut size={16} />
-              Выйти из чата
+            <Button
+              variant="ghost"
+              onClick={() => setConfirm('delete')}
+              className="border-lose/40 text-lose hover:bg-lose/10"
+            >
+              <Trash2 size={16} />
+              Удалить чат
             </Button>
-          )}
+          )
+        ) : null}
 
-          {leaveChat.isError ? (
-            <p className="text-xs text-lose">{errorMessage(leaveChat.error, 'Не удалось выйти из чата')}</p>
-          ) : null}
-          {deleteChat.isError ? (
-            <p className="text-xs text-lose">{errorMessage(deleteChat.error, 'Не удалось удалить чат')}</p>
-          ) : null}
-        </footer>
-      </aside>
-    </>
+        {confirm === 'leave' ? (
+          <ConfirmRow
+            prompt="Выйти из чата?"
+            confirmLabel="Выйти"
+            onConfirm={handleLeave}
+            onCancel={() => setConfirm(null)}
+            loading={leaveChat.isPending}
+          />
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirm('leave')}>
+            <LogOut size={16} />
+            Выйти из чата
+          </Button>
+        )}
+
+        {leaveChat.isError ? (
+          <p className="text-xs text-lose">{errorMessage(leaveChat.error, 'Не удалось выйти из чата')}</p>
+        ) : null}
+        {deleteChat.isError ? (
+          <p className="text-xs text-lose">{errorMessage(deleteChat.error, 'Не удалось удалить чат')}</p>
+        ) : null}
+      </footer>
+    </aside>
   );
 }

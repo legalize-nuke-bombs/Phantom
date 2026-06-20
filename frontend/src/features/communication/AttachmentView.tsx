@@ -1,22 +1,22 @@
-// AttachmentView — renders a chat message's attachment inside its bubble.
-//
-// Two faces, decided by the SAME previewability rule the disk grid uses
-// (isPreviewableImage over the {id,name,size} descriptor):
-//   • image → a bounded ImagePreview thumbnail; tapping it opens a full-screen
-//     lightbox (the cookie-authed bytes URL) with a native download link.
-//   • anything else → a compact file chip: type glyph + name + human size, the whole
-//     chip being a native <a href="/api/disk/files/{id}" download> (no fetch/Blob, so a
-//     multi-GB attachment streams straight to disk via the browser's own UI).
+// AttachmentView — a chat message's attachment, rendered to BREATHE (it sits on its own
+// line under the message, the bubble doesn't box it in):
+//   • a safe, decoded image → an unframed, natural-aspect preview (capped, rounded); tap
+//     opens a full-screen lightbox with a native download.
+//   • anything else (or an image that failed / tripped the bomb-guard) → a clean download
+//     chip: type glyph + name + size, the whole chip a native <a download> (no fetch/Blob,
+//     so a multi-GB attachment streams straight to disk via the browser's own UI).
 //
 // The bytes URL (fileBytesUrl) is cookie-authed and any authenticated user may fetch any
 // file by id, so a recipient can always load the sender's attachment. Purely presentational
-// over a FileRef — no message/chat coupling.
+// over a FileRef — no message/chat coupling. Reuses the disk/media preview decision
+// (useImagePreview: previewability + decompression-bomb guard, memoized per id).
 
 import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
 import clsx from 'clsx';
 
-import { ImagePreview, fileBytesUrl, fileTypeGlyph, isPreviewableImage } from '@/shared/media';
+import { fileBytesUrl, fileTypeGlyph } from '@/shared/media';
+import { useImagePreview } from '@/shared/media/useImagePreview';
 import { formatBytes } from '@/features/disk/useDisk';
 import type { FileRef } from '@/shared/realtime/types';
 
@@ -78,28 +78,40 @@ function Lightbox({ file, onClose }: { file: FileRef; onClose: () => void }) {
 
 export default function AttachmentView({ file }: { file: FileRef }) {
   const [lightbox, setLightbox] = useState(false);
-  const image = isPreviewableImage({ id: file.id, name: file.name, size: file.size });
+  const { status, url } = useImagePreview({ id: file.id, name: file.name, size: file.size });
 
-  if (image) {
+  // A decoded, bomb-guarded image → an UNFRAMED, natural-aspect preview. No border, no
+  // fixed box: capped by max-width / max-height and left to keep its own aspect ratio.
+  if (status === 'ok' && url) {
     return (
       <>
-        {/* Bounded thumbnail — capped so it never dominates the bubble; tap → lightbox. */}
         <button
           type="button"
           onClick={() => setLightbox(true)}
           title={file.name}
-          className="block overflow-hidden rounded-lg border border-edge focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
+          className="block overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
         >
-          <span className="block h-40 w-40 max-w-full sm:h-48 sm:w-48">
-            <ImagePreview file={{ id: file.id, name: file.name, size: file.size }} glyphSize={30} />
-          </span>
+          <img
+            src={url}
+            alt={file.name}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="block max-h-[22rem] max-w-[18rem] rounded-2xl sm:max-w-[20rem]"
+          />
         </button>
         {lightbox ? <Lightbox file={file} onClose={() => setLightbox(false)} /> : null}
       </>
     );
   }
 
-  // Non-image: a compact download chip (the whole chip is the native download anchor).
+  // An image still decoding → a slim placeholder so the row doesn't jump when it lands.
+  if (status === 'probing') {
+    return <span className="block h-44 w-44 animate-pulse rounded-2xl bg-panel-2" />;
+  }
+
+  // Non-image (or a rejected/failed image) → a clean download chip; the whole chip is the
+  // native download anchor (streams straight to disk, no JS buffering).
   return (
     <a
       href={fileBytesUrl(file.id)}
@@ -107,12 +119,12 @@ export default function AttachmentView({ file }: { file: FileRef }) {
       rel="noopener"
       title={`Скачать ${file.name}`}
       className={clsx(
-        'flex max-w-[16rem] items-center gap-2.5 rounded-lg border border-edge bg-panel px-2.5 py-2',
-        'transition-colors hover:bg-panel-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ton',
+        'inline-flex max-w-[18rem] items-center gap-2.5 rounded-xl bg-panel-2 px-3 py-2.5',
+        'transition-colors hover:bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-ton',
       )}
     >
-      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-panel-2">
-        {fileTypeGlyph(file.name, 20)}
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-panel text-ton">
+        {fileTypeGlyph(file.name, 22)}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-fg">{file.name}</span>

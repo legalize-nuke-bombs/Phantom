@@ -27,7 +27,7 @@ interface LeaderboardEntry {
   experience: Experience;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 
 /** Format an XP value with thin RU grouping (e.g. 12 500). */
 function formatXp(n: number): string {

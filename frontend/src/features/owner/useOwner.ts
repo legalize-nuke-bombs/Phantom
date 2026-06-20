@@ -64,7 +64,7 @@ export interface MasterWallet {
 /** The only coin today; the rail is GRAM, the backend enum value is TON. */
 export const OWNER_COIN: CoinType = 'TON';
 
-const HISTORY_LIMIT = 20;
+const HISTORY_LIMIT = 100;
 
 /* sweep schedule bounds, mirrored from SweepConstants (seconds). */
 export const SWEEP_MIN_SECONDS = 60;

@@ -169,7 +169,7 @@ function BanTool({ myId }: { myId: number }) {
         <span className="text-lose">
           <Ban size={16} strokeWidth={2} />
         </span>
-        <h2 className="text-sm font-semibold">Чёрный список</h2>
+        <h2 className="text-sm font-semibold">Блокировки</h2>
       </div>
       <p className="mb-4 text-xs leading-relaxed text-muted">
         Блокировка запрещает писать в чат, создавать чаты и добавлять участников. Читать

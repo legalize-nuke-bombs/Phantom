@@ -10,15 +10,18 @@ export default function UserProfilePage() {
   const { userId: param } = useParams<{ userId: string }>();
   const { user } = useAuth();
 
-  const userId = Number(param);
-  if (!Number.isInteger(userId) || userId <= 0) {
+  // The handle is a numeric id OR a @username (mentions deep-link by username). Empty →
+  // home. ProfileView resolves it (by-id for digits, by-username otherwise).
+  const handle = (param ?? '').trim();
+  if (!handle) {
     return <Navigate to="/" replace />;
   }
 
-  // Looking at yourself → use the own-profile page (settings + logout).
-  if (user && user.id === userId) {
+  // A numeric handle that is me → the editable own-profile page. (A username handle that
+  // resolves to me still shows the public view — fine; resolving it here would need a fetch.)
+  if (user && /^\d+$/.test(handle) && Number(handle) === user.id) {
     return <Navigate to="/profile" replace />;
   }
 
-  return <ProfileView userId={userId} isOwn={false} />;
+  return <ProfileView userId={handle} isOwn={false} />;
 }

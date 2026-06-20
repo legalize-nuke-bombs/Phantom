@@ -93,7 +93,7 @@ function useUserStats(userId: number) {
   });
 }
 
-const HISTORY_PAGE_SIZE = 20;
+const HISTORY_PAGE_SIZE = 100;
 
 /**
  * One user's games, cursor-paginated (GET /api/games/history/{id}?limit&before).
@@ -487,18 +487,27 @@ function PlayerSearch() {
 }
 
 /* ── profile body (header + cards [+ own nav]) ─────────────────────────── */
-function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
-  // The full user record. Own → /me (kept warm by AuthContext); else → /by-id.
+function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolean }) {
+  // `userId` is a numeric id OR a @username (mentions / deep links route by handle).
+  // Resolve via /by-id for all-digits, /by-username otherwise; own → /me.
+  const numericId = typeof userId === 'number' || /^\d+$/.test(String(userId));
   const userQuery = useQuery<User>({
-    queryKey: isOwn ? ['users', 'me'] : ['users', 'by-id', userId],
-    queryFn: () => api.get<User>(isOwn ? '/users/me' : `/users/by-id/${userId}`),
+    queryKey: isOwn ? ['users', 'me'] : ['users', 'profile', String(userId)],
+    queryFn: () =>
+      api.get<User>(
+        isOwn
+          ? '/users/me'
+          : numericId
+            ? `/users/by-id/${userId}`
+            : `/users/by-username/${encodeURIComponent(String(userId))}`,
+      ),
   });
 
-  // Experience: useMyExperience swallows 403 → null (hidden). For others we also
-  // know up front from the privacy flag, so we skip the request when it's private.
+  // Experience: useMyExperience swallows 403 → null (hidden). Keyed on the RESOLVED numeric
+  // id (the param may be a username), and skipped when the privacy flag hides it.
   const user = userQuery.data;
   const experienceVisible = isOwn || user == null || user.experiencePrivacySetting === 'EVERYONE';
-  const experienceQuery = useMyExperience(experienceVisible ? userId : undefined);
+  const experienceQuery = useMyExperience(experienceVisible ? user?.id : undefined);
   const levelsQuery = useLevels();
 
   if (userQuery.isLoading && !user) {
@@ -554,8 +563,8 @@ function ProfileBody({ userId, isOwn }: { userId: number; isOwn: boolean }) {
 
 /* ── public API ────────────────────────────────────────────────────────── */
 export interface ProfileViewProps {
-  /** Whose profile to render. */
-  userId: number;
+  /** Whose profile to render — a numeric id or a @username handle. */
+  userId: number | string;
   /** Own profile → adds nav buttons to settings/referrals, and reads via /users/me. */
   isOwn: boolean;
 }

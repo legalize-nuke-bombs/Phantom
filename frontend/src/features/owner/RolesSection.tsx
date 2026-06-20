@@ -11,7 +11,7 @@
 // send whatever key was typed and let the backend be the source of truth.
 
 import { useState } from 'react';
-import { ShieldAlert, Trash2, UserCog } from 'lucide-react';
+import { Trash2, UserCog } from 'lucide-react';
 
 import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
@@ -21,11 +21,6 @@ import Input from '@/shared/ui/Input';
 import UserLookup from '@/shared/ui/UserLookup';
 import { ASSIGNABLE_ROLES, ConfirmButton, ErrorLine, ROLE_LABELS, Section, SuccessLine } from './ownerUi';
 import { OWNER_KEY_MAX, useChangeRole, useDeleteUser } from './useOwner';
-
-/** Does this change touch an owner-capable role (→ owner key required by backend)? */
-function ownerKeyNeededForRole(current: Role | undefined, next: Role): boolean {
-  return current === 'OWNER' || next === 'OWNER';
-}
 
 function ChangeRoleCard() {
   const { user: me } = useAuth();
@@ -37,11 +32,11 @@ function ChangeRoleCard() {
   const [ownerKey, setOwnerKey] = useState('');
 
   const sameRole = target != null && target.role === role;
-  const keyNeeded = ownerKeyNeededForRole(target?.role, role);
-  const keyMissing = keyNeeded && ownerKey.trim().length === 0;
 
+  // The owner key is ALWAYS an optional field; the backend decides if it's actually
+  // required (only for actions touching «Владелец») and answers OWNER_KEY_REQUIRED if so.
   const canSubmit =
-    target != null && !sameRole && !keyMissing && ownerKey.length <= OWNER_KEY_MAX && !changeRole.isPending;
+    target != null && !sameRole && ownerKey.length <= OWNER_KEY_MAX && !changeRole.isPending;
 
   function submit() {
     if (!canSubmit || target == null) return;
@@ -102,25 +97,23 @@ function ChangeRoleCard() {
         {sameRole && <span className="text-xs text-muted">Это уже текущая роль пользователя.</span>}
       </div>
 
-      {/* owner key — shown when an owner-capable role is involved */}
-      {keyNeeded && (
-        <div className="flex flex-col gap-1.5 rounded-xl border border-edge bg-panel-2 p-3">
-          <span className="flex items-center gap-1.5 text-xs font-medium text-ice">
-            <ShieldAlert size={14} strokeWidth={2} />
-            Действие с ролью «Владелец» требует ключ владельца
-          </span>
-          <Input
-            type="password"
-            placeholder="Ключ владельца (base64)"
-            value={ownerKey}
-            onChange={(e) => setOwnerKey(e.target.value)}
-            maxLength={OWNER_KEY_MAX}
-            autoComplete="off"
-            spellCheck={false}
-            disabled={changeRole.isPending}
-          />
-        </div>
-      )}
+      {/* Owner key — ALWAYS shown, always optional (no jumping). The backend requires it
+          only for actions touching «Владелец» and answers OWNER_KEY_REQUIRED if missing. */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm text-muted">
+          Ключ владельца <span className="text-muted/70">— только для роли «Владелец»</span>
+        </span>
+        <Input
+          type="password"
+          placeholder="Не требуется для обычных ролей"
+          value={ownerKey}
+          onChange={(e) => setOwnerKey(e.target.value)}
+          maxLength={OWNER_KEY_MAX}
+          autoComplete="off"
+          spellCheck={false}
+          disabled={changeRole.isPending}
+        />
+      </div>
 
       {changeRole.isError && (
         <ErrorLine message={errorMessage(changeRole.error, 'Не удалось изменить роль')} />
@@ -149,11 +142,10 @@ function DeleteUserCard() {
   const [target, setTarget] = useState<User | null>(null);
   const [ownerKey, setOwnerKey] = useState('');
 
-  // Deleting an owner-capable user needs the owner key.
-  const keyNeeded = target?.role === 'OWNER';
-  const keyMissing = keyNeeded && ownerKey.trim().length === 0;
+  // The owner key is ALWAYS optional here too — required server-side only when the target
+  // is an owner (→ OWNER_KEY_REQUIRED), surfaced as a plain error if missing.
   const canSubmit =
-    target != null && !keyMissing && ownerKey.length <= OWNER_KEY_MAX && !deleteUser.isPending;
+    target != null && ownerKey.length <= OWNER_KEY_MAX && !deleteUser.isPending;
 
   function submit() {
     if (!canSubmit || target == null) return;
@@ -191,24 +183,21 @@ function DeleteUserCard() {
         disabled={deleteUser.isPending}
       />
 
-      {keyNeeded && (
-        <div className="flex flex-col gap-1.5 rounded-xl border border-edge bg-panel-2 p-3">
-          <span className="flex items-center gap-1.5 text-xs font-medium text-ice">
-            <ShieldAlert size={14} strokeWidth={2} />
-            Удаление владельца требует ключ владельца
-          </span>
-          <Input
-            type="password"
-            placeholder="Ключ владельца (base64)"
-            value={ownerKey}
-            onChange={(e) => setOwnerKey(e.target.value)}
-            maxLength={OWNER_KEY_MAX}
-            autoComplete="off"
-            spellCheck={false}
-            disabled={deleteUser.isPending}
-          />
-        </div>
-      )}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm text-muted">
+          Ключ владельца <span className="text-muted/70">— только для удаления владельца</span>
+        </span>
+        <Input
+          type="password"
+          placeholder="Не требуется для обычных аккаунтов"
+          value={ownerKey}
+          onChange={(e) => setOwnerKey(e.target.value)}
+          maxLength={OWNER_KEY_MAX}
+          autoComplete="off"
+          spellCheck={false}
+          disabled={deleteUser.isPending}
+        />
+      </div>
 
       {deleteUser.isError && (
         <ErrorLine message={errorMessage(deleteUser.error, 'Не удалось удалить пользователя')} />

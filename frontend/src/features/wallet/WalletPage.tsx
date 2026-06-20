@@ -112,7 +112,7 @@ interface Present {
 const COIN: CoinType = 'TON';
 
 const PRESENTS_QUERY_KEY = ['presents', 'received'] as const;
-const PRESENTS_PAGE_SIZE = 20;
+const PRESENTS_PAGE_SIZE = 100;
 
 /* ── clipboard ─────────────────────────────────────────────────────────────
  * Small reusable copy hook with a transient "copied" flag, mirroring the
@@ -426,7 +426,7 @@ function DepositHistory() {
   const deposits = useInfiniteQuery({
     queryKey: ['crypto', 'deposits', COIN],
     queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams({ limit: '20' });
+      const params = new URLSearchParams({ limit: '100' });
       if (pageParam !== undefined) params.set('before', String(pageParam));
       return api.get<Deposit[]>(`/wallets/me/crypto/${COIN}/deposits?${params}`);
     },
@@ -613,7 +613,7 @@ function WithdrawHistory() {
   const withdrawals = useInfiniteQuery({
     queryKey: ['crypto', 'withdrawals', COIN],
     queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams({ limit: '20' });
+      const params = new URLSearchParams({ limit: '100' });
       if (pageParam !== undefined) params.set('before', String(pageParam));
       return api.get<Withdrawal[]>(`/wallets/me/crypto/${COIN}/withdrawals?${params}`);
     },

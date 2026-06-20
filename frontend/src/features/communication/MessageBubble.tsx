@@ -99,31 +99,38 @@ export default function MessageBubble({
 
         {/* Bubble + delete control share a row so the control sits beside the bubble on
             the side opposite the avatar, without disturbing the bubble's own layout. */}
-        <div className={clsx('flex items-center gap-1', own && 'flex-row-reverse')}>
-          <div
-            className={clsx(
-              'rounded-2xl px-3 py-2',
-              // Own = TON-blue tint, right side; others = neutral panel, left side.
-              own ? 'bg-ton-deep/15 text-fg' : 'bg-panel-2 text-fg',
-            )}
-          >
-            {/* Attachment (image thumbnail → lightbox, or a download chip). An
-                attachment-only message has empty content, so the text line is skipped
-                below and the bubble stays clean. */}
-            {message.attachment ? (
-              <div className={clsx(hasText && 'mb-1.5')}>
-                <AttachmentView file={message.attachment} />
+        <div className={clsx('flex items-end gap-1', own && 'flex-row-reverse')}>
+          {/* Message stack: the text bubble, then any attachment on its OWN line below.
+              Attachments are NOT boxed inside the bubble — they sit free underneath it. */}
+          <div className={clsx('flex min-w-0 flex-col gap-1', own && 'items-end')}>
+            {hasText ? (
+              <div
+                className={clsx(
+                  'rounded-2xl px-3 py-2',
+                  // Own = TON-blue tint, right side; others = neutral panel, left side.
+                  own ? 'bg-ton-deep/15 text-fg' : 'bg-panel-2 text-fg',
+                )}
+              >
+                {/* linkify keeps content as escaped React children — URLs become <a>,
+                    @mentions become profile <Link>s, the rest stays plain text. */}
+                <p className="whitespace-pre-wrap break-words text-sm">{linkify(message.content)}</p>
+                <span className="mt-0.5 block text-[10px] leading-none text-muted">
+                  {formatTime(message.timestamp, 'time')}
+                </span>
               </div>
             ) : null}
-            {/* linkify keeps content as escaped React children — URLs become <a>, the
-                rest stays plain text (never dangerouslySetInnerHTML). */}
-            {hasText ? (
-              <p className="whitespace-pre-wrap break-words text-sm">{linkify(message.content)}</p>
+
+            {message.attachment ? (
+              <div className={clsx('flex flex-col gap-0.5', own && 'items-end')}>
+                <AttachmentView file={message.attachment} />
+                {/* Attachment-only message → the timestamp rides under the attachment. */}
+                {!hasText ? (
+                  <span className="px-1 text-[10px] leading-none text-muted">
+                    {formatTime(message.timestamp, 'time')}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
-            {/* Understated timestamp tucked under the text, aligned to the bubble's edge. */}
-            <span className="mt-0.5 block text-[10px] leading-none text-muted">
-              {formatTime(message.timestamp, 'time')}
-            </span>
           </div>
 
           {canDelete ? (

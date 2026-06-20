@@ -48,7 +48,7 @@ export interface Chat {
 /** What kind of chat this is, from the signed-in user's point of view. */
 export type ChatKind = 'empty' | 'dm' | 'group';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 /** A sane cap on how many list pages useStartDirectChat scans for an existing DM. */
 const DM_SCAN_PAGE_CAP = 5;
 

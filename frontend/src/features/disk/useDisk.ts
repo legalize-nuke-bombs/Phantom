@@ -56,7 +56,7 @@ export const DISK_KEYS = {
   settings: ['disk', 'settings'] as const,
 };
 
-const PAGE_LIMIT = 20;
+const PAGE_LIMIT = 100;
 const API_BASE = '/api';
 
 /* ── bytes formatting ──────────────────────────────────────────────────────── */
@@ -191,7 +191,7 @@ function uploadFileXhr(
   form.append('file', file); // File streamed by the browser, not buffered in JS.
 
   const promise = new Promise<DiskFile>((resolve, reject) => {
-    xhr.open('POST', `${API_BASE}/disk/files?useImageCompression=false`);
+    xhr.open('POST', `${API_BASE}/disk/files?useImageCompression=true`);
     xhr.withCredentials = true; // send the auth cookie
     xhr.responseType = 'text';
     // Intentionally NO setRequestHeader('Content-Type', …): the browser must set the

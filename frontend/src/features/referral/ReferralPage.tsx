@@ -36,7 +36,7 @@ import Card from '@/shared/ui/Card';
 import Spinner from '@/shared/ui/Spinner';
 import UserChip from '@/shared/ui/UserChip';
 
-const MEMBERS_PAGE_SIZE = 20;
+const MEMBERS_PAGE_SIZE = 100;
 const REF_QUERY_KEY = ['ref'] as const;
 
 interface RefStorage {

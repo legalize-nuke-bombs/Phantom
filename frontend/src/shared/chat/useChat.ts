@@ -18,7 +18,7 @@ export const GLOBAL_CHAT_ID = '1';
 /** Max message length the backend accepts (MessageConstants.MAX_MESSAGE_CONTENT_LENGTH). */
 export const MAX_MESSAGE_LENGTH = 1000;
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 100;
 
 function fetchMessages(chatId: string, before: number | undefined): Promise<ChatMessage[]> {
   const params = new URLSearchParams({ chatId: String(chatId), limit: String(PAGE_SIZE) });

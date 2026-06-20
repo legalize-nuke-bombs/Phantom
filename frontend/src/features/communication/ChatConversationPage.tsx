@@ -3,7 +3,6 @@
 // which fills the rest and owns all messaging. ChatRoom is a black box keyed by a string
 // chatId — we never touch its internals.
 
-import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MessagesSquare, Users } from 'lucide-react';
 
@@ -12,7 +11,6 @@ import ChatMembersPanel from '@/features/communication/ChatMembersPanel';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
-import Button from '@/shared/ui/Button';
 import RankBadge from '@/shared/ui/RankBadge';
 import Spinner from '@/shared/ui/Spinner';
 import {
@@ -44,7 +42,6 @@ export default function ChatConversationPage() {
   const { user } = useAuth();
   const myId = user?.id ?? 0;
   const navigate = useNavigate();
-  const [membersOpen, setMembersOpen] = useState(false);
 
   const chatId = param ?? '';
   const detail = useChatDetail(chatId);
@@ -76,7 +73,7 @@ export default function ChatConversationPage() {
   const memberCount = chat.members.length;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-edge">
         <Link
           to="/chat/groups"
@@ -90,22 +87,18 @@ export default function ChatConversationPage() {
           <p className="truncate text-sm font-semibold text-fg">{chatTitle(chat, myId)}</p>
           <p className="truncate text-xs text-muted">{memberCount} участников</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setMembersOpen(true)} className="shrink-0">
-          <Users size={16} />
-          {memberCount}
-        </Button>
       </header>
 
-      <div className="min-h-0 flex-1 pt-3">
-        <ChatRoom chatId={chatId} />
+      {/* Conversation + the monolithic members column, always shown on the right (md+).
+          On mobile the members panel stacks below the chat. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3 md:flex-row">
+        <div className="min-h-0 flex-1">
+          <ChatRoom chatId={chatId} />
+        </div>
+        <div className="shrink-0 md:w-72">
+          <ChatMembersPanel chat={chat} onLeft={() => navigate('/chat/groups')} />
+        </div>
       </div>
-
-      <ChatMembersPanel
-        chat={chat}
-        open={membersOpen}
-        onClose={() => setMembersOpen(false)}
-        onClosed={() => navigate('/chat/groups')}
-      />
     </div>
   );
 }
