@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 
@@ -22,6 +23,7 @@ import java.util.*;
 public class DepositService {
 
     private static final int TX_FETCH_LIMIT = 20;
+    public static final BigDecimal MIN_APPLY_AMOUNT = new BigDecimal("0.01");
 
     private final WalletService walletService;
     private final CryptoWalletRepository cryptoWalletRepository;
@@ -50,7 +52,7 @@ public class DepositService {
 
         List<CoinProvider.IncomingTransfer> transfers;
         try {
-            transfers = provider.getIncomingTransfers(wallet.getAddress(), TX_FETCH_LIMIT);
+            transfers = provider.getIncomingTransfers(wallet.getAddress(), TX_FETCH_LIMIT).stream().filter(k -> (k.amountUsd().compareTo(MIN_APPLY_AMOUNT) >= 0)).toList();
         }
         catch (CryptoException e) {
             throw new ApiException(ErrorCode.UPSTREAM_ERROR);
