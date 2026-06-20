@@ -24,8 +24,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { api } from '@/shared/api/client';
 import { sfx } from '@/shared/lib/sound';
+import { mergeIncomingMessage, removeMessageFromCache } from '@/shared/chat/chatCache';
 import { db, putNotifications } from './db';
-import type { NotificationEnvelope } from './types';
+import type { ChatMessage, NotificationEnvelope } from './types';
 
 type RealtimeStatus = 'idle' | 'connecting' | 'connected';
 
@@ -175,6 +176,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     // type-specific side effect. Drained-backlog notifications skip this — they only
     // populate the ledger (no re-toasting / no recursive resync).
     async function dispatchLive(env: NotificationEnvelope) {
+      // Chat messages are a stream, not a badge-able signal: route them straight to the
+      // chat cache and keep them out of the notification ledger.
+      if (env.type === 'MESSAGE_RECEIVED') {
+        mergeIncomingMessage(queryClient, env.payload as ChatMessage);
+        return;
+      }
+      if (env.type === 'MESSAGE_DELETED') {
+        removeMessageFromCache(queryClient, env.payload as ChatMessage);
+        return;
+      }
       await putNotifications([env]);
       switch (env.type) {
         case 'NEW_CHAT':
@@ -186,7 +197,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           sfx.notify();
           void queryClient.invalidateQueries({ queryKey: ['presents'] });
           break;
-        // case 'MESSAGE_RECEIVED': chat live-merge into the TanStack cache (chat task).
         default:
           break;
       }
@@ -237,8 +247,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      // 3. drain all unread → ledger.
-      await putNotifications(await drainUnread());
+      // 3. drain all unread → ledger (chat messages are the chat's domain, not badges).
+      const unread = await drainUnread();
+      await putNotifications(
+        unread.filter((n) => n.type !== 'MESSAGE_RECEIVED' && n.type !== 'MESSAGE_DELETED'),
+      );
     }
 
     setStatus('connecting');
