@@ -1,14 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
+// The "Уведомления" inbox — a pure consumer of the realtime MISC bucket. It does NOT
+// touch REST: the internal notification layer (RealtimeProvider) drains offline-unread,
+// reads the websocket, and routes everything that isn't a gift or a chat message into
+// the `misc` bucket. This page just snapshots that bucket on entry, shows it, and marks
+// it read (markBucketRead does the POST + clears the store), so the sidebar badge drops
+// to 0 and new junk accumulates again for the next visit.
+
+import { useEffect, useState } from 'react';
 import {
   Bell,
-  Gift,
   Trophy,
   PartyPopper,
   ArrowUpCircle,
   Megaphone,
-  MessageSquare,
-  MessageSquareX,
   UserPlus,
+  MessageSquareX,
   ShieldAlert,
   ShieldCheck,
   Ticket,
@@ -20,25 +25,22 @@ import {
   AlertTriangle,
   type LucideIcon,
 } from 'lucide-react';
-import { api } from '@/shared/api/client';
-import { errorMessage } from '@/shared/api/errors';
 import { formatTime } from '@/shared/lib/time';
 import { formatUsd } from '@/shared/lib/money';
+import { markBucketRead } from '@/shared/realtime/badges';
+import { db } from '@/shared/realtime/db';
 import Card from '@/shared/ui/Card';
 import Spinner from '@/shared/ui/Spinner';
 
 /**
- * NotificationRepresentation — GET /api/notifications.
- * `payload` is a free-form JSON tree (backend `JsonNode`) whose shape depends on
- * `type`; we treat it as unknown and read fields defensively in the registry.
+ * The misc notification types that land here (gifts → wallet, chat messages → the chat,
+ * so neither reaches this inbox). `payload` is a free-form JSON tree whose shape depends
+ * on `type`; we read fields defensively in the registry.
  */
 type NotificationType =
-  | 'PRESENT_RECEIVED'
   | 'BANNED'
   | 'UNBANNED'
   | 'YOUR_MESSAGE_DELETED'
-  | 'MESSAGE_RECEIVED'
-  | 'MESSAGE_DELETED'
   | 'NEW_CHAT'
   | 'ROLE_CLAIMED'
   | 'WELCOME'
@@ -56,14 +58,11 @@ type NotificationType =
 interface NotificationItem {
   id: number;
   timestamp: number; // epoch seconds
-  type: NotificationType;
+  type: string;
   payload: unknown;
 }
 
-/* ── Safe payload readers ──────────────────────────────────────────────────
- * Payload is `unknown`; these read a single field without assuming the rest of
- * the shape, so a missing/renamed field degrades to undefined instead of crashing.
- */
+/* ── Safe payload readers (payload is `unknown`) ──────────────────────────── */
 
 function field(payload: unknown, key: string): unknown {
   if (payload && typeof payload === 'object' && key in payload) {
@@ -91,15 +90,12 @@ function actor(payload: unknown, key = 'user'): string | undefined {
   return str(field(payload, key), 'displayName');
 }
 
-/** Clamp a free-text snippet so a long broadcast/message never blows up the row. */
+/** Clamp a free-text snippet so a long broadcast never blows up the row. */
 function snippet(text: string, max = 120): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 
-/* ── Type registry ─────────────────────────────────────────────────────────
- * Single source of truth for how each notification renders. Adding a type is one
- * entry here; `describe` returns a short, payload-derived line or undefined.
- */
+/* ── Type registry — one entry per misc type ──────────────────────────────── */
 
 interface NotificationKind {
   icon: LucideIcon;
@@ -123,20 +119,6 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
     describe: (p) => {
       const level = str(p, 'level');
       return level ? `Вы достигли ранга ${level}` : 'Вы повысили свой ранг';
-    },
-  },
-  PRESENT_RECEIVED: {
-    icon: Gift,
-    label: 'Подарок',
-    tone: 'text-ton',
-    describe: (p) => {
-      const from = actor(p, 'sender');
-      const amount = num(p, 'amount');
-      const sum = amount != null ? formatUsd(amount) : null;
-      if (from && sum) return `${from} отправил вам подарок на ${sum}`;
-      if (sum) return `Вы получили подарок на ${sum}`;
-      if (from) return `${from} отправил вам подарок`;
-      return 'Вы получили подарок';
     },
   },
   YOU_WON_LOTTERY: {
@@ -171,32 +153,12 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
     tone: 'text-ton',
     describe: () => 'Вам выдана новая роль',
   },
-  MESSAGE_RECEIVED: {
-    icon: MessageSquare,
-    label: 'Новое сообщение',
-    describe: (p) => {
-      const from = actor(p);
-      const content = str(p, 'content');
-      if (from && content) return `${from}: ${snippet(content, 80)}`;
-      if (from) return `Новое сообщение от ${from}`;
-      return content ? snippet(content) : undefined;
-    },
-  },
   NEW_CHAT: {
     icon: UserPlus,
     label: 'Новый чат',
     describe: (p) => {
       const from = actor(p);
       return from ? `${from} начал с вами чат` : undefined;
-    },
-  },
-  MESSAGE_DELETED: {
-    icon: MessageSquareX,
-    label: 'Сообщение удалено',
-    tone: 'text-muted',
-    describe: (p) => {
-      const from = actor(p);
-      return from ? `Сообщение пользователя ${from} удалено` : undefined;
     },
   },
   YOUR_MESSAGE_DELETED: {
@@ -259,9 +221,7 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
     tone: 'text-lose',
     describe: (p) => {
       const amount = num(p, 'amount');
-      return amount != null
-        ? `Вывод ${formatUsd(amount)} не удался`
-        : 'Вывод не удался';
+      return amount != null ? `Вывод ${formatUsd(amount)} не удался` : 'Вывод не удался';
     },
   },
 };
@@ -277,7 +237,7 @@ function fallbackLabel(type: string): string {
 }
 
 function NotificationRow({ item }: { item: NotificationItem }) {
-  const kind = REGISTRY[item.type];
+  const kind = REGISTRY[item.type as NotificationType] as NotificationKind | undefined;
   const Icon = kind?.icon ?? Bell;
   const label = kind?.label ?? fallbackLabel(item.type);
   const description = kind?.describe?.(item.payload);
@@ -308,11 +268,23 @@ function NotificationRow({ item }: { item: NotificationItem }) {
 }
 
 export default function NotificationsPage() {
-  const notifications = useQuery({
-    queryKey: ['notifications'],
-    queryFn: () => api.get<NotificationItem[]>('/notifications'),
-    staleTime: 15_000,
-  });
+  // Snapshot the misc bucket ONCE on entry (so we can show what arrived while away),
+  // then mark it read + clear via the internal layer. No REST here. null = still loading.
+  const [items, setItems] = useState<NotificationItem[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const rows = await db.notifications.where('bucket').equals('misc').sortBy('id');
+      if (cancelled) return;
+      rows.reverse(); // newest first
+      setItems(rows.map((r) => ({ id: r.id, timestamp: r.timestamp, type: r.type, payload: r.payload })));
+      void markBucketRead('misc');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="mx-auto w-full max-w-lg">
@@ -324,26 +296,20 @@ export default function NotificationsPage() {
           <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">
             Уведомления
           </h1>
-          <p className="text-sm text-muted">Последние события вашего аккаунта</p>
+          <p className="text-sm text-muted">Непрочитанные события вашего аккаунта</p>
         </div>
       </div>
 
-      {notifications.isLoading ? (
+      {items === null ? (
         <Card className="grid place-items-center p-10">
           <Spinner size={26} />
         </Card>
-      ) : notifications.isError ? (
-        <Card className="p-6 text-center text-sm text-muted">
-          {errorMessage(notifications.error)}
-        </Card>
-      ) : !notifications.data || notifications.data.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted">
-          Пока нет уведомлений
-        </Card>
+      ) : items.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted">Новых уведомлений нет</Card>
       ) : (
         <Card className="divide-y divide-edge overflow-hidden p-0">
           <ul>
-            {notifications.data.map((item) => (
+            {items.map((item) => (
               <NotificationRow key={item.id} item={item} />
             ))}
           </ul>

@@ -127,9 +127,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const client = new Client({
       brokerURL,
-      // Fast first retry so an eviction-kick recovers in ~0.5s, but back off
+      // Near-instant first retry so an eviction-kick recovers fast, but back off
       // exponentially (cap 10s) if the server is genuinely down — no hammering.
-      reconnectDelay: 500,
+      reconnectDelay: 200,
       maxReconnectDelay: 10000,
       reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
       heartbeatIncoming: 10000,
@@ -176,29 +176,22 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     // type-specific side effect. Drained-backlog notifications skip this — they only
     // populate the ledger (no re-toasting / no recursive resync).
     async function dispatchLive(env: NotificationEnvelope) {
-      // Chat messages are a stream, not a badge-able signal: route them straight to the
-      // chat cache and keep them out of the notification ledger.
-      if (env.type === 'MESSAGE_RECEIVED') {
-        mergeIncomingMessage(queryClient, env.payload as ChatMessage);
-        return;
-      }
       if (env.type === 'MESSAGE_DELETED') {
         removeMessageFromCache(queryClient, env.payload as ChatMessage);
         return;
       }
-      await putNotifications([env]);
-      switch (env.type) {
-        case 'NEW_CHAT':
-        case 'ROLE_CLAIMED':
-          void runResync(); // topology changed → re-subscribe + re-drain
-          break;
-        case 'PRESENT_RECEIVED':
-          // a gift just landed: chime + the presents cache is now stale (refetch when seen).
-          sfx.notify();
-          void queryClient.invalidateQueries({ queryKey: ['presents'] });
-          break;
-        default:
-          break;
+      await putNotifications([env]); // routes into the gift / chat:<id> / misc bucket
+      if (env.type === 'MESSAGE_RECEIVED') {
+        // chat: show it live, but stay SILENT — a chiming global chat would be a nuisance.
+        mergeIncomingMessage(queryClient, env.payload as ChatMessage);
+        return;
+      }
+      // gift + misc both chime.
+      sfx.notify();
+      if (env.type === 'PRESENT_RECEIVED') {
+        void queryClient.invalidateQueries({ queryKey: ['presents'] });
+      } else if (env.type === 'NEW_CHAT' || env.type === 'ROLE_CLAIMED') {
+        void runResync(); // topology changed → re-subscribe + re-drain
       }
     }
 
@@ -222,36 +215,31 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     async function resyncOnce() {
       if (cancelled || !client.connected || userId == null) return;
-      // 1 + 2. desired = our user topic + every topic we may read.
-      const desired = new Set<string>([userDestination(userId)]);
-      for (const tid of await fetchAllTopicIds()) desired.add(topicDestination(tid));
+      // Topics we may read = our user topic + everything from /topics. Fetch FIRST (old
+      // subs stay live during the network call), then re-subscribe WHOLESALE: drop all,
+      // subscribe the full set — no smart diff. Every reconnect/F5 re-subscribes anyway,
+      // so diffing what changed buys nothing. Subscribing to exactly the current list IS
+      // the eviction: a revoked topic simply isn't in it.
+      const dests = [userDestination(userId)];
+      for (const tid of await fetchAllTopicIds()) dests.push(topicDestination(tid));
       if (cancelled || !client.connected) return;
-      // gone → unsubscribe (eviction).
-      for (const [dest, sub] of subs) {
-        if (!desired.has(dest)) {
-          try {
-            sub.unsubscribe();
-          } catch {
-            /* already gone */
-          }
-          subs.delete(dest);
+      for (const [, sub] of subs) {
+        try {
+          sub.unsubscribe();
+        } catch {
+          /* already gone */
         }
       }
-      // new → subscribe (before draining, so nothing slips through the gap).
-      for (const dest of desired) {
-        if (!subs.has(dest)) {
-          try {
-            subs.set(dest, client.subscribe(dest, onMessage));
-          } catch (e) {
-            console.warn('[realtime] subscribe failed', dest, e);
-          }
+      subs.clear();
+      for (const dest of dests) {
+        try {
+          subs.set(dest, client.subscribe(dest, onMessage));
+        } catch (e) {
+          console.warn('[realtime] subscribe failed', dest, e);
         }
       }
-      // 3. drain all unread → ledger (chat messages are the chat's domain, not badges).
-      const unread = await drainUnread();
-      await putNotifications(
-        unread.filter((n) => n.type !== 'MESSAGE_RECEIVED' && n.type !== 'MESSAGE_DELETED'),
-      );
+      // Drain all unread → buckets (putNotifications routes gift / chat:<id> / misc).
+      await putNotifications(await drainUnread());
     }
 
     setStatus('connecting');

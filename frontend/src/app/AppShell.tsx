@@ -19,7 +19,7 @@ import { useWallet } from '@/shared/lib/wallet';
 import { formatUsd } from '@/shared/lib/money';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { useUnreadCount } from '@/shared/realtime/badges';
-import type { NotificationType } from '@/shared/realtime/types';
+import type { Bucket } from '@/shared/realtime/db';
 
 interface NavItem {
   to: string;
@@ -27,19 +27,19 @@ interface NavItem {
   icon: LucideIcon;
   /** Render the live wallet balance inline next to the label. */
   showBalance?: boolean;
-  /** Show a live unread-count badge (from the realtime ledger) for this type. */
-  badge?: NotificationType;
+  /** Show a live unread-count badge (from the realtime ledger) for this bucket. */
+  badge?: Bucket;
 }
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Главная', icon: HomeIcon },
   { to: '/profile', label: 'Профиль', icon: UserIcon },
-  { to: '/wallet', label: 'Кошелёк', icon: WalletIcon, showBalance: true, badge: 'PRESENT_RECEIVED' },
+  { to: '/wallet', label: 'Кошелёк', icon: WalletIcon, showBalance: true, badge: 'gift' },
   { to: '/games', label: 'Игры', icon: Gamepad2 },
-  { to: '/chat/global', label: 'Глобальный чат', icon: Globe },
+  { to: '/chat/global', label: 'Глобальный чат', icon: Globe, badge: 'chat:1' },
   { to: '/chat/groups', label: 'Групповые чаты', icon: MessagesSquare },
   { to: '/progress', label: 'Прогресс', icon: Trophy },
-  { to: '/notifications', label: 'Уведомления', icon: Bell },
+  { to: '/notifications', label: 'Уведомления', icon: Bell, badge: 'misc' },
 ];
 
 function Wordmark() {
