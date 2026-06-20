@@ -71,7 +71,7 @@ public class OwnerService {
         target = userRepository.save(target);
 
         notificationPublishService.createUserNotification(target, NotificationType.ROLE_CLAIMED, null);
-        topicAccessRevalidateService.revalidate(userId);
+        topicAccessRevalidateService.revalidate(targetId);
 
         return Map.of("message", "changed");
     }
