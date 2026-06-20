@@ -359,7 +359,7 @@ export default function CoinflipPage() {
         won: isWin,
         payout: isWin ? result.result : null,
       });
-      if (isWin) sfx.smallWin();
+      if (isWin) sfx.win();
       else sfx.lose();
     } catch {
       // round.error carries the localized message; unwind the animation + sound and

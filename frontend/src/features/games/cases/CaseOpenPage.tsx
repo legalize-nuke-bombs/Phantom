@@ -23,9 +23,6 @@ import PageBack from '@/shared/ui/PageBack';
 import { ContentsRows, Reel, useCases } from './caseModel';
 import type { CaseView } from './caseModel';
 
-/** Win ≥ this multiple of the case price counts as a "big" win for the sound. */
-const BIG_WIN_MULTIPLE = 2;
-
 type Phase = 'ready' | 'spinning' | 'revealed';
 
 function OpenInner({ caseView }: { caseView: CaseView }) {
@@ -69,17 +66,11 @@ function OpenInner({ caseView }: { caseView: CaseView }) {
     spinSound.current?.stop();
     spinSound.current = null;
     setPhase('revealed');
-    // Outcome sound, chosen by the won amount relative to the case price.
+    // Outcome sound: a win sting, or the lose cue when nothing came back.
     const wonValue = round.result ? Number(round.result.result) : 0;
-    const cost = Number(caseView.cost);
-    if (wonValue <= 0) {
-      sfx.lose();
-    } else if (cost > 0 && wonValue >= cost * BIG_WIN_MULTIPLE) {
-      sfx.bigWin();
-    } else {
-      sfx.smallWin();
-    }
-  }, [round.result, caseView.cost]);
+    if (wonValue <= 0) sfx.lose();
+    else sfx.win();
+  }, [round.result]);
 
   const result = round.result;
   const reelResult = phase === 'spinning' || phase === 'revealed' ? result : null;

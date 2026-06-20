@@ -87,13 +87,6 @@ function readSpin(result: GameResult): SpinPayload | null {
 }
 
 // ── Tuning ─────────────────────────────────────────────────────────────────
-/**
- * A pattern is "rich" (bigWin) at or above this payout multiplier, else a cheap
- * line (smallWin). Cheap families pay k≤0.1 (columns/rows on common slots); the
- * pricier ones (arrows ·2, eye ·20, triangles ·25, jackpot ·500, or any line on
- * the seven/wild ·10 slot) clear 1.
- */
-const RICH_PATTERN_K = 1;
 /** Gap between successive pattern reveals (light-up + short sound + sum bump). */
 const PATTERN_STEP_MS = 760;
 
@@ -276,8 +269,7 @@ export default function SlotsPage() {
             // Snap to the exact server total on the final reveal (avoids fp drift).
             running = isLast ? total : running + betAmount * Number(m.k);
             setWinShown(running);
-            if (Number(m.k) >= RICH_PATTERN_K) sfx.bigWin();
-            else sfx.smallWin();
+            sfx.match(Number(m.k));
           }, i * PATTERN_STEP_MS),
         );
       });

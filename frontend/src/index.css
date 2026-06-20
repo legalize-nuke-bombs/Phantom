@@ -21,19 +21,20 @@
   --color-fg: #eaf0f7;       /* primary text         → text-fg */
   --color-muted: #8492a6;    /* secondary text       → text-muted */
 
-  /* status (red ONLY for loss/error) — nudged brighter for the darker bg */
-  --color-win: #3ee0a6;
-  --color-lose: #ff5e74;
-  --color-warn: #ffc24a;
+  /* status (red ONLY for loss/error) — muted to sit calmly on the near-black bg */
+  --color-win: #46c79a;
+  --color-lose: #e06673;
+  --color-warn: #d9b15e;
 
   /* finance tiers — amount-size colouring (see shared/lib/financeColors.ts).
-     Drives text-tier-grey … text-tier-gold for coloured money via <Amount>. */
+     Drives text-tier-grey … text-tier-gold for coloured money via <Amount>.
+     Deliberately restrained (lower saturation) so amounts read as tints, not neon. */
   --color-tier-grey: #8492a6;
-  --color-tier-blue: #4aa3ff;
-  --color-tier-purple: #b06bff;
-  --color-tier-pink: #f25aa8;
-  --color-tier-red: #ff5454;
-  --color-tier-gold: #ffc24a;
+  --color-tier-blue: #5a93c4;
+  --color-tier-purple: #9277c2;
+  --color-tier-pink: #c573a0;
+  --color-tier-red: #d2666d;
+  --color-tier-gold: #c39b57;
 
   /* type */
   --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;

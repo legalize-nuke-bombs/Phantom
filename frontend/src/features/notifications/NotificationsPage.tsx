@@ -4,10 +4,16 @@
 // the `misc` bucket. This page just snapshots that bucket on entry, shows it, and marks
 // it read (markBucketRead does the POST + clears the store), so the sidebar badge drops
 // to 0 and new junk accumulates again for the next visit.
+//
+// So this is deliberately a "recent NEW events" feed, NOT a notifications archive: only
+// what arrived since you last looked is ever here, read/old events are not kept, and
+// gifts (→ Кошелёк) and chat messages (→ чаты) never reach this bucket. The copy below
+// — subtitle + empty state — is written to make that scope feel intentional, not broken.
 
 import { useEffect, useState } from 'react';
 import {
   Bell,
+  CheckCheck,
   Trophy,
   PartyPopper,
   ArrowUpCircle,
@@ -236,14 +242,20 @@ function fallbackLabel(type: string): string {
     .join(' ');
 }
 
+// One row, in the GameHistoryRow family: a calm leading icon tile, a primary line, and
+// a quiet muted line beneath it. The event's description carries the meaning; the time
+// rides at the end of that same muted line as a faint caption, never a second column
+// competing with the title. Most rows are one event-type label + one sentence, so we
+// keep them airy rather than dense.
 function NotificationRow({ item }: { item: NotificationItem }) {
   const kind = REGISTRY[item.type as NotificationType] as NotificationKind | undefined;
   const Icon = kind?.icon ?? Bell;
   const label = kind?.label ?? fallbackLabel(item.type);
   const description = kind?.describe?.(item.payload);
+  const time = formatTime(item.timestamp, 'relative');
 
   return (
-    <li className="flex items-start gap-3 px-4 py-3">
+    <li className="flex items-start gap-3 py-3">
       <span
         aria-hidden
         className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl border border-edge bg-panel-2 ${
@@ -253,15 +265,12 @@ function NotificationRow({ item }: { item: NotificationItem }) {
         <Icon size={18} />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="truncate text-sm font-medium text-fg">{label}</p>
-          <time className="shrink-0 text-xs text-muted">
-            {formatTime(item.timestamp, 'relative')}
-          </time>
-        </div>
-        {description ? (
-          <p className="mt-0.5 text-sm leading-snug text-muted">{description}</p>
-        ) : null}
+        <p className="truncate text-sm font-medium text-fg">{label}</p>
+        {/* Description · time on one muted line; when there's no description the time
+            stands alone, so the row never shows an empty second line. */}
+        <p className="mt-0.5 text-xs leading-snug text-muted">
+          {description ? `${description} · ${time}` : time}
+        </p>
       </div>
     </li>
   );
@@ -287,11 +296,12 @@ export default function NotificationsPage() {
         <span className="grid size-11 place-items-center rounded-xl border border-edge bg-panel-2 text-ton">
           <Bell size={22} />
         </span>
-        <div>
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">
             Уведомления
           </h1>
-          <p className="text-sm text-muted">Непрочитанные события вашего аккаунта</p>
+          {/* Honest scope: this is a feed of recent NEW account events, not an archive. */}
+          <p className="text-sm text-muted">Недавние новые события аккаунта</p>
         </div>
       </div>
 
@@ -300,15 +310,37 @@ export default function NotificationsPage() {
           <Spinner size={26} />
         </Card>
       ) : items.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted">Новых уведомлений нет</Card>
-      ) : (
-        <Card className="divide-y divide-edge overflow-hidden p-0">
-          <ul>
-            {items.map((item) => (
-              <NotificationRow key={item.id} item={item} />
-            ))}
-          </ul>
+        // The common case — only unread events ever land here, so an empty feed means
+        // "вы всё просмотрели", not a broken/empty inbox. Make it read as deliberate:
+        // a soft check, one reassuring line, and a quiet note on where the rest lives.
+        <Card className="px-6 py-12 text-center">
+          <span
+            aria-hidden
+            className="mx-auto grid size-14 place-items-center rounded-2xl border border-edge bg-panel-2 text-muted"
+          >
+            <CheckCheck size={26} />
+          </span>
+          <p className="mt-4 text-sm font-medium text-fg">Вы всё просмотрели</p>
+          <p className="mx-auto mt-1 max-w-xs text-sm leading-snug text-muted">
+            Здесь появляются новые события аккаунта. Подарки ищите в Кошельке, сообщения —
+            в чатах.
+          </p>
         </Card>
+      ) : (
+        <>
+          <Card className="overflow-hidden p-0">
+            <ul className="divide-y divide-edge px-4">
+              {items.map((item) => (
+                <NotificationRow key={item.id} item={item} />
+              ))}
+            </ul>
+          </Card>
+          {/* Reinforce the scope below the feed so a partial list never reads as a bug. */}
+          <p className="mt-3 px-1 text-xs leading-snug text-muted/70">
+            Только новые события — прочитанные не сохраняются. Подарки и сообщения живут в
+            Кошельке и чатах.
+          </p>
+        </>
       )}
     </div>
   );

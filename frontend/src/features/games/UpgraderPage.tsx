@@ -89,9 +89,6 @@ const CURSOR_R = 9; // cursor radius
 const SPIN_MS = 4600;
 const LAPS = 4; // full turns before easing to the target
 
-/** Payout multiplier at/above which a win is "big" (bigWin cue) vs. "small". */
-const BIG_WIN_MULT = 3;
-
 /** easeOutSextic — quick launch, very long gentle settle so the cursor glides
  *  almost to a halt before it actually stops (softer tail than quint). */
 function easeOutSextic(t: number): number {
@@ -416,8 +413,7 @@ export default function UpgraderPage() {
       const win = Number(res.result) > 0;
       outcomeCue.current = () => {
         if (!win) sfx.lose();
-        else if (selected.mult >= BIG_WIN_MULT) sfx.bigWin();
-        else sfx.smallWin();
+        else sfx.win();
       };
       setPhase((p) => ({ ...p, win }));
     } catch {

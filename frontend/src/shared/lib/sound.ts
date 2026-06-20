@@ -1,22 +1,30 @@
-// sound.ts — a tiny, asset-free SFX system for the casino feel.
+// sound.ts — file-based SFX for the casino feel. Plays the .wav set (assets/sounds) via
+// Web Audio (decoded into AudioBuffers for low, repeatable latency). A single AudioContext
+// is created lazily and resumed on the first user gesture (autoplay policy); every sample is
+// preloaded on that first gesture so in-game cues fire instantly. A persisted mute flag
+// (localStorage 'phantom.muted') silences everything.
 //
-// Everything is synthesized with the Web Audio API (OscillatorNode / GainNode /
-// filtered noise) — no audio files to ship or load. A single AudioContext is
-// created lazily on first use and resumed on the first user gesture, satisfying
-// browser autoplay policy. A persisted mute flag (localStorage 'phantom.muted')
-// silences every sound.
+// Surface:
+//   const h = sfx.startSpin(); … ; h.stop();  // start.wav now, stop.wav on stop
+//   sfx.win();                                // a win (coinflip / cases / upgrader)
+//   sfx.match(k);                             // a slot pattern match, tiered low→jackpot by k
+//   sfx.lose();                               // a loss
+//   sfx.notify();                             // a notification
 //
-// Usage:
-//   import { sfx } from '@/shared/lib/sound';
-//   sfx.click();                 // UI tap
-//   sfx.win(); sfx.lose();       // round outcome
-//   sfx.reveal();                // a card/segment flips open
-//   const spin = sfx.startSpin(); …; spin.stop();   // looping whirr
-//
-// In components you can also use the hook for the mute toggle:
-//   const { muted, setMuted, sfx } = useSound();
+// Mute toggle for a header control:
+//   const { muted, toggle } = useSound();
 
 import { useCallback, useSyncExternalStore } from 'react';
+
+import loseUrl from '@/assets/sounds/lose.wav';
+import matchHighUrl from '@/assets/sounds/match-high.wav';
+import matchJackpotUrl from '@/assets/sounds/match-jackpot.wav';
+import matchLowUrl from '@/assets/sounds/match-low.wav';
+import matchMidUrl from '@/assets/sounds/match-mid.wav';
+import notifyUrl from '@/assets/sounds/notify.wav';
+import startUrl from '@/assets/sounds/start.wav';
+import stopUrl from '@/assets/sounds/stop.wav';
+import winUrl from '@/assets/sounds/win.wav';
 
 const MUTE_KEY = 'phantom.muted';
 
@@ -80,16 +88,60 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
-// A user gesture is required before audio may start. We try to resume on the
-// first pointer/key event; once resumed we stop listening.
-function resume(): void {
-  const c = audio();
-  if (c && c.state === 'suspended') void c.resume();
+/* ── sample cache (fetch + decode once, replay cheaply) ──────────────────── */
+
+const ALL_URLS = [
+  startUrl,
+  stopUrl,
+  winUrl,
+  loseUrl,
+  notifyUrl,
+  matchLowUrl,
+  matchMidUrl,
+  matchHighUrl,
+  matchJackpotUrl,
+];
+
+const buffers = new Map<string, AudioBuffer>();
+const pending = new Map<string, Promise<AudioBuffer | null>>();
+
+/** Fetch + decode a sample once; cached thereafter. Null on any failure (stays silent). */
+function load(c: AudioContext, url: string): Promise<AudioBuffer | null> {
+  const cached = buffers.get(url);
+  if (cached) return Promise.resolve(cached);
+  let p = pending.get(url);
+  if (!p) {
+    p = fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((ab) => c.decodeAudioData(ab))
+      .then((buf) => {
+        buffers.set(url, buf);
+        pending.delete(url);
+        return buf;
+      })
+      .catch(() => {
+        pending.delete(url);
+        return null;
+      });
+    pending.set(url, p);
+  }
+  return p;
 }
 
+/** Decode every sample up front so the first in-game cue isn't late. */
+function preload(): void {
+  const c = audio();
+  if (!c) return;
+  for (const url of ALL_URLS) void load(c, url);
+}
+
+// A user gesture is required before audio may start. On the first one we resume the context
+// and preload the samples, then stop listening.
 if (typeof window !== 'undefined') {
   const onGesture = () => {
-    resume();
+    const c = audio();
+    if (c && c.state === 'suspended') void c.resume();
+    preload();
     window.removeEventListener('pointerdown', onGesture);
     window.removeEventListener('keydown', onGesture);
   };
@@ -97,169 +149,67 @@ if (typeof window !== 'undefined') {
   window.addEventListener('keydown', onGesture, { passive: true });
 }
 
-/**
- * Run `fn` with a live, non-muted context, or no-op. Centralizes the mute check,
- * the null-guard, and the just-in-time resume so each sound stays a one-liner.
- */
-function withAudio(fn: (c: AudioContext, now: number) => void): void {
+/** Play a one-shot sample (mute-aware, lazy-decoded, fire-and-forget). */
+function play(url: string): void {
   if (muted) return;
   const c = audio();
   if (!c) return;
   if (c.state === 'suspended') void c.resume();
-  fn(c, c.currentTime);
-}
-
-/* ── synthesis primitives ───────────────────────────────────────────────── */
-
-type Wave = OscillatorType;
-
-/**
- * One short enveloped oscillator "blip". Attack is near-instant; release is an
- * exponential fade to silence — the shape that reads as a clean UI tone rather
- * than a click-with-tail.
- */
-function blip(
-  c: AudioContext,
-  start: number,
-  opts: {
-    freq: number;
-    /** Slide to this freq by the end (defaults to a flat tone). */
-    toFreq?: number;
-    dur: number;
-    type?: Wave;
-    /** Peak gain (0..1). */
-    gain?: number;
-    /** Destination — defaults to the context output. Used to route via a filter. */
-    dest?: AudioNode;
-  },
-): void {
-  const { freq, toFreq, dur, type = 'sine', gain = 0.18, dest } = opts;
-  const osc = c.createOscillator();
-  const g = c.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, start);
-  if (toFreq != null) osc.frequency.exponentialRampToValueAtTime(Math.max(1, toFreq), start + dur);
-
-  g.gain.setValueAtTime(0.0001, start);
-  g.gain.exponentialRampToValueAtTime(gain, start + 0.008);
-  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-
-  osc.connect(g).connect(dest ?? c.destination);
-  osc.start(start);
-  osc.stop(start + dur + 0.02);
+  void load(c, url).then((buf) => {
+    if (!buf || muted) return;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.connect(c.destination);
+    src.start();
+  });
 }
 
 /* ── public sounds ──────────────────────────────────────────────────────── */
 
-/** Crisp UI tap — buttons, toggles, selections. */
-function click(): void {
-  withAudio((c, t) => blip(c, t, { freq: 420, toFreq: 560, dur: 0.05, type: 'triangle', gain: 0.14 }));
-}
-
-/** Soft tick — incremental steps (e.g. a value landing, a chip stepping). */
-function tick(): void {
-  withAudio((c, t) => blip(c, t, { freq: 880, dur: 0.03, type: 'square', gain: 0.07 }));
-}
-
-/**
- * The finish flourish — a few quick ascending blips, so even a non-win still gets
- * "several sounds at the end" (per design) with no hiss.
- */
-function reveal(): void {
-  withAudio((c, t) => {
-    [0, 0.07, 0.14].forEach((dt, i) =>
-      blip(c, t + dt, { freq: 480 + i * 200, dur: 0.11, type: 'triangle', gain: 0.13 }),
-    );
-  });
-}
-
-/** Bright ascending arpeggio — a win. */
-function win(): void {
-  withAudio((c, t) => {
-    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
-    notes.forEach((f, i) =>
-      blip(c, t + i * 0.075, { freq: f, dur: 0.22, type: 'triangle', gain: 0.16 }),
-    );
-    // a little shimmer on top of the last note
-    blip(c, t + notes.length * 0.075, { freq: 1567.98, dur: 0.3, type: 'sine', gain: 0.08 });
-  });
-}
-
-/** Gentle descending two-note — a non-win. Soft, never harsh (no "buzzer"). */
-function lose(): void {
-  withAudio((c, t) => {
-    blip(c, t, { freq: 392, toFreq: 311, dur: 0.18, type: 'sine', gain: 0.12 }); // G4→Eb4
-    blip(c, t + 0.14, { freq: 261.63, dur: 0.26, type: 'sine', gain: 0.1 }); // C4
-  });
-}
-
-// The win cues are deliberately SHORT (a single quick chime each): they double as
-// the per-pattern sounds in Fruits, played several times ~0.5s apart, so anything
-// longer would smear into mush.
-
-/** Modest win — one short bright ding. For low payouts ("немного"). */
-function smallWin(): void {
-  withAudio((c, t) => blip(c, t, { freq: 784, dur: 0.13, type: 'triangle', gain: 0.15 })); // G5
-}
-
-/** Big win — one short, brighter chime with a faint sparkle ("дохуя"). */
-function bigWin(): void {
-  withAudio((c, t) => {
-    blip(c, t, { freq: 1046.5, dur: 0.16, type: 'triangle', gain: 0.16 }); // C6
-    blip(c, t + 0.02, { freq: 1568, dur: 0.18, type: 'sine', gain: 0.08 }); // sparkle
-  });
-}
-
-/** Notification chime — a soft two-note ding, distinct from the game outcomes. */
-function notify(): void {
-  withAudio((c, t) => {
-    blip(c, t, { freq: 880, dur: 0.12, type: 'sine', gain: 0.12 }); // A5
-    blip(c, t + 0.1, { freq: 1174.66, dur: 0.2, type: 'sine', gain: 0.12 }); // D6
-  });
-}
-
-/* ── spin loop ──────────────────────────────────────────────────────────── */
-
 export interface SpinHandle {
-  /** Stop the loop (idempotent). */
+  /** Stop the spin — plays the land/stop cue once (idempotent). */
   stop: () => void;
 }
 
-const NO_SPIN: SpinHandle = { stop: () => {} };
-
-/**
- * Spin start cue. The spin itself is silent now (no continuous hiss/whirr) — we play
- * one short "go" blip and return a no-op handle, so existing callers that do
- * `const h = startSpin(); …; h.stop()` keep working unchanged. The finish (reveal /
- * win / lose) carries the "several sounds at the end".
- */
+/** Spin start cue; the returned handle plays the land/stop cue when stopped. */
 function startSpin(): SpinHandle {
-  withAudio((c, t) =>
-    blip(c, t, { freq: 300, toFreq: 660, dur: 0.16, type: 'triangle', gain: 0.16 }),
-  );
-  return NO_SPIN;
+  play(startUrl);
+  let stopped = false;
+  return {
+    stop: () => {
+      if (stopped) return;
+      stopped = true;
+      play(stopUrl);
+    },
+  };
+}
+
+// Slot pattern match — tiered low → jackpot by the pattern's payout multiplier k. Payouts
+// span k≈0.1 (common rows/columns) up to ·500 (the jackpot family), so spread the four cues
+// across that range (see the pattern table in SlotsPage).
+function matchUrlFor(k: number): string {
+  if (k >= 20) return matchJackpotUrl;
+  if (k >= 5) return matchHighUrl;
+  if (k >= 1) return matchMidUrl;
+  return matchLowUrl;
 }
 
 /* ── exports ────────────────────────────────────────────────────────────── */
 
 /** The flat SFX surface every page calls. */
 export const sfx = {
-  click,
-  tick,
-  reveal,
-  win,
-  lose,
-  smallWin,
-  bigWin,
-  notify,
   startSpin,
+  win: () => play(winUrl),
+  match: (k: number) => play(matchUrlFor(k)),
+  lose: () => play(loseUrl),
+  notify: () => play(notifyUrl),
 } as const;
 
 export type Sfx = typeof sfx;
 
 /**
- * React binding for the mute control. Re-renders on mute changes so a header
- * toggle stays in sync across the app. `sfx` is the same flat surface as above.
+ * React binding for the mute control. Re-renders on mute changes so a header toggle stays
+ * in sync across the app. `sfx` is the same flat surface as above.
  */
 export function useSound() {
   const mutedNow = useSyncExternalStore(subscribeMuted, isMuted, isMuted);
