@@ -2,10 +2,10 @@ package com.example.phantom.notification.topic;
 
 
 import com.example.phantom.notification.WebSocketSessionManager;
-import com.example.phantom.user.User;
-import jakarta.persistence.PreRemove;
-import jakarta.persistence.PreUpdate;
+import com.example.phantom.user.UserPreRemoveEvent;
+import com.example.phantom.user.UserPreUpdateEvent;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,31 +23,33 @@ public class TopicAccessRevalidationService {
         webSocketSessionManager.kickUser(userId);
     }
 
-    @PreRemove
-    public void beforeDelete(TopicMember topicMember) {
-        Long userId = topicMember.getUser().getId();
+
+    @EventListener(TopicMemberPreRemoveEvent.class)
+    public void beforeDelete(TopicMemberPreRemoveEvent event) {
+        Long userId = event.topicMember().getUser().getId();
         log.info("revalidation on topic member pre remove user {}", userId);
         revalidate(userId);
     }
 
-    @PreRemove
-    public void beforeDelete(User user) {
-        Long userId = user.getId();
-        log.info("revalidation on user pre remove user {}", userId);
-        revalidate(userId);
-    }
-
-    @PreUpdate
-    public void beforeUpdate(TopicMember topicMember) {
-        Long userId = topicMember.getUser().getId();
+    @EventListener(TopicMemberPreUpdateEvent.class)
+    public void beforeUpdate(TopicMemberPreUpdateEvent event) {
+        Long userId = event.topicMember().getUser().getId();
         log.info("revalidation on topic member pre update user {}", userId);
         revalidate(userId);
     }
 
-    @PreUpdate
-    public void beforeUpdate(User user) {
-        Long userId = user.getId();
-        log.info("revalidation on user update user {}", userId);
+
+    @EventListener(UserPreUpdateEvent.class)
+    public void beforeUpdate(UserPreUpdateEvent event) {
+        Long userId = event.user().getId();
+        log.info("revalidation on user pre update user {}", userId);
+        revalidate(userId);
+    }
+
+    @EventListener(UserPreRemoveEvent.class)
+    public void beforeDelete(UserPreRemoveEvent event) {
+        Long userId = event.user().getId();
+        log.info("revalidation on user pre remove user {}", userId);
         revalidate(userId);
     }
 }

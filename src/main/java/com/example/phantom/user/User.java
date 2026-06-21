@@ -6,6 +6,7 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
+@EntityListeners(UserEventListener.class)
 @Table(name = "users",
         indexes = {
                 @Index(name = "idx_users_gameHistoryPrivacySetting", columnList = "gameHistoryPrivacySetting"),
