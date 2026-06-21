@@ -19,11 +19,13 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/games")
 public class GameController {
 
-    private final GameHistoryStatService gameHistoryStatService;
+    private final GameHistoryService gameHistoryService;
+    private final GameStatService gameStatService;
     private final Map<GameType, GameService> services;
 
-    public GameController(GameHistoryStatService gameHistoryStatService, List<GameService> services) {
-        this.gameHistoryStatService = gameHistoryStatService;
+    public GameController(GameHistoryService gameHistoryService, GameStatService gameStatService, List<GameService> services) {
+        this.gameHistoryService = gameHistoryService;
+        this.gameStatService = gameStatService;
         this.services = services.stream().collect(Collectors.toMap(GameService::gameType, Function.identity()));
     }
 
@@ -79,7 +81,7 @@ public class GameController {
             @RequestParam(defaultValue = "20") @Min(1) Integer limit,
             @RequestParam(required = false) Long before
     ) {
-        return ResponseEntity.ok(gameHistoryStatService.getUserHistory(userId, targetId, limit, before));
+        return ResponseEntity.ok(gameHistoryService.getUserHistory(userId, targetId, limit, before));
     }
 
     @GetMapping("/history")
@@ -88,18 +90,18 @@ public class GameController {
             @RequestParam(defaultValue = "20") @Min(1) Integer limit,
             @RequestParam(required = false) Long before
     ) {
-        return ResponseEntity.ok(gameHistoryStatService.getPlatformHistory(userId, limit, before));
+        return ResponseEntity.ok(gameHistoryService.getPlatformHistory(userId, limit, before));
     }
 
     @GetMapping("/stats/{targetId}")
     public ResponseEntity<UserGameStatRepresentation> userStats(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long targetId) {
-        return ResponseEntity.ok(gameHistoryStatService.getUserStats(userId, targetId));
+        return ResponseEntity.ok(gameStatService.getUserStats(userId, targetId));
     }
 
     @GetMapping("/stats")
     public ResponseEntity<PlatformGameStatRepresentation> platformStats() {
-        return ResponseEntity.ok(gameHistoryStatService.getPlatformStats());
+        return ResponseEntity.ok(gameStatService.getPlatformStats());
     }
 }

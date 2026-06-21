@@ -11,19 +11,17 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 
 @Service
-public class GameHistoryStatService {
+public class GameHistoryService {
 
     private final UserRepository userRepository;
     private final GameRepository gameRepository;
     private final RateLimitService rateLimitService;
     private final PrivacySettingService privacySettingService;
 
-    public GameHistoryStatService(UserRepository userRepository, GameRepository gameRepository, RateLimitService rateLimitService, PrivacySettingService privacySettingService) {
+    public GameHistoryService(UserRepository userRepository, GameRepository gameRepository, RateLimitService rateLimitService, PrivacySettingService privacySettingService) {
         this.userRepository = userRepository;
         this.gameRepository = gameRepository;
         this.rateLimitService = rateLimitService;
@@ -55,28 +53,6 @@ public class GameHistoryStatService {
         List<Game> games = gameRepository.findHistoryWithUsersUsingPrivacyPolicy(user.getId(), before, pageable);
 
         return games.stream().map(GameRepresentation::new).toList();
-    }
-
-    public UserGameStatRepresentation getUserStats(Long userId, Long targetId) {
-        User user = requireAuthenticated(userId);
-        User target = getUser(targetId);
-
-        privacySettingService.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
-
-        return new UserGameStatRepresentation(
-                gameRepository.countCompletedByUserId(target.getId()),
-                gameRepository.maxResultByUserId(target.getId())
-        );
-    }
-
-    public PlatformGameStatRepresentation getPlatformStats() {
-        long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
-        return new PlatformGameStatRepresentation(
-                gameRepository.countCompleted(),
-                gameRepository.countCompletedSince(since24h),
-                gameRepository.maxResult(),
-                gameRepository.maxResultSince(since24h)
-        );
     }
 
     private User requireAuthenticated(Long userId) {
