@@ -1,39 +1,15 @@
 # Phantom
 
-REST API for a gambling platform.
+Gambling platform. Educational purposes only.
 
-## Features
-* JWT authentication
-* Recovery keys
-* User profiles (view, edit, delete)
-* User experience system
-* Referral system
-* Stats & history
-* WebSocket & notifications
-* Broadcast
-* User privacy settings
-* Rate limit
-* Wallets
-* Presents system
-* Deposits & withdrawals via crypto: TON
-* Games: Upgrader, Cases, Coinflip, Fruits (Slots)
-* Lottery
-* Provably fair
-* Sweep scheduling
-* Sweep history
-* Owner panel
-* Global Chat
-* Global Chat moderators
-* Personal & group chats
-* Disk
-* Chat attachments
-* OpenAPI
+![](demo.png)
 
-## Tech Stack
+## Backend
+### Tech Stack
 
 Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Spring WebSocket, Hibernate, PostgreSQL, JJWT, Lombok, Gradle.
 
-## Building
+### Building
 
 **Requirements:** Java 17, Gradle, PostgreSQL
 
@@ -85,6 +61,6 @@ Telegram @toncenter
 2. Login
 3. Set master wallets
 
-## For production use (important)
+## Deploying (important)
 * Use full disk encryption (LUKS, BitLocker)
 * Use HTTPS
