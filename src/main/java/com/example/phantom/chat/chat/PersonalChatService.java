@@ -1,7 +1,5 @@
 package com.example.phantom.chat.chat;
 
-import com.example.phantom.chat.banlist.Ban;
-import com.example.phantom.chat.banlist.BanRepository;
 import com.example.phantom.chat.banlist.BanlistService;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
@@ -85,7 +83,7 @@ public class PersonalChatService {
         Pageable pageable = PageRequest.of(0, limit);
 
         List<TopicMember> chatMembers = topicMemberRepository.findByUserIdWithTopics(userId);
-        List<String> chatMemberTopicIds = chatMembers.stream().map(TopicMember::getTopic).map(Topic::getId).toList();
+        List<String> chatMemberTopicIds = chatMembers.stream().map(TopicMember::getTopic).map(Topic::getId).filter(s -> s.startsWith(PersonalChatConstants.TOPIC_PREFIX)).toList();
 
         List<Chat> chats = chatRepository.findByTopicIdsWithTopics(chatMemberTopicIds, beforeTimestamp, beforeId, pageable);
         List<String> chatTopicIds = chats.stream().map(Chat::getTopic).map(Topic::getId).toList();
@@ -192,17 +190,19 @@ public class PersonalChatService {
     }
 
     private Chat getChat(Long chatId) {
-        if (chatId == GlobalChatConstants.ID) {
+        Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        if (!chat.getTopic().getId().startsWith(PersonalChatConstants.TOPIC_PREFIX)) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
-        return chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        return chat;
     }
 
     private Chat lockChat(Long chatId) {
-        if (chatId == GlobalChatConstants.ID) {
+        Chat chat =  chatRepository.findByIdForPessimisticWrite(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        if (!chat.getTopic().getId().startsWith(PersonalChatConstants.TOPIC_PREFIX)) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
         }
-        return chatRepository.findByIdForPessimisticWrite(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
+        return chat;
     }
 
     private void validateMembership(Long userId, String topicId) {

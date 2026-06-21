@@ -35,7 +35,7 @@ public class GlobalChatService {
     public void create() {
         if (chatRepository.findById(GlobalChatConstants.ID).isEmpty()) {
             Chat chat = new Chat();
-            chat.setId(1L);
+            chat.setId(GlobalChatConstants.ID);
             chat.setTopic(globalTopicService.findAuthorized());
             chatRepository.save(chat);
             log.info("chat created");
