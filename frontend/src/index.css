@@ -49,6 +49,12 @@ html,
 body,
 #root {
   height: 100%;
+  /* Lock the PAGE itself so it can NEVER scroll — the app is a fixed shell (h-dvh) and all
+     scrolling happens INSIDE it: `main` for normal pages, the inner list for chat. Without
+     this, mobile browsers scroll the body behind the shell as the address bar shows/hides
+     (h-dvh vs the 100% body height mismatch), which reads as a broken page scroll on chats. */
+  overflow: hidden;
+  overscroll-behavior: none;
   /* App-like surface: drop double-tap zoom + the 300ms tap delay (pinch is blocked in
      main.tsx; the viewport meta alone doesn't hold on iOS Safari). */
   touch-action: manipulation;
