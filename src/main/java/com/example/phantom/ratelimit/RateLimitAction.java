@@ -9,5 +9,6 @@ public enum RateLimitAction {
     INVITE_TO_CHAT,
     SEND_PRESENT,
     UPLOAD,
-    DOWNLOAD
+    DOWNLOAD,
+    IMAGE_COMPRESS
 }

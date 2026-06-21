@@ -1,5 +1,8 @@
 package com.example.phantom.disk.image;
 
+import com.example.phantom.exception.ApiException;
+import com.example.phantom.ratelimit.RateLimitAction;
+import com.example.phantom.ratelimit.RateLimitService;
 import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.stereotype.Service;
@@ -16,6 +19,12 @@ import java.util.Iterator;
 @Service
 @Slf4j
 public class ImageCompressionService {
+
+    private final RateLimitService rateLimitService;
+
+    public ImageCompressionService(RateLimitService rateLimitService) {
+        this.rateLimitService = rateLimitService;
+    }
 
     private static final int MAX_DIMENSION = 1280;
     private static final long MAX_SOURCE_PIXELS = 50L * 1_000_000;
@@ -34,6 +43,9 @@ public class ImageCompressionService {
                 log.info("compression for {} skipped: image is too large {} x {}", userId, info.width(), info.height());
                 return null;
             }
+
+            rateLimitService.startAction(userId, RateLimitAction.IMAGE_COMPRESS, (long)info.width() * info.height());
+
             log.info("compressing for {}, image {} x {} ...", userId, info.width(), info.height());
 
             String raw = info.format() == null ? "" : info.format().toLowerCase();
@@ -65,6 +77,9 @@ public class ImageCompressionService {
                 return null;
             }
             return new Result(result, format);
+        }
+        catch (ApiException e) {
+            return null;
         }
         catch (Exception e) {
             log.warn("compression failed", e);
