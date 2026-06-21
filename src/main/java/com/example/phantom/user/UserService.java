@@ -36,14 +36,6 @@ public class UserService {
         return Arrays.stream(Role.values()).map(RoleRepresentation::new).toList();
     }
 
-    public UserStatRepresentation getStats() {
-        long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
-        return new UserStatRepresentation(
-                userRepository.countAll(),
-                userRepository.countSince(since24h)
-        );
-    }
-
     public UserFullRepresentation getUserFullRepresentationById(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
         return new UserFullRepresentation(user);

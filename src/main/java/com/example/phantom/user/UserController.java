@@ -13,9 +13,11 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final UserStatService userStatService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, UserStatService userStatService) {
         this.userService = userService;
+        this.userStatService = userStatService;
     }
 
     @GetMapping("/roles")
@@ -61,6 +63,6 @@ public class UserController {
 
     @GetMapping("/stats")
     public ResponseEntity<UserStatRepresentation> stats() {
-        return ResponseEntity.ok(userService.getStats());
+        return ResponseEntity.ok(userStatService.get());
     }
 }
