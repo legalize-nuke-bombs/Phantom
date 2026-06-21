@@ -42,7 +42,7 @@ public class WebSocketSessionManager {
         List<WebSocketSession> sessions = activeSessions.remove(userId);
 
         if (sessions == null || sessions.isEmpty()) {
-            log.info("kick failed: no active ws sessions found for user {}", userId);
+            log.info("kick skipped: no active ws sessions found for user {}", userId);
             return;
         }
 

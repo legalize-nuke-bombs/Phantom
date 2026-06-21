@@ -7,7 +7,7 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
-import com.example.phantom.notification.topic.TopicAccessRevalidateService;
+import com.example.phantom.notification.topic.TopicAccessRevalidationService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.Role;
@@ -34,18 +34,14 @@ public class OwnerService {
     private final OwnerAccessService ownerAccessService;
     private final RateLimitService rateLimitService;
     private final NotificationPublishService notificationPublishService;
-    private final TopicAccessRevalidateService topicAccessRevalidateService;
-    private final UserDeletionService userDeletionService;
 
-    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, RateLimitService rateLimitService, NotificationPublishService notificationPublishService, TopicAccessRevalidateService topicAccessRevalidateService, UserDeletionService userDeletionService) {
+    public OwnerService(UserRepository userRepository, WithdrawalRepository withdrawalRepository, OwnerAccessService ownerAccessService, RateLimitService rateLimitService, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.withdrawalRepository = withdrawalRepository;
 
         this.ownerAccessService = ownerAccessService;
         this.rateLimitService = rateLimitService;
         this.notificationPublishService = notificationPublishService;
-        this.topicAccessRevalidateService = topicAccessRevalidateService;
-        this.userDeletionService = userDeletionService;
     }
 
     @Transactional
@@ -76,7 +72,6 @@ public class OwnerService {
         target = userRepository.save(target);
 
         notificationPublishService.createUserNotification(target, NotificationType.ROLE_CLAIMED, new RoleClaimedRepresentation(user, role));
-        topicAccessRevalidateService.revalidate(targetId);
         log.info("user {} changed user {} role", userId, targetId);
         return Map.of("message", "changed");
     }
@@ -100,7 +95,7 @@ public class OwnerService {
             throw new ApiException(ErrorCode.OWNER_KEY_REQUIRED);
         }
 
-        userDeletionService.delete(target);
+        userRepository.delete(target);
         log.info("user {} deleted user {}", userId, targetId);
     }
 
