@@ -3,7 +3,7 @@
 // Backend (verified against com.example.phantom.disk source, NOT ENDPOINTS.md):
 //   GET    /api/disk/settings                         → DiskSettings { baseRule, plusRule }
 //   GET    /api/disk/files?before&limit=20            → FileRepresentation[]  (cursor = last item's `timestamp`, epoch SECONDS; page full when length === limit)
-//   POST   /api/disk/files?useImageCompression=false  → FileRepresentation    (MULTIPART, field "file")
+//   POST   /api/disk/files?useImageCompression=true   → FileRepresentation    (MULTIPART, field "file")
 //   GET    /api/disk/files/{id}                        → file bytes (+ Content-Disposition filename)
 //   DELETE /api/disk/files/{id}                        → 204
 //   GET    /api/disk/usage/personal                    → DiskQuota { size, files }   (used bytes + file count)
@@ -183,20 +183,20 @@ function parseXhrError(xhr: XMLHttpRequest): ApiError {
  * onProgress as bytes flow, and exposes abort() via the returned handle. Rejects with
  * an ApiError (status 0 = network/abort) on any failure.
  *
- * `useImageCompression` defaults to true to preserve the existing single-upload
- * behaviour (useUpload / the chat composer); the batch uploader passes false.
+ * The backend compresses uploaded images (useImageCompression=true) — the original,
+ * verified behaviour. Both the chat composer and the disk batch uploader go through here,
+ * so both compress; there is intentionally no way to turn it off from the client.
  */
 function uploadFileXhr(
   file: File,
   onProgress: (p: UploadProgress) => void,
-  useImageCompression = true,
 ): { promise: Promise<DiskFile>; abort: () => void } {
   const xhr = new XMLHttpRequest();
   const form = new FormData();
   form.append('file', file); // File streamed by the browser, not buffered in JS.
 
   const promise = new Promise<DiskFile>((resolve, reject) => {
-    xhr.open('POST', `${API_BASE}/disk/files?useImageCompression=${useImageCompression}`);
+    xhr.open('POST', `${API_BASE}/disk/files?useImageCompression=true`);
     xhr.withCredentials = true; // send the auth cookie
     xhr.responseType = 'text';
     // Intentionally NO setRequestHeader('Content-Type', …): the browser must set the
@@ -329,8 +329,8 @@ export function useUpload(): UploadController {
  *     file (per-file refetch was slow and tripped the backend pagination 429 on bulk runs);
  *   - a failed file is counted and the run keeps going; cancelAll() aborts the in-flight
  *     upload and drops everything still queued.
- * The UI shows ONE temporary "current upload" widget — no per-file list. Batch uploads pass
- * useImageCompression=false (store verbatim); the single-file useUpload path is untouched. */
+ * The UI shows ONE temporary "current upload" widget — no per-file list. Images are
+ * compressed by the backend (useImageCompression=true), same as every other upload. */
 
 /** Render-cheap snapshot of a batch run (no per-file array in state). */
 export interface BatchUploadController {
@@ -379,10 +379,8 @@ export function useBatchUpload(): BatchUploadController {
         const file = queueRef.current.shift() as File;
         setCurrent({ name: file.name, progress: { loaded: 0, total: file.size, fraction: 0 } });
 
-        const { promise, abort } = uploadFileXhr(
-          file,
-          (p) => setCurrent({ name: file.name, progress: p }),
-          false, // batch stores verbatim (no image compression)
+        const { promise, abort } = uploadFileXhr(file, (p) =>
+          setCurrent({ name: file.name, progress: p }),
         );
         abortRef.current = abort;
         try {

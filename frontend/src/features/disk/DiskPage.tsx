@@ -4,7 +4,7 @@
 // UI is replaced by a lock hint. When unlocked the page shows, top to bottom:
 //   • a storage meter (used / total) — total is the user's tier limit from
 //     GET /api/disk/settings (plusRule if DISK_PLUS is unlocked, else baseRule),
-//   • an upload button (multipart, useImageCompression=false),
+//   • an upload button (multipart, images compressed server-side),
 //   • the file list — name · size · uploaded date, with per-file download + delete,
 //     cursor-paginated ("Показать ещё").
 //
