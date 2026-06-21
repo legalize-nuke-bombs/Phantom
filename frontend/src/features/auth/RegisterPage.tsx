@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Check, Copy } from 'lucide-react';
+import { AlertTriangle, Check, Copy, Gift } from 'lucide-react';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
 import Card from '@/shared/ui/Card';
@@ -211,9 +211,9 @@ export default function RegisterPage() {
           />
 
           {refId != null && (
-            <div className="rounded-xl border border-edge bg-panel-2 px-3 py-2.5 text-sm text-muted">
-              Вы приглашены{' '}
-              <span className="font-medium text-ton">(refId {refId})</span>
+            <div className="flex items-center gap-2.5 rounded-xl border border-ton/30 bg-ton/5 px-3 py-2.5 text-sm text-fg">
+              <Gift size={16} className="shrink-0 text-ton" />
+              <span>Вы регистрируетесь по приглашению</span>
             </div>
           )}
 

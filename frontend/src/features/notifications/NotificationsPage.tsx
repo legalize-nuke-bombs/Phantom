@@ -36,7 +36,8 @@ import {
 import { formatTime } from '@/shared/lib/time';
 import { formatUsd } from '@/shared/lib/money';
 import { markBucketRead } from '@/shared/realtime/badges';
-import { bucketRows } from '@/shared/realtime/store';
+import { bucketRows, bucketFor } from '@/shared/realtime/store';
+import { useConsumesNotifications } from '@/shared/realtime/activeViews';
 import { ROLE_LABELS } from '@/shared/lib/roles';
 import Card from '@/shared/ui/Card';
 import Spinner from '@/shared/ui/Spinner';
@@ -317,6 +318,11 @@ export default function NotificationsPage() {
   // Snapshot the misc bucket ONCE on entry (so we can show what arrived while away),
   // then mark it read + clear via the internal layer. No REST here. null = still loading.
   const [items, setItems] = useState<NotificationItem[] | null>(null);
+
+  // While this inbox is open, new misc events are read on sight (RealtimeProvider consults
+  // this) so the nav badge doesn't tick behind us; the snapshot below shows what was already
+  // here on entry.
+  useConsumesNotifications((env) => bucketFor(env) === 'misc');
 
   useEffect(() => {
     // The store is in-memory (synchronous) now — snapshot the misc bucket directly, then

@@ -5,7 +5,7 @@
 //
 // Reuses the chat-entity layer in shared/chat/chats.ts; messaging itself lives in ChatRoom.
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ban, MessagesSquare, Plus, Users } from 'lucide-react';
@@ -24,10 +24,11 @@ import {
   chatKind,
   chatTitle,
   otherMembers,
-  useCreateChat,
   useMyChats,
   type Chat,
 } from '@/shared/chat/chats';
+import { useConsumesNotifications } from '@/shared/realtime/activeViews';
+import CreateChatModal from './CreateChatModal';
 
 /** The unread pill for one chat row — reads the per-chat bucket, hidden at zero. */
 function RowBadge({ chatId }: { chatId: string }) {
@@ -114,13 +115,18 @@ export default function ChatsPage() {
   const queryClient = useQueryClient();
 
   const list = useMyChats();
-  const createChat = useCreateChat();
+  const [createOpen, setCreateOpen] = useState(false);
   // Creating a chat needs the chat feature (backend refuses otherwise), so gate the
   // "Новый чат" action on SEND_MESSAGE — same feature that gates messaging.
   const createGate = useFeatureGate('SEND_MESSAGE');
   // A ban blocks creating chats too (backend refuses), so fold it into the same lock.
   const banned = useMyBan().data != null;
   const createLocked = createGate.locked || banned;
+
+  // Being on the chats list shows new chats the moment they appear, so the "вас добавили в
+  // чат" signal (NEW_CHAT) is consumed here — marked read on arrival, no badge. Incoming
+  // MESSAGE_RECEIVED is NOT consumed (the list never opens the chat), so rows still badge.
+  useConsumesNotifications((env) => env.type === 'NEW_CHAT');
 
   const chats = list.data ?? [];
 
@@ -132,11 +138,9 @@ export default function ChatsPage() {
     void reconcileChatBadges(new Set<string>(['1', ...list.data.map((c) => c.id)]));
   }, [list.data]);
 
-  function handleCreate() {
+  function openCreate() {
     if (createLocked) return;
-    createChat.mutate(undefined, {
-      onSuccess: (chat) => navigate(`/chat/groups/${chat.id}`),
-    });
+    setCreateOpen(true);
   }
 
   return (
@@ -153,18 +157,12 @@ export default function ChatsPage() {
           ) : (
             <FeatureLock feature="SEND_MESSAGE" />
           )}
-          <Button size="sm" onClick={handleCreate} loading={createChat.isPending} disabled={createLocked}>
+          <Button size="sm" onClick={openCreate} disabled={createLocked}>
             <Plus size={16} />
             Новый чат
           </Button>
         </div>
       </header>
-
-      {createChat.isError ? (
-        <p className="shrink-0 text-sm text-lose">
-          {errorMessage(createChat.error, 'Не удалось создать чат')}
-        </p>
-      ) : null}
 
       {/* One full-height block; the list scrolls INSIDE it, the page itself never scrolls. */}
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-edge bg-panel">
@@ -199,6 +197,17 @@ export default function ChatsPage() {
           )}
         </div>
       </div>
+
+      {createOpen ? (
+        <CreateChatModal
+          myId={myId}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(chatId) => {
+            setCreateOpen(false);
+            navigate(`/chat/groups/${chatId}`);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

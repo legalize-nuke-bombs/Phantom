@@ -25,6 +25,8 @@ import { ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { useMyCapabilities } from '@/shared/lib/roles';
 import { markBucketRead } from '@/shared/realtime/badges';
+import { useConsumesNotifications } from '@/shared/realtime/activeViews';
+import { bucketFor } from '@/shared/realtime/store';
 import Card from '@/shared/ui/Card';
 import Spinner from '@/shared/ui/Spinner';
 import MasterWalletSection from './MasterWalletSection';
@@ -60,6 +62,10 @@ export default function OwnerPage() {
   useEffect(() => {
     void markBucketRead('owner');
   }, []);
+
+  // While the panel is open, owner financial events are read on sight (RealtimeProvider
+  // consults this) so they don't badge the nav behind us; the effect above clears the backlog.
+  useConsumesNotifications((env) => bucketFor(env) === 'owner');
 
   // Wait for auth to settle before deciding — otherwise a logged-in owner would
   // flash the "no access" card on first paint while /users/me is in flight.

@@ -11,6 +11,8 @@ import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
 import { GLOBAL_CHAT_ID, useChatMessages, useSendMessage } from '@/shared/chat/useChat';
 import { markBucketRead, useUnreadCount } from '@/shared/realtime/badges';
+import { useConsumesNotifications } from '@/shared/realtime/activeViews';
+import { bucketFor } from '@/shared/realtime/store';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { useFeatureGate } from '@/shared/lib/levelFeatures';
 import { formatTime, fromEpoch } from '@/shared/lib/time';
@@ -98,6 +100,11 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
   useEffect(() => {
     if (unreadHere > 0) void markBucketRead(chatBucket);
   }, [unreadHere, chatBucket]);
+
+  // While this chat is open it IS being read: a LIVE notification for THIS chat is marked read
+  // on arrival by the RealtimeProvider (it consults this registry), so it never badges or
+  // flickers here. The effect above drains whatever accumulated before we opened it.
+  useConsumesNotifications((env) => bucketFor(env) === chatBucket);
 
   if (query.isLoading) {
     return (

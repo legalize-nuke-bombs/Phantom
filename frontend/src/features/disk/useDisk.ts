@@ -24,6 +24,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type InfiniteData,
 } from '@tanstack/react-query';
 import { ApiError } from '@/shared/api/client';
 import { api } from '@/shared/api/client';
@@ -181,17 +182,21 @@ function parseXhrError(xhr: XMLHttpRequest): ApiError {
  * Low-level single-file upload over XHR. Resolves with the created DiskFile, calls
  * onProgress as bytes flow, and exposes abort() via the returned handle. Rejects with
  * an ApiError (status 0 = network/abort) on any failure.
+ *
+ * `useImageCompression` defaults to true to preserve the existing single-upload
+ * behaviour (useUpload / the chat composer); the batch uploader passes false.
  */
 function uploadFileXhr(
   file: File,
   onProgress: (p: UploadProgress) => void,
+  useImageCompression = true,
 ): { promise: Promise<DiskFile>; abort: () => void } {
   const xhr = new XMLHttpRequest();
   const form = new FormData();
   form.append('file', file); // File streamed by the browser, not buffered in JS.
 
   const promise = new Promise<DiskFile>((resolve, reject) => {
-    xhr.open('POST', `${API_BASE}/disk/files?useImageCompression=true`);
+    xhr.open('POST', `${API_BASE}/disk/files?useImageCompression=${useImageCompression}`);
     xhr.withCredentials = true; // send the auth cookie
     xhr.responseType = 'text';
     // Intentionally NO setRequestHeader('Content-Type', …): the browser must set the
@@ -313,6 +318,247 @@ export function useUpload(): UploadController {
   return { phase, progress, error, fileName, start, cancel, reset };
 }
 
+/* ── batch upload (sequential, one request at a time) ─────────────────────────
+ * Multi-file upload built ON TOP of the same XHR uploader as useUpload, but uploaded
+ * STRICTLY SEQUENTIALLY — one request in flight at a time, the backend taking a single
+ * file per request. A failed item does NOT abort the run: it is marked 'error' and the
+ * loop moves on to the next. The list + usage are invalidated after EACH success so the
+ * grid fills in progressively as the queue drains.
+ *
+ * Batch uploads pass useImageCompression=false (store the file verbatim), matching the
+ * disk page's contract; the single-file useUpload path is untouched.
+ *
+ * Cancellation:
+ *   - cancelItem(id): aborts that item if it is the one in flight, else just drops it
+ *     from the queue if it is still pending.
+ *   - cancelCurrent(): aborts whatever is uploading right now (the loop then continues
+ *     with the next pending item).
+ *   - clearQueued(): drops every still-'queued' item so the run ends after the current
+ *     one finishes.
+ *   - clearFinished(): removes done/error/cancelled rows (housekeeping for the panel).
+ *   - reset(): clears everything (no-op while a request is in flight). */
+
+/** State of a single item in the batch upload queue. */
+export type BatchItemStatus =
+  | 'queued'
+  | 'uploading'
+  | 'done'
+  | 'error'
+  | 'cancelled';
+
+/** One file in the batch upload queue, with live progress + outcome. */
+export interface BatchUploadItem {
+  /** Stable client-side id (not the server file id). */
+  id: string;
+  /** The picked File (kept so the queue can stream it when its turn comes). */
+  file: File;
+  name: string;
+  size: number;
+  status: BatchItemStatus;
+  progress: UploadProgress;
+  /** Set when status === 'error'. */
+  error: ApiError | null;
+  /** The created file once status === 'done'. */
+  created: DiskFile | null;
+}
+
+export interface BatchUploadController {
+  items: BatchUploadItem[];
+  /** True while a request is in flight (something is 'uploading'). */
+  isUploading: boolean;
+  /** Counts for a compact panel header. */
+  counts: {
+    total: number;
+    queued: number;
+    done: number;
+    error: number;
+  };
+  /** Enqueue files and kick off the sequential drain (if not already running). */
+  enqueue: (files: File[] | FileList) => void;
+  /** Abort/drop a single item by its client id. */
+  cancelItem: (id: string) => void;
+  /** Abort the item currently in flight (the run continues with the next). */
+  cancelCurrent: () => void;
+  /** Drop every still-queued item (the in-flight one is left to finish). */
+  clearQueued: () => void;
+  /** Remove finished rows (done / error / cancelled) from the panel. */
+  clearFinished: () => void;
+  /** Clear the whole queue. No-op while a request is in flight. */
+  reset: () => void;
+}
+
+let batchItemSeq = 0;
+function nextBatchId(): string {
+  batchItemSeq += 1;
+  return `bu_${Date.now().toString(36)}_${batchItemSeq}`;
+}
+
+/**
+ * Sequential multi-file upload state machine. Owns the queue, the single in-flight
+ * XHR, the per-item progress, and invalidates the file list + usage after each
+ * successful upload (mirroring useUpload). One request at a time; failures are isolated.
+ */
+export function useBatchUpload(): BatchUploadController {
+  const qc = useQueryClient();
+  const [items, setItems] = useState<BatchUploadItem[]>([]);
+
+  // The current in-flight item's id + its abort handle. Refs (not state) because the
+  // drain loop reads/sets them synchronously across async boundaries.
+  const currentIdRef = useRef<string | null>(null);
+  const abortRef = useRef<(() => void) | null>(null);
+  // The live queue, mirrored into a ref so the drain loop never closes over stale state.
+  const queueRef = useRef<BatchUploadItem[]>([]);
+  // Whether the drain loop is already running (avoid starting it twice).
+  const runningRef = useRef(false);
+
+  const setBoth = useCallback((next: BatchUploadItem[]) => {
+    queueRef.current = next;
+    setItems(next);
+  }, []);
+
+  const patchItem = useCallback(
+    (id: string, patch: Partial<BatchUploadItem>) => {
+      setBoth(queueRef.current.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+    },
+    [setBoth],
+  );
+
+  // Drain the queue one item at a time. Re-entrant-safe via runningRef; it keeps going
+  // as long as there is a 'queued' item, picking up anything enqueued mid-run.
+  const drain = useCallback(async () => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const next = queueRef.current.find((it) => it.status === 'queued');
+        if (!next) break;
+
+        currentIdRef.current = next.id;
+        patchItem(next.id, {
+          status: 'uploading',
+          progress: { loaded: 0, total: next.size, fraction: 0 },
+          error: null,
+        });
+
+        const { promise, abort } = uploadFileXhr(
+          next.file,
+          (p) => patchItem(next.id, { progress: p }),
+          false, // batch uploads store the file verbatim (no image compression)
+        );
+        abortRef.current = abort;
+
+        try {
+          const created = await promise;
+          patchItem(next.id, {
+            status: 'done',
+            created,
+            progress: { ...next.progress, fraction: 1 },
+          });
+          // Mirror useUpload: refresh list + usage after each successful upload so the
+          // grid fills in as the queue drains.
+          qc.invalidateQueries({ queryKey: DISK_KEYS.files });
+          qc.invalidateQueries({ queryKey: DISK_KEYS.usage });
+        } catch (err: unknown) {
+          const apiErr = err instanceof ApiError ? err : new ApiError(0, 'Ошибка загрузки');
+          // A user-initiated abort is a cancel, not a failure.
+          if (apiErr.message === 'Загрузка отменена') {
+            patchItem(next.id, { status: 'cancelled', error: null });
+          } else {
+            // Failure of one file must NOT abort the rest — mark + continue.
+            patchItem(next.id, { status: 'error', error: apiErr });
+          }
+        } finally {
+          if (currentIdRef.current === next.id) currentIdRef.current = null;
+          abortRef.current = null;
+        }
+      }
+    } finally {
+      runningRef.current = false;
+    }
+  }, [patchItem, qc]);
+
+  const enqueue = useCallback(
+    (files: File[] | FileList) => {
+      const list = Array.from(files);
+      if (list.length === 0) return;
+      const added: BatchUploadItem[] = list.map((file) => ({
+        id: nextBatchId(),
+        file,
+        name: file.name,
+        size: file.size,
+        status: 'queued',
+        progress: ZERO_PROGRESS,
+        error: null,
+        created: null,
+      }));
+      setBoth([...queueRef.current, ...added]);
+      // Start (or keep) the drain. void: fire-and-forget; state drives the UI.
+      void drain();
+    },
+    [drain, setBoth],
+  );
+
+  const cancelItem = useCallback(
+    (id: string) => {
+      const it = queueRef.current.find((x) => x.id === id);
+      if (!it) return;
+      if (it.status === 'uploading' && currentIdRef.current === id) {
+        abortRef.current?.(); // onabort → marks it 'cancelled', loop continues
+      } else if (it.status === 'queued') {
+        patchItem(id, { status: 'cancelled' });
+      }
+    },
+    [patchItem],
+  );
+
+  const cancelCurrent = useCallback(() => {
+    abortRef.current?.();
+  }, []);
+
+  const clearQueued = useCallback(() => {
+    setBoth(
+      queueRef.current.map((it) =>
+        it.status === 'queued' ? { ...it, status: 'cancelled' } : it,
+      ),
+    );
+  }, [setBoth]);
+
+  const clearFinished = useCallback(() => {
+    setBoth(
+      queueRef.current.filter(
+        (it) => it.status === 'queued' || it.status === 'uploading',
+      ),
+    );
+  }, [setBoth]);
+
+  const reset = useCallback(() => {
+    if (abortRef.current) return; // don't wipe mid-flight
+    setBoth([]);
+  }, [setBoth]);
+
+  const counts = {
+    total: items.length,
+    queued: items.filter((it) => it.status === 'queued').length,
+    done: items.filter((it) => it.status === 'done').length,
+    error: items.filter((it) => it.status === 'error').length,
+  };
+  const isUploading = items.some((it) => it.status === 'uploading');
+
+  return {
+    items,
+    isUploading,
+    counts,
+    enqueue,
+    cancelItem,
+    cancelCurrent,
+    clearQueued,
+    clearFinished,
+    reset,
+  };
+}
+
 /* ── download (NATIVE browser download) ───────────────────────────────────────
  * GET /api/disk/files/{id} is cookie-authenticated and already sets
  *   Content-Disposition: attachment; filename=…
@@ -352,11 +598,21 @@ export function useDownloadFile() {
 
 export function useDeleteFile() {
   const qc = useQueryClient();
-  return useMutation<void, ApiError, string>({
-    mutationFn: (id) => api.del<void>(`/disk/files/${id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: DISK_KEYS.files });
-      qc.invalidateQueries({ queryKey: DISK_KEYS.usage });
+  return useMutation<void, ApiError, DiskFile>({
+    mutationFn: (file) => api.del<void>(`/disk/files/${file.id}`),
+    onSuccess: (_void, file) => {
+      // Drop the file straight out of the paginated cache — NO refetch. Refetching on every
+      // delete fired a GET /disk/files per file; batch-deleting then tripped the backend's
+      // pagination rate limit (429) after ~100 files. Decrement usage in place too, so the
+      // quota meter updates without a GET /disk/usage/personal per delete either.
+      qc.setQueryData<InfiniteData<DiskFile[], number | undefined>>(DISK_KEYS.files, (old) =>
+        old
+          ? { ...old, pages: old.pages.map((page) => page.filter((f) => f.id !== file.id)) }
+          : old,
+      );
+      qc.setQueryData<DiskQuota>(DISK_KEYS.usage, (old) =>
+        old ? { size: Math.max(0, old.size - file.size), files: Math.max(0, old.files - 1) } : old,
+      );
     },
   });
 }

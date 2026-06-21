@@ -9,10 +9,16 @@
 // deleted by its own author (any chat) or, in the GLOBAL chat only, by a chat-moderator
 // when the author isn't themselves a moderator. We mirror that backend rule on the
 // client so we don't show a trash button that the server would reject.
+//
+// The delete affordance is a Telegram-style actions menu (MessageActionsMenu), opened
+// three ways — all surfacing the SAME popover: a subtle "⋯" trigger that fades in on
+// row-hover (desktop), a right-click on the bubble (desktop), and a long-press on the
+// bubble (touch). No clutter at rest: nothing destructive is glued to the row.
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import clsx from 'clsx';
 
 import { errorMessage } from '@/shared/api/errors';
@@ -24,9 +30,17 @@ import type { LevelName } from '@/shared/types';
 import RankBadge from '@/shared/ui/RankBadge';
 
 import AttachmentView from './AttachmentView';
+import MessageActionsMenu, { type MenuAnchor } from './MessageActionsMenu';
 import { linkify } from './linkify';
 
 const AVATAR = 32; // RankBadge diameter; also the gutter reserved for grouped rows.
+
+// How long a touch must rest on the bubble before it counts as a long-press (Telegram
+// uses ~0.5s). Short enough to feel intentional, long enough not to fire on a tap/scroll.
+const LONG_PRESS_MS = 480;
+// If the finger drifts past this many px before the timer fires, it's a scroll, not a
+// press — cancel so long-press never hijacks list scrolling.
+const LONG_PRESS_SLOP = 10;
 
 export default function MessageBubble({
   message,
@@ -48,9 +62,16 @@ export default function MessageBubble({
   showHeader: boolean;
 }) {
   const del = useDeleteMessage(chatId);
-  // Two-step inline confirm so a stray tap can't nuke a message (the trash hit-target
-  // is small and lives on a dense list).
-  const [confirming, setConfirming] = useState(false);
+
+  // The actions popover. `anchor` records how it was opened so the panel can flip to a
+  // sensible corner near the message; null anchor === closed.
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
+  const open = anchor != null;
+
+  // Long-press bookkeeping (touch only): the pending timer + the press origin so we can
+  // cancel on drift/scroll. Refs, not state — they never need to trigger a re-render.
+  const pressTimer = useRef<number | null>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
 
   // Moderator gating: my own capability + the AUTHOR's capability, both resolved from
   // the cached role table (capabilitiesOf is the only place that maps a role → flags).
@@ -68,13 +89,53 @@ export default function MessageBubble({
   // empty text line so such a bubble shows just the attachment + timestamp.
   const hasText = message.content.trim() !== '';
 
+  function closeMenu() {
+    setAnchor(null);
+  }
+
   function onConfirmDelete() {
-    del.mutate(message.id, { onSuccess: () => setConfirming(false) });
+    del.mutate(message.id, { onSuccess: closeMenu });
+  }
+
+  // Right-click anywhere on the bubble (desktop): open the menu instead of the browser's
+  // native context menu. Anchored above-right of the bubble so it doesn't cover the text.
+  function onContextMenu(e: React.MouseEvent) {
+    if (!canDelete) return;
+    e.preventDefault();
+    setAnchor({ side: 'top', align: own ? 'left' : 'right' });
+  }
+
+  // ---- Long-press (touch). Mouse presses are ignored here so they don't double up with
+  // hover-trigger / right-click; we gate on pointerType === 'touch'.
+  function clearPress() {
+    if (pressTimer.current != null) {
+      window.clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+    pressStart.current = null;
+  }
+
+  function onPointerDown(e: ReactPointerEvent) {
+    if (!canDelete || e.pointerType !== 'touch') return;
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    pressTimer.current = window.setTimeout(() => {
+      pressTimer.current = null;
+      setAnchor({ side: 'top', align: own ? 'left' : 'right' });
+    }, LONG_PRESS_MS);
+  }
+
+  function onPointerMove(e: ReactPointerEvent) {
+    const start = pressStart.current;
+    if (start == null) return;
+    // Past the slop radius → treat as a scroll/drag and abandon the press.
+    if (Math.abs(e.clientX - start.x) > LONG_PRESS_SLOP || Math.abs(e.clientY - start.y) > LONG_PRESS_SLOP) {
+      clearPress();
+    }
   }
 
   return (
-    // `group` so the desktop hover reveal can target the trash control. Row wrapper is
-    // a <div>: ChatRoom owns the <li> so it can hang day-dividers + spacing off the same
+    // `group` so the desktop hover reveal can target the ⋯ trigger. Row wrapper is a
+    // <div>: ChatRoom owns the <li> so it can hang day-dividers + spacing off the same
     // list item without nesting <li> elements.
     <div className="group flex gap-2.5">
       {/* Avatar gutter — the badge on a run's first row, an empty spacer otherwise. */}
@@ -98,11 +159,21 @@ export default function MessageBubble({
           </Link>
         ) : null}
 
-        {/* Bubble + delete control share a row; the control sits to the right of the bubble. */}
+        {/* Bubble + the (hover) ⋯ trigger share a row; the trigger sits to the right. */}
         <div className="flex items-end gap-1">
-          {/* Message stack: the text bubble, then any attachment on its OWN line below.
-              Attachments are NOT boxed inside the bubble — they sit free underneath it. */}
-          <div className="flex min-w-0 flex-col gap-1">
+          {/* `relative` so the actions popover anchors to this message stack and rides the
+              scrolling list. Right-click / long-press handlers live on it (the bubble),
+              not the trigger, so the whole message is the gesture target. */}
+          <div
+            className="relative flex min-w-0 flex-col gap-1"
+            onContextMenu={canDelete ? onContextMenu : undefined}
+            onPointerDown={canDelete ? onPointerDown : undefined}
+            onPointerMove={canDelete ? onPointerMove : undefined}
+            onPointerUp={canDelete ? clearPress : undefined}
+            onPointerCancel={canDelete ? clearPress : undefined}
+            // Don't let the OS text-selection callout pre-empt our long-press on touch.
+            style={canDelete ? { WebkitTouchCallout: 'none' } : undefined}
+          >
             {hasText ? (
               <div
                 className={clsx(
@@ -131,49 +202,44 @@ export default function MessageBubble({
                 />
               </div>
             ) : null}
+
+            {/* The popover itself — anchored within this `relative` stack. Mounted only
+                while open, so its internal confirm state resets each time. */}
+            {canDelete && open ? (
+              <MessageActionsMenu
+                anchor={anchor}
+                onDelete={onConfirmDelete}
+                deleting={del.isPending}
+                onClose={closeMenu}
+              />
+            ) : null}
           </div>
 
+          {/* Desktop ⋯ trigger: invisible at rest, fades in on row-hover / keyboard focus.
+              Hidden entirely on coarse pointers (touch uses long-press instead) so the
+              column stays clean on mobile. */}
           {canDelete ? (
-            confirming ? (
-              // Inline confirm — "Удалить?" yes/no. Both targets are ≥32px so it works
-              // on touch without a hover.
-              <span className="flex shrink-0 items-center gap-1 text-[11px]">
-                <span className="text-muted">Удалить?</span>
-                <button
-                  type="button"
-                  onClick={onConfirmDelete}
-                  disabled={del.isPending}
-                  className="grid h-8 min-w-8 place-items-center rounded-lg px-1.5 font-medium text-lose transition-colors hover:bg-lose/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ton disabled:opacity-50"
-                >
-                  Да
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirming(false)}
-                  disabled={del.isPending}
-                  className="grid h-8 min-w-8 place-items-center rounded-lg px-1.5 text-muted transition-colors hover:bg-panel-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton disabled:opacity-50"
-                >
-                  Нет
-                </button>
-              </span>
-            ) : (
-              // Trash trigger: hidden until row-hover on desktop (pointer:fine), but kept
-              // faintly visible on touch (no hover) so it's always reachable. 32px target.
-              <button
-                type="button"
-                onClick={() => setConfirming(true)}
-                aria-label="Удалить сообщение"
-                className={clsx(
-                  'grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition-colors',
-                  'hover:bg-panel-2 hover:text-lose focus:outline-none focus-visible:ring-2 focus-visible:ring-ton',
-                  // Touch: always faintly visible. Fine pointer: fade in on row hover /
-                  // keyboard focus, so it doesn't clutter the column at rest.
-                  'opacity-40 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover:opacity-100 [@media(pointer:fine)]:focus-visible:opacity-100',
-                )}
-              >
-                <Trash2 size={15} strokeWidth={2} />
-              </button>
-            )
+            <button
+              type="button"
+              onClick={() =>
+                // Toggle: a second click on the trigger closes it. Anchored under the ⋯.
+                setAnchor((a) => (a != null ? null : { side: 'bottom', align: 'right' }))
+              }
+              aria-label="Действия с сообщением"
+              aria-haspopup="menu"
+              aria-expanded={open}
+              className={clsx(
+                'grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition-all',
+                'hover:bg-panel-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton',
+                // Coarse pointer (touch): no hover, so hide the trigger — long-press opens
+                // the menu. Fine pointer: fade in on row hover / focus / while open.
+                '[@media(pointer:coarse)]:hidden',
+                'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+                open && 'opacity-100',
+              )}
+            >
+              <MoreHorizontal size={16} strokeWidth={2} />
+            </button>
           ) : null}
         </div>
 

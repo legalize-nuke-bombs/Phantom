@@ -147,9 +147,9 @@ function FileList() {
               key={file.id}
               file={file}
               onDownload={() => download.mutate(file)}
-              onDelete={() => del.mutate(file.id)}
+              onDelete={() => del.mutate(file)}
               downloading={download.isPending && download.variables?.id === file.id}
-              deleting={del.isPending && del.variables === file.id}
+              deleting={del.isPending && del.variables?.id === file.id}
               busy={anyBusy}
             />
           ))}
@@ -217,8 +217,8 @@ export default function DiskPage() {
               <h2 className="text-sm font-medium">Загрузка</h2>
             </div>
             <p className="mb-4 text-sm leading-relaxed text-muted">
-              Выберите файл — он сохранится в вашем личном облаке и будет доступен только
-              вам.
+              Выберите один или несколько файлов — они загрузятся по очереди и сохранятся
+              в вашем личном облаке, доступном только вам.
             </p>
             <UploadButton />
           </Card>

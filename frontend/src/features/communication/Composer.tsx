@@ -1,18 +1,25 @@
 // Composer — the chat message input row: a textarea, an attach affordance (paperclip →
-// "from computer" / "from disk"), a pending-attachment chip, an inline upload progress
+// "from computer" / "from disk"), pending-attachment chips, an inline upload progress
 // panel, and the send button. Lifted out of ChatRoom so all the attach/upload/ban state
 // lives in one place; ChatRoom keeps the message list.
 //
-// Attaching has two sources:
-//   1. From computer — a hidden <input type=file>; the pick uploads via the disk XHR
-//      uploader (useUpload: streams huge files, live progress, cancel). The send button
-//      stays DISABLED until the upload completes; on success its returned DiskFile becomes
-//      the pending attachment (its id == the message attachmentId).
-//   2. From disk — DiskFilePicker (reuses the disk file list); the picked file becomes the
-//      pending attachment directly (no upload — it already lives in the cloud).
+// MULTI-ATTACHMENT: the backend takes STRICTLY ONE attachment per message, but the user may
+// queue MANY files. We hold them in a `pending` LIST (one removable chip each) and, on send,
+// fan them out into separate messages — message #1 carries the typed text + the first file,
+// and each remaining file rides its own text-less message (like a Telegram album, but each
+// file is its own message). Messages are sent SEQUENTIALLY (awaited in order) so they land in
+// order; a mid-batch failure stops the run and keeps whatever hasn't been sent yet for retry.
 //
-// Send is enabled when (draft has text OR there's a pending attachment) AND nothing blocks
-// it (not uploading, not locked, not already sending). An attachment-only send posts
+// Attaching has two sources, both APPENDING to the pending list:
+//   1. From computer — a hidden <input type=file multiple>; picks upload via the disk XHR
+//      uploader (useUpload: streams huge files, live progress, cancel) ONE AT A TIME in a
+//      sequential loop. Each completed upload's DiskFile (its id == the message attachmentId)
+//      is pushed to the list; the send button stays DISABLED until the whole queue is done.
+//   2. From disk — DiskFilePicker (reuses the disk file list) with multi-select; every picked
+//      file is appended directly (no upload — they already live in the cloud).
+//
+// Send is enabled when (draft has text OR there's at least one pending attachment) AND nothing
+// blocks it (not uploading, not locked, not already sending). An attachment-only message posts
 // content: '' + attachmentId — the backend accepts that.
 //
 // Locking: a chat BAN blocks sending in every chat; the existing global-only feature lock
@@ -21,8 +28,8 @@
 // banned OR locked. Banner precedence is banned → ban banner, else locked → feature-lock
 // banner, else the input. The textarea/buttons disable whenever either applies.
 
-import { useRef, useState } from 'react';
-import type { FormEvent, KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react';
 import { Paperclip, Send, Upload, X, HardDrive, FileUp } from 'lucide-react';
 
 import { errorMessage } from '@/shared/api/errors';
@@ -41,6 +48,9 @@ import DiskFilePicker from './DiskFilePicker';
 
 /** The send mutation shape (from useSendMessage) — kept generic so ChatRoom owns the hook. */
 type SendMutation = UseMutationResult<ChatMessage, ApiError, SendMessageArgs>;
+
+/** Result of one from-computer upload: the created file, or a terminal-failure reason. */
+type UploadOutcome = DiskFile | 'error' | 'cancel';
 
 /** A small thumbnail/glyph + name + size + remove ✕ for the currently pending attachment. */
 function PendingChip({ file, onRemove }: { file: DiskFile; onRemove: () => void }) {
@@ -118,15 +128,24 @@ function UploadProgressPanel({
 
 export default function Composer({ send, locked }: { send: SendMutation; locked: boolean }) {
   const [draft, setDraft] = useState('');
-  // The pending attachment — a file (uploaded from computer OR picked from disk) that will
-  // ride along with the next send. Null when there's nothing attached.
-  const [pending, setPending] = useState<DiskFile | null>(null);
+  // The pending attachments — files (uploaded from computer OR picked from disk) that will
+  // ride along with the next send, one per message. Empty when nothing is attached.
+  const [pending, setPending] = useState<DiskFile[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // True while the sequential from-computer upload loop is running (covers the gaps between
+  // individual uploads, where upload.phase briefly leaves 'uploading'). Keeps send disabled
+  // across the whole batch.
+  const [uploadingBatch, setUploadingBatch] = useState(false);
+  // True for the WHOLE multi-message send fan-out. send.isPending toggles per individual
+  // mutateAsync, going false in the gaps between messages; this stays true across all of them
+  // so the input/button don't briefly re-enable (and a second submit can't interleave).
+  const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const upload = useUpload();
-  const uploading = upload.phase === 'uploading';
+  const uploading = upload.phase === 'uploading' || uploadingBatch;
+  const busy = sending || send.isPending;
 
   // A chat ban blocks sending everywhere. The feature lock (`locked`) only applies in the
   // global chat (decided by the parent). Both render an early-return banner below, so by
@@ -134,53 +153,145 @@ export default function Composer({ send, locked }: { send: SendMutation; locked:
   const banned = useMyBan().data;
 
   const canSend =
-    (draft.trim() !== '' || pending != null) && !uploading && !send.isPending;
+    (draft.trim() !== '' || pending.length > 0) && !uploading && !busy;
 
-  function onPickFromComputer(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // allow re-picking the same file
-    setMenuOpen(false);
-    if (!file) return;
-    upload.reset();
-    // On success the uploader hands back the created DiskFile: promote it to the pending
-    // attachment and reset the uploader so its success panel doesn't linger. Driven by the
-    // completion callback (a promise resolution, not render) — no state-watching effect.
-    upload.start(file, (created) => {
-      setPending(created);
+  // One pending upload's settler. `start`'s onDone resolves it with the created file on
+  // SUCCESS; the phase-watching effect below resolves it with a failure reason on a terminal
+  // FAILURE ('error', or 'cancel' = idle after a user abort) — useUpload's onDone fires only
+  // on success, so the sequential loop would otherwise hang on a failed/cancelled file. Held
+  // in a ref so the effect reaches the live resolver without re-subscribing, and the effect's
+  // FRESH read of upload.phase (not the loop's stale render snapshot) decides the reason.
+  const uploadResolveRef = useRef<((outcome: UploadOutcome) => void) | null>(null);
+  // Previous upload phase, to fire the terminal resolver ONLY on a real uploading→terminal
+  // transition — not on the idle blip that uploadOne's own reset() causes before start().
+  const prevPhaseRef = useRef(upload.phase);
+
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = upload.phase;
+    // Resolve the in-flight uploadOne only when the controller leaves 'uploading' for a
+    // terminal FAILURE: 'error', or 'idle' (the controller drops to idle on a user cancel).
+    // Success is delivered by onDone (which clears the ref first), so it never reaches here.
+    if (prev === 'uploading' && (upload.phase === 'error' || upload.phase === 'idle')) {
+      const resolve = uploadResolveRef.current;
+      if (resolve) {
+        uploadResolveRef.current = null;
+        resolve(upload.phase === 'error' ? 'error' : 'cancel');
+      }
+    }
+  }, [upload.phase]);
+
+  /**
+   * Upload a single file via the existing single-flight useUpload, resolving with its DiskFile
+   * on success or a reason ('error' | 'cancel') on a terminal failure. Success arrives through
+   * start's onDone; failure arrives through the phase-watching effect.
+   */
+  function uploadOne(file: File): Promise<UploadOutcome> {
+    return new Promise((resolve) => {
+      uploadResolveRef.current = resolve;
       upload.reset();
+      upload.start(file, (created) => {
+        // Success: clear the ref BEFORE the effect can see the 'success' phase, then resolve.
+        uploadResolveRef.current = null;
+        resolve(created);
+      });
     });
   }
 
-  function pickFromDisk(file: DiskFile) {
-    setPending(file);
+  async function onPickFromComputer(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    e.target.value = ''; // allow re-picking the same files
+    setMenuOpen(false);
+    if (files.length === 0) return;
+
+    // Upload ONE AT A TIME (useUpload is single-flight), pushing each result onto the pending
+    // list as it lands. Stop on the first failure/cancel (its own error/idle UI explains why)
+    // so the remaining files aren't silently dropped. uploadingBatch keeps send disabled across
+    // the gaps between individual uploads where upload.phase momentarily isn't 'uploading'.
+    setUploadingBatch(true);
+    let errored = false;
+    try {
+      for (const file of files) {
+        const outcome = await uploadOne(file);
+        if (outcome === 'error' || outcome === 'cancel') {
+          errored = outcome === 'error';
+          break; // leave the remaining files for a retry
+        }
+        setPending((prev) => [...prev, outcome]);
+      }
+    } finally {
+      setUploadingBatch(false);
+      // Clear the trailing SUCCESS/idle panel, but keep an ERROR panel so the user sees why the
+      // batch stopped. (reset() is a no-op mid-flight; here the controller has settled.)
+      if (!errored) upload.reset();
+    }
+  }
+
+  function pickFromDisk(files: DiskFile[]) {
+    // Append picked cloud files, de-duped by id against what's already pending.
+    setPending((prev) => {
+      const have = new Set(prev.map((f) => f.id));
+      return [...prev, ...files.filter((f) => !have.has(f.id))];
+    });
     setPickerOpen(false);
   }
 
-  function clearPending() {
-    setPending(null);
+  function removePending(id: string) {
+    setPending((prev) => prev.filter((f) => f.id !== id));
   }
 
-  function submit() {
+  async function submit() {
     if (!canSend) return;
-    // Attachment-only sends post content: '' (backend accepts content+attachment).
-    send.mutate(
-      { content: draft.trim(), attachmentId: pending?.id },
-      {
-        onSuccess: () => {
-          setDraft('');
-          setPending(null);
-        },
-      },
-    );
+    const text = draft.trim();
+    setSending(true);
+    try {
+      // No attachments → the original single text-message path.
+      if (pending.length === 0) {
+        await send.mutateAsync({ content: text });
+        setDraft('');
+        return;
+      }
+
+      // Fan-out: message #1 = text + first attachment; each remaining file = its own text-less
+      // message. SEQUENTIAL (await each in order) so they arrive in order. On a mid-batch
+      // failure we STOP and keep the not-yet-sent files (and, if message #1 failed, the text)
+      // so the user can retry. `remaining` always holds exactly the attachments still to send;
+      // `textSent` tracks whether message #1 (which carried the text) has gone through.
+      let remaining = [...pending];
+      let textSent = false;
+      try {
+        while (remaining.length > 0) {
+          // Only the first message carries the typed text; the rest are text-less.
+          const content = textSent ? '' : text;
+          await send.mutateAsync({ content, attachmentId: remaining[0].id });
+          textSent = true;
+          remaining = remaining.slice(1);
+          setPending(remaining); // shrink the chip row as each message lands
+        }
+        // Full success: clear the draft (pending is already []).
+        setDraft('');
+      } catch {
+        // Stop on the first error. Keep the unsent attachments (already reflected in `pending`);
+        // clear the text only once message #1 carried it through, so a retry can't double-post it.
+        setPending(remaining);
+        if (textSent) setDraft('');
+        // The error itself is shown via send.isError above.
+      }
+    } catch {
+      // The no-attachment path's mutateAsync rejected — surfaced via send.isError; keep the
+      // draft for a retry.
+    } finally {
+      setSending(false);
+    }
   }
   function onFormSubmit(e: FormEvent) {
     e.preventDefault();
-    submit();
+    void submit();
   }
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      submit();
+      void submit();
     }
   }
 
@@ -229,11 +340,19 @@ export default function Composer({ send, locked }: { send: SendMutation; locked:
         </p>
       ) : null}
 
-      {/* Pending attachment chip (when one is set and not mid-upload). */}
-      {pending && !uploading ? <PendingChip file={pending} onRemove={clearPending} /> : null}
+      {/* Pending attachment chips — one removable chip per queued file, wrapping across rows.
+          They stay visible during a from-computer upload so already-queued files remain shown
+          while the next one streams in below. */}
+      {pending.length > 0 ? (
+        <div className="-mb-0.5 flex max-h-28 flex-wrap gap-2 overflow-y-auto">
+          {pending.map((file) => (
+            <PendingChip key={file.id} file={file} onRemove={() => removePending(file.id)} />
+          ))}
+        </div>
+      ) : null}
 
-      {/* Live upload progress (from-computer source). */}
-      {uploading ? (
+      {/* Live upload progress (from-computer source) — the file currently streaming. */}
+      {upload.phase === 'uploading' ? (
         <UploadProgressPanel
           fileName={upload.fileName}
           pct={Math.round(upload.progress.fraction * 100)}
@@ -243,7 +362,13 @@ export default function Composer({ send, locked }: { send: SendMutation; locked:
         />
       ) : null}
 
-      <input ref={fileInputRef} type="file" className="hidden" onChange={onPickFromComputer} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={onPickFromComputer}
+      />
 
       <div className="flex items-end gap-2">
         {/* Attach affordance: a paperclip that toggles a tiny two-source menu. */}
@@ -251,7 +376,7 @@ export default function Composer({ send, locked }: { send: SendMutation; locked:
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            disabled={uploading || send.isPending}
+            disabled={uploading || busy}
             aria-label="Прикрепить файл"
             title="Прикрепить файл"
             className="grid size-11 place-items-center rounded-xl border border-edge bg-panel-2 text-muted transition-colors hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton disabled:cursor-not-allowed disabled:opacity-50"
@@ -298,17 +423,17 @@ export default function Composer({ send, locked }: { send: SendMutation; locked:
           maxLength={MAX_MESSAGE_LENGTH}
           rows={1}
           placeholder="Сообщение…"
-          disabled={send.isPending}
+          disabled={busy}
           className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-xl border border-edge bg-panel-2 px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-ton focus:outline-none disabled:opacity-50"
         />
-        <Button type="submit" loading={send.isPending} disabled={!canSend} className="h-11 shrink-0 px-4">
+        <Button type="submit" loading={busy} disabled={!canSend} className="h-11 shrink-0 px-4">
           {/* While an upload blocks send, hint why with the upload glyph. */}
           {uploading ? <FileUp size={16} strokeWidth={2} /> : <Send size={16} strokeWidth={2} />}
         </Button>
       </div>
 
       {pickerOpen ? (
-        <DiskFilePicker onSelect={pickFromDisk} onClose={() => setPickerOpen(false)} />
+        <DiskFilePicker onConfirm={pickFromDisk} onClose={() => setPickerOpen(false)} />
       ) : null}
     </form>
   );

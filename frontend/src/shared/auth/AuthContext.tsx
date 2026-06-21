@@ -96,9 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const register = useCallback(async (args: RegisterArgs): Promise<string> => {
-    const { refId, ...body } = args;
-    const path = refId != null ? `/auth/register?refId=${refId}` : '/auth/register';
-    const res = await api.post<{ recoveryKey: string }>(path, body);
+    // refId/ownerKey/role are BODY fields of RegisterRequest — the backend binds them
+    // from the JSON body, there is no @RequestParam. Sending refId as ?refId= silently
+    // dropped every referral: Spring had nowhere to bind the query param, so the invite
+    // registered as a walk-in. Pass the whole args as the body; JSON.stringify omits the
+    // undefined optionals, so a plain sign-up still sends just {username,displayName,password}.
+    const res = await api.post<{ recoveryKey: string }>('/auth/register', args);
     return res.recoveryKey;
   }, []);
 

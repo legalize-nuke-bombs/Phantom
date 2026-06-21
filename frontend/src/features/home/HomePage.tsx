@@ -20,6 +20,7 @@ import type {
   GameHistoryEntry,
 } from '@/shared/types';
 import LotteryStatusCard from '@/features/lottery/LotteryStatusCard';
+import ChatPlatformCard from '@/features/communication/ChatPlatformCard';
 import PlatformCloudCard from '@/features/disk/PlatformCloudCard';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
@@ -294,6 +295,7 @@ export default function HomePage() {
       <PlatformStats />
       <GamesGrid />
       <LotteryStatusCard />
+      <ChatPlatformCard />
       <PlatformCloudCard />
       <RecentGames />
     </div>

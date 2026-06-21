@@ -26,6 +26,7 @@ import { api } from '@/shared/api/client';
 import { sfx } from '@/shared/lib/sound';
 import { mergeIncomingMessage, removeMessageFromCache } from '@/shared/chat/chatCache';
 import { bucketFor, putNotifications, removeNotifications, orphanChatNotificationIds, allIds, ensureOwner, clearStore } from './store';
+import { isConsumedByActiveView } from './activeViews';
 import type { ChatMessage, NotificationEnvelope } from './types';
 
 type RealtimeStatus = 'idle' | 'connecting' | 'connected';
@@ -89,6 +90,20 @@ async function drainUnread(): Promise<{ items: NotificationEnvelope[]; complete:
 async function fetchWsToken(): Promise<string> {
   const { token } = await api.get<{ token: string }>('/jwt');
   return token;
+}
+
+/** 'chat:1' — the global chat bucket; the one chat stream that never makes a sound. */
+const GLOBAL_CHAT_BUCKET = 'chat:1';
+
+/**
+ * Does a freshly-STORED notification make a sound? Everything chimes EXCEPT the global chat
+ * (it can run at hundreds of messages a minute) and the silent owner feed (owner financial
+ * events live under "Владелец" and are read on entry). Personal + group chats, new-chat
+ * invites, gifts and misc account events all chime. Consumed events never reach here.
+ */
+function isAudible(env: NotificationEnvelope): boolean {
+  const bucket = bucketFor(env);
+  return bucket !== 'owner' && bucket !== GLOBAL_CHAT_BUCKET;
 }
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
@@ -161,49 +176,70 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       void dispatchLive(env);
     };
 
-    // A LIVE frame: record it in the store (unread, dedup by id) then run any type-specific
-    // side effect. Drained-backlog notifications skip this — they only populate the store
-    // (no re-toasting / no recursive resync).
+    // A LIVE frame. Three decisions, in order:
+    //   1. side effects that must run no matter what (merge a message into its chat cache so it
+    //      shows live; resync + refresh the list on a topology change),
+    //   2. consume-vs-store (recordOrConsume): if a mounted view is showing the surface that
+    //      reads this exact event, retire it server-side NOW and don't store it (no badge, no
+    //      flicker); otherwise store it,
+    //   3. sound: decided inside recordOrConsume — chime only for a STORED event in an audible
+    //      stream (everything except the global chat and the silent owner feed).
+    // Drained-backlog notifications skip all this — they only populate the store.
     async function dispatchLive(env: NotificationEnvelope) {
       if (env.type === 'MESSAGE_DELETED') {
         removeMessageFromCache(queryClient, env.payload as ChatMessage);
         return;
       }
+
       if (env.type === 'MESSAGE_RECEIVED') {
         const msg = env.payload as ChatMessage;
-        // Show it live regardless of author, but stay SILENT — a chiming global chat is a
-        // nuisance.
-        mergeIncomingMessage(queryClient, msg);
-        // Our OWN message, echoed back because we're connected on another device too: never
-        // badge it. Retire the signal server-side and don't store it — otherwise the chat
-        // badge flickers on every message we send (and lingers cross-device).
+        mergeIncomingMessage(queryClient, msg); // show it live regardless of author / where we are
+        // Our OWN message, echoed because we're connected on another device too: never badge or
+        // chime it — retire it server-side and don't store it.
         if (msg.user.id === userId) {
           void api.post('/notifications/read', { ids: [env.id] });
           return;
         }
-        putNotifications([env]); // someone else's → badge the chat:<id> bucket
+        await recordOrConsume(env);
         return;
       }
-      // NEW_CHAT: a topology change handled like a chat signal — badge the new chat's
-      // bucket SILENTLY (mirrors MESSAGE_RECEIVED, so the "Чаты" aggregate ticks),
-      // re-subscribe to its topic, and refresh the (uncached) chats list. No chime, never
-      // the misc inbox.
+
       if (env.type === 'NEW_CHAT') {
-        putNotifications([env]); // bucketFor → chat:<newChatId>
+        // A topology change: record-or-consume it (the chats LIST consumes NEW_CHAT — see
+        // ChatsPage), then (re)subscribe to the new topic and refresh the (uncached) list.
+        await recordOrConsume(env);
         void runResync();
         void queryClient.invalidateQueries({ queryKey: ['chats'] });
         return;
       }
 
-      // Everything else is stored; it chimes UNLESS it routes to the quiet owner stream
-      // (owner ops live under "Владелец" and are read on entry there, never chiming).
-      putNotifications([env]); // routes into the gift / owner / misc bucket
-      if (bucketFor(env) !== 'owner') sfx.notify();
+      await recordOrConsume(env); // gift / owner / misc / role → its bucket
       if (env.type === 'PRESENT_RECEIVED') {
         void queryClient.invalidateQueries({ queryKey: ['presents'] });
       } else if (env.type === 'ROLE_CLAIMED') {
         void runResync(); // our capabilities changed → re-subscribe + re-evaluate access
       }
+    }
+
+    // Store the envelope and maybe chime — UNLESS a mounted view is already showing the surface
+    // that reads it (isConsumedByActiveView), in which case mark it read on the server and skip
+    // the store (no badge, no flicker) AND skip the sound (no nudge to something you're looking
+    // at). Being on a page is NOT enough — the predicate matches the exact event a view consumes
+    // (e.g. the chats list consumes NEW_CHAT but not incoming messages). The chime fires only for
+    // a stored event in an audible stream.
+    async function recordOrConsume(env: NotificationEnvelope) {
+      if (isConsumedByActiveView(env)) {
+        try {
+          await api.post('/notifications/read', { ids: [env.id] });
+          return;
+        } catch (e) {
+          // Couldn't retire it server-side — fall back to storing it so the signal isn't lost;
+          // the next resync reconciles against the server truth anyway.
+          console.warn('[realtime] mark-read-on-sight failed; storing instead', e);
+        }
+      }
+      putNotifications([env]);
+      if (isAudible(env)) sfx.notify();
     }
 
     async function runResync() {
