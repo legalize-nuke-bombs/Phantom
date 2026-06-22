@@ -133,7 +133,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       brokerURL,
       // Near-instant first retry so an eviction-kick recovers fast, but back off
       // exponentially (cap 10s) if the server is genuinely down — no hammering.
-      reconnectDelay: 200,
+      reconnectDelay: 0,
       maxReconnectDelay: 10000,
       reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
       heartbeatIncoming: 10000,
