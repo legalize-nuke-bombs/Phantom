@@ -132,10 +132,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const client = new Client({
       brokerURL,
       // Fast first retry so an eviction-kick recovers quickly, then exponential
-      // backoff (200ms → ×2 → cap 10s) if the server is genuinely down — no hammering.
+      // backoff (100ms → ×2 → cap 10s) if the server is genuinely down — no hammering.
       // NB: stompjs treats reconnectDelay:0 as "reconnection DISABLED" (and 0×2 stays 0),
       // so the base MUST be > 0 or EXPONENTIAL/maxReconnectDelay never fire at all.
-      reconnectDelay: 200,
+      reconnectDelay: 100,
       maxReconnectDelay: 10000,
       reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
       heartbeatIncoming: 10000,
