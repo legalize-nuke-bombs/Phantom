@@ -190,6 +190,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     async function dispatchLive(env: NotificationEnvelope) {
       if (env.type === 'MESSAGE_DELETED') {
         removeMessageFromCache(queryClient, env.payload as ChatMessage);
+        // A pure cache-remove signal with no lasting value, never bucketed. Retire it
+        // server-side at once — otherwise it sits unread forever (until the backend's
+        // retention sweep) and every resync re-drains the whole growing pile. Fire-and-forget.
+        void api.post('/notifications/read', { ids: [env.id] });
         return;
       }
 
@@ -297,6 +301,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       // Drain the authoritative unread set → buckets (putNotifications routes gift/chat/owner/misc).
       const { items, complete } = await drainUnread();
       putNotifications(items);
+
+      // MESSAGE_DELETED is a transient cache-remove signal, never bucketed — so any that piled up
+      // while we were away would otherwise stay unread and re-drain on every reconnect. Retire them
+      // server-side now (the live path does the same on arrival); each drain shrinks the backlog.
+      const staleDeletedIds = items.filter((n) => n.type === 'MESSAGE_DELETED').map((n) => n.id);
+      if (staleDeletedIds.length > 0 && !cancelled) {
+        void api.post('/notifications/read', { ids: staleDeletedIds });
+      }
 
       // A role change usually arrives while we were briefly disconnected (the access change
       // kicks the socket), so it lands in this drain rather than live dispatch. Chime ONCE
