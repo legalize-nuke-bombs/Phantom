@@ -2,23 +2,16 @@ package com.example.phantom.notification.topic;
 
 import jakarta.persistence.PreRemove;
 import jakarta.persistence.PreUpdate;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 @Component
 public class TopicMemberEventListener {
 
-    private static ApplicationEventPublisher applicationEventPublisher;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
-    // IMPORTANT: constructor for Hibernate, NO SPRING BEAN
-    public TopicMemberEventListener() {
-    }
-
-
-    @Autowired
-    public void init(ApplicationEventPublisher applicationEventPublisher) {
-         TopicMemberEventListener.applicationEventPublisher = applicationEventPublisher;
+    public TopicMemberEventListener(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @PreRemove

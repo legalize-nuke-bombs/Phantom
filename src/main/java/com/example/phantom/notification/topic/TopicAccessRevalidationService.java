@@ -5,8 +5,9 @@ import com.example.phantom.notification.WebSocketSessionManager;
 import com.example.phantom.user.UserPreRemoveEvent;
 import com.example.phantom.user.UserPreUpdateEvent;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Service
 @Slf4j
@@ -24,32 +25,32 @@ public class TopicAccessRevalidationService {
     }
 
 
-    @EventListener(TopicMemberPreRemoveEvent.class)
-    public void beforeDelete(TopicMemberPreRemoveEvent event) {
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onTopicMemberRemoved(TopicMemberPreRemoveEvent event) {
         Long userId = event.topicMember().getUser().getId();
-        log.info("revalidation on topic member pre remove user {}", userId);
+        log.info("revalidation on topic member remove, user {}", userId);
         revalidate(userId);
     }
 
-    @EventListener(TopicMemberPreUpdateEvent.class)
-    public void beforeUpdate(TopicMemberPreUpdateEvent event) {
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onTopicMemberUpdated(TopicMemberPreUpdateEvent event) {
         Long userId = event.topicMember().getUser().getId();
-        log.info("revalidation on topic member pre update user {}", userId);
+        log.info("revalidation on topic member update, user {}", userId);
         revalidate(userId);
     }
 
 
-    @EventListener(UserPreUpdateEvent.class)
-    public void beforeUpdate(UserPreUpdateEvent event) {
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onUserUpdated(UserPreUpdateEvent event) {
         Long userId = event.user().getId();
-        log.info("revalidation on user pre update user {}", userId);
+        log.info("revalidation on user update, user {}", userId);
         revalidate(userId);
     }
 
-    @EventListener(UserPreRemoveEvent.class)
-    public void beforeDelete(UserPreRemoveEvent event) {
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onUserRemoved(UserPreRemoveEvent event) {
         Long userId = event.user().getId();
-        log.info("revalidation on user pre remove user {}", userId);
+        log.info("revalidation on user remove, user {}", userId);
         revalidate(userId);
     }
 }
