@@ -21,7 +21,7 @@ public class DiskFSService {
 
     public DiskFSService(@Value("${disk.root}") @NotNull String root) {
         this.root = root;
-        log.info("initialization root {}", this.root);
+        log.info("initialization, disk root {}", this.root);
     }
 
     public static class DiskFSServiceException extends Exception {

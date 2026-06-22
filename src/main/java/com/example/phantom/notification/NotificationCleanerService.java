@@ -28,7 +28,7 @@ public class NotificationCleanerService {
 
     @Scheduled(fixedDelay = 8L * 3600 * 1000)
     public void removeExpired() {
-        log.info("remove expired: started");
+        log.info("expired notification cleaner started");
         Long threshold = Instant.now().minusSeconds(24L * 3600 * maxDurationD).getEpochSecond();
         List<Notification> buffer;
         long deleted = 0, failed = 0;
@@ -50,26 +50,25 @@ public class NotificationCleanerService {
                 }
             }
             if (deletedLocal == 0) {
-                log.info("remove expired: {} deleted, {} failed", deleted, failed);
+                log.info("expired notification cleaner finished: {} deleted, {} failed", deleted, failed);
                 break;
             }
             deleted += deletedLocal;
         }
     }
 
-    @Scheduled(fixedDelay = 10L * 60 * 1000)
+    @Scheduled(fixedDelay = 60 * 1000)
     public void maintainLimit() {
         long count = notificationRepository.count();
-        log.info("maintain limit: found {} notifications", count);
+        log.info("notification limit maintainer started: found {} notifications", count);
 
         if (count >= maxHistory) {
             List<Notification> oldest = notificationRepository.findOldest(PageRequest.of(0, (int)(count / 2)));
-            log.info("maintain limit: {} notifications will be deleted", oldest.size());
             notificationRepository.deleteAll(oldest);
-            log.info("maintain limit: done");
+            log.info("notification limit maintainer finished: {} notifications deleted", oldest.size());
         }
         else {
-            log.info("maintain limit: skipped");
+            log.info("notification limit maintainer skipped");
         }
     }
 }

@@ -30,10 +30,10 @@ public class DiskCleanerService {
 
     @Scheduled(fixedDelay = 8L * 3600 * 1000)
     public void clean() {
-        log.info("starting cleaning...");
+        log.info("starting disk cleaning...");
         Path rootPath = Path.of(root);
         if (!Files.isDirectory(rootPath)) {
-            log.info("cleaning stopped: disk root does not exist");
+            log.info("disk cleaning stopped: disk root does not exist");
             return;
         }
 
@@ -47,7 +47,7 @@ public class DiskCleanerService {
                     id = UUID.fromString(path.getFileName().toString());
                 }
                 catch (IllegalArgumentException e) {
-                    log.warn("cleaning found invalid path: {}", path);
+                    log.warn("disk cleaning found invalid path: {}", path);
                     return;
                 }
                 if (!fileRepository.existsById(id)) {
@@ -56,16 +56,16 @@ public class DiskCleanerService {
                         removed.incrementAndGet();
                     }
                     catch (IOException e) {
-                        log.warn("cleaning could not delete {}", path);
+                        log.warn("disk cleaning could not delete {}", path);
                     }
                 }
             });
         }
         catch (IOException e) {
-            log.error("cleaning failed", e);
+            log.error("disk cleaning failed", e);
             return;
         }
 
-        log.info("cleaning finished, removed {} / {} files", removed.get(), total.get());
+        log.info("disk cleaning finished, removed {} / {} files", removed.get(), total.get());
     }
 }

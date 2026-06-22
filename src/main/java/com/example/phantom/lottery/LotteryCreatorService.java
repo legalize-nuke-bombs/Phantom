@@ -42,7 +42,7 @@ public class LotteryCreatorService {
         this.timestampEnd = timestampEnd;
         this.timestampBlock = timestampBlock;
         this.timestampNotificationEnding = timestampNotificationEnding;
-        log.info("initialization ticketCost {} timestampEnd {} timestampBlock {} timestampNotificationEnding {}", ticketCost, timestampEnd, timestampBlock, timestampNotificationEnding);
+        log.info("initialization, ticketCost {} timestampEnd {} timestampBlock {} timestampNotificationEnding {}", ticketCost, timestampEnd, timestampBlock, timestampNotificationEnding);
     }
 
     @Transactional

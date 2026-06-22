@@ -29,37 +29,74 @@ public class RateLimitService {
     private final static long CLEAN_DELAY_SEC = 8L * 3600;
 
     public RateLimitService(LevelFeatureService levelFeatureService,
-                            @Value("${file.shortenedLimits}") @NotNull Boolean fileShortenedLimits,
-                            @Value("${chat.messages-per-hour}") @NotNull Long messagesPerHour,
-                            @Value("${chat.chats-per-8-hours}") @NotNull Long chatsPer8Hours,
-                            @Value("${chat.invites-per-8-hours}") @NotNull Long chatInvitesPer8Hours) {
-        log.info("initialization, file shortened limits {} messages per hour {} chats per 8 hours {} chat invites per 8 hours {}", fileShortenedLimits, messagesPerHour, chatsPer8Hours, chatInvitesPer8Hours);
+
+                            @Value("${rate.pagination.tokens}") @NotNull Long paginationTokens,
+                            @Value("${rate.pagination.seconds}") @NotNull Long paginationSeconds,
+
+                            @Value("${rate.crypto.tokens}") @NotNull Long cryptoTokens,
+                            @Value("${rate.crypto.seconds}") @NotNull Long cryptoSeconds,
+
+                            @Value("${rate.lottery.tokens}") @NotNull Long lotteryTokens,
+                            @Value("${rate.lottery.seconds}") @NotNull Long lotterySeconds,
+
+                            @Value("${rate.send-message.tokens}") @NotNull Long sendMessageTokens,
+                            @Value("${rate.send-message.seconds}") @NotNull Long sendMessageSeconds,
+
+                            @Value("${rate.create-chat.tokens}") @NotNull Long createChatTokens,
+                            @Value("${rate.create-chat.seconds}") @NotNull Long createChatSeconds,
+
+                            @Value("${rate.invite-to-chat.tokens}") @NotNull Long inviteToChatTokens,
+                            @Value("${rate.invite-to-chat.seconds}") @NotNull Long inviteToChatSeconds,
+
+                            @Value("${rate.send-present.tokens}") @NotNull Long sendPresentTokens,
+                            @Value("${rate.send-present.seconds}") @NotNull Long sendPresentSeconds,
+
+                            @Value("${rate.download.null.tokens}") @NotNull Long downloadNullTokens,
+                            @Value("${rate.download.null.seconds}") @NotNull Long downloadNullSeconds,
+
+                            @Value("${rate.upload.disk-base.tokens}") @NotNull Long uploadDiskBaseTokens,
+                            @Value("${rate.upload.disk-base.seconds}") @NotNull Long uploadDiskBaseSeconds,
+                            @Value("${rate.download.disk-base.tokens}") @NotNull Long downloadDiskBaseTokens,
+                            @Value("${rate.download.disk-base.seconds}") @NotNull Long downloadDiskBaseSeconds,
+                            @Value("${rate.image-compress.disk-base.tokens}") @NotNull Long imageCompressDiskBaseTokens,
+                            @Value("${rate.image-compress.disk-base.seconds}") @NotNull Long imageCompressDiskBaseSeconds,
+
+                            @Value("${rate.upload.disk-base.tokens}") @NotNull Long uploadDiskPlusTokens,
+                            @Value("${rate.upload.disk-base.seconds}") @NotNull Long uploadDiskPlusSeconds,
+                            @Value("${rate.download.disk-base.tokens}") @NotNull Long downloadDiskPlusTokens,
+                            @Value("${rate.download.disk-base.seconds}") @NotNull Long downloadDiskPlusSeconds,
+                            @Value("${rate.image-compress.disk-base.tokens}") @NotNull Long imageCompressDiskPlusTokens,
+                            @Value("${rate.image-compress.disk-base.seconds}") @NotNull Long imageCompressDiskPlusSeconds
+
+                            ) {
+        log.info("initialization...");
 
         this.levelFeatureService = levelFeatureService;
 
         this.rules = new ConcurrentHashMap<>();
         this.states = new ConcurrentHashMap<>();
 
-        this.registerRule(RateLimitAction.PAGINATION, null, new RateLimitRule(40L * 100, 60L));
-        this.registerRule(RateLimitAction.CRYPTO, null, new RateLimitRule(20L, 60L));
-        this.registerRule(RateLimitAction.LOTTERY, null, new RateLimitRule(20L, 60L));
-        this.registerRule(RateLimitAction.SEND_MESSAGE, LevelFeature.SEND_MESSAGE, new RateLimitRule(messagesPerHour, 1L * 3600));
-        this.registerRule(RateLimitAction.CREATE_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(chatsPer8Hours, 8L * 3600));
-        this.registerRule(RateLimitAction.INVITE_TO_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(chatInvitesPer8Hours, 8L * 3600));
-        this.registerRule(RateLimitAction.SEND_PRESENT, LevelFeature.SEND_PRESENT, new RateLimitRule(1000L, 1L * 3600));
+        this.registerRule(RateLimitAction.PAGINATION, null, new RateLimitRule(paginationTokens, paginationSeconds));
+        this.registerRule(RateLimitAction.CRYPTO, null, new RateLimitRule(cryptoTokens, cryptoSeconds));
+        this.registerRule(RateLimitAction.LOTTERY, null, new RateLimitRule(lotteryTokens, lotterySeconds));
+        this.registerRule(RateLimitAction.SEND_MESSAGE, LevelFeature.SEND_MESSAGE, new RateLimitRule(sendMessageTokens, sendMessageSeconds));
+        this.registerRule(RateLimitAction.CREATE_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(createChatTokens, createChatSeconds));
+        this.registerRule(RateLimitAction.INVITE_TO_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(inviteToChatTokens, inviteToChatSeconds));
+        this.registerRule(RateLimitAction.SEND_PRESENT, LevelFeature.SEND_PRESENT, new RateLimitRule(sendPresentTokens, sendPresentSeconds));
 
-        this.registerRule(RateLimitAction.DOWNLOAD, null, new RateLimitRule(200L * 1024 * 1024, 8L * 3600));
+        this.registerRule(RateLimitAction.DOWNLOAD, null, new RateLimitRule(downloadNullTokens, downloadNullSeconds));
 
-        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_BASE, new RateLimitRule(getFileTokens(2L * 1024 * 1024 * 1024, fileShortenedLimits), 8L * 3600));
-        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_BASE, new RateLimitRule(getFileTokens(4L * 1024 * 1024 * 1024, fileShortenedLimits), 8L * 3600));
-        this.registerRule(RateLimitAction.IMAGE_COMPRESS, LevelFeature.DISK_BASE, new RateLimitRule(100L * 7000 * 7000, 8L * 3600));
+        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_BASE, new RateLimitRule(uploadDiskBaseTokens, uploadDiskBaseSeconds));
+        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_BASE, new RateLimitRule(downloadDiskBaseTokens, downloadDiskBaseSeconds));
+        this.registerRule(RateLimitAction.IMAGE_COMPRESS, LevelFeature.DISK_BASE, new RateLimitRule(imageCompressDiskBaseTokens, imageCompressDiskBaseSeconds));
 
-        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(getFileTokens(20L * 1024 * 1024 * 1024, fileShortenedLimits), 8L * 3600));
-        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(getFileTokens(40L * 1024 * 1024 * 1024, fileShortenedLimits), 8L * 3600));
-        this.registerRule(RateLimitAction.IMAGE_COMPRESS, LevelFeature.DISK_PLUS, new RateLimitRule(1000L * 7000 * 7000, 8L * 3600));
+        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(uploadDiskPlusTokens, uploadDiskPlusSeconds));
+        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(downloadDiskPlusTokens, downloadDiskPlusSeconds));
+        this.registerRule(RateLimitAction.IMAGE_COMPRESS, LevelFeature.DISK_PLUS, new RateLimitRule(imageCompressDiskPlusTokens, imageCompressDiskPlusSeconds));
     }
 
     public void registerRule(RateLimitAction action, LevelFeature requiredFeature, RateLimitRule rule) {
+        log.info("registering rule action {} requiredFeature {} tokens {} seconds {}...", action, requiredFeature, rule.getTokens(), rule.getSeconds());
         if (rule.getSeconds() > CLEAN_DELAY_SEC) {
             throw new IllegalArgumentException("window is too big, max = " + CLEAN_DELAY_SEC);
         }
@@ -140,12 +177,12 @@ public class RateLimitService {
     }
 
     @Scheduled(fixedDelay = CLEAN_DELAY_SEC * 1000)
-    public void cleanExpired() {
-        log.info("cleaning expired started...");
+    public void clean() {
+        log.info("rate limit cleaner started...");
         long now = Instant.now().getEpochSecond();
         states.values().forEach(userStates -> userStates.values().removeIf(state -> now - state.getTimestamp() > CLEAN_DELAY_SEC));
         states.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-        log.info("cleaning expired done");
+        log.info("rate limit cleaner finished");
     }
 
     private RateLimitRule resolveRule(Map<LevelFeature, RateLimitRule> actionRules, Set<LevelFeature> features) {
@@ -162,12 +199,5 @@ public class RateLimitService {
         }
 
         return best;
-    }
-
-    private Long getFileTokens(Long base, Boolean fileShortenedLimits) {
-        if (fileShortenedLimits) {
-            return base / 20;
-        }
-        return base;
     }
 }

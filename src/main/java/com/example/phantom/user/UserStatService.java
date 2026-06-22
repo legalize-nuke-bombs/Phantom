@@ -1,5 +1,6 @@
 package com.example.phantom.user;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -7,6 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 @Service
+@Slf4j
 public class UserStatService {
 
     private final UserRepository userRepository;
@@ -21,8 +23,9 @@ public class UserStatService {
         return cache;
     }
 
-    @Scheduled(fixedDelay = 10 * 1000)
+    @Scheduled(fixedDelay = 60 * 1000)
     public void updateCache() {
+        log.info("updating user platform stat cache");
         long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
         cache = new UserStatRepresentation(
                 userRepository.countAll(),

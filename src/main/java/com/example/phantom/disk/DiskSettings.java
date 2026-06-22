@@ -13,30 +13,19 @@ public class DiskSettings {
     private final DiskQuota baseRule;
     private final DiskQuota plusRule;
 
-    public DiskSettings(@Value("${file.shortenedLimits}") @NotNull Boolean fileShortenedLimits) {
-        this.baseRule = buildQuota(
-                1L * 1024 * 1024 * 1024,
-                10000L,
-                fileShortenedLimits
+    public DiskSettings(
+            @Value("${disk.usage.base.size-mb}") @NotNull Long baseSizeMb,
+            @Value("${disk.usage.base.files}") @NotNull Long baseFiles,
+            @Value("${disk.usage.plus.size-mb}") @NotNull Long plusSizeMb,
+            @Value("${disk.usage.plus.files}") @NotNull Long plusFiles) {
+        baseRule = new DiskQuota(
+                baseSizeMb * 1024 * 1024,
+                baseFiles
         );
-        this.plusRule = buildQuota(
-                10L * 1024 * 1024 * 1024,
-                100000L,
-                fileShortenedLimits
+        plusRule = new DiskQuota(
+                plusSizeMb * 1024 * 1024,
+                plusFiles
         );
-        log.info("initialization, file shortened limits {}", fileShortenedLimits);
-    }
-
-    private DiskQuota buildQuota(Long size, Long files, Boolean fileShortenedLimits) {
-        if (fileShortenedLimits) {
-            return new DiskQuota(
-                    size / 20,
-                    files / 20
-            );
-        }
-        return new DiskQuota(
-                size,
-                files
-        );
+        log.info("initialization, base: size {} files {}, plus: size {} files {}", baseRule.getSize(), baseRule.getFiles(), plusRule.getSize(), plusRule.getFiles());
     }
 }

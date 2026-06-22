@@ -2,10 +2,12 @@ package com.example.phantom.chat.stat;
 
 import com.example.phantom.chat.chat.ChatRepository;
 import com.example.phantom.chat.message.MessageRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 public class ChatPlatformStatService {
 
     private final ChatRepository chatRepository;
@@ -22,8 +24,9 @@ public class ChatPlatformStatService {
         return cache;
     }
 
-    @Scheduled(fixedDelay = 10 * 1000)
+    @Scheduled(fixedDelay = 60 * 1000)
     public void updateCache() {
+        log.info("updating chat platform stat cache");
         cache = new ChatPlatformStatRepresentation(
                 chatRepository.count(),
                 messageRepository.count()

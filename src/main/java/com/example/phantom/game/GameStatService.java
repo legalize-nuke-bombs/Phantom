@@ -5,6 +5,7 @@ import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.user.PrivacySettingService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 @Service
+@Slf4j
 public class GameStatService {
 
     private final UserRepository userRepository;
@@ -41,8 +43,9 @@ public class GameStatService {
         return platformCache;
     }
 
-    @Scheduled(fixedDelay = 10 * 1000)
+    @Scheduled(fixedDelay = 60 * 1000)
     public void updatePlatformCache() {
+        log.info("updating game stat platform cache");
         long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
         platformCache = new PlatformGameStatRepresentation(
                 gameRepository.countCompleted(),
