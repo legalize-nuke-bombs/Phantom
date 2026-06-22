@@ -7,6 +7,7 @@ import com.example.phantom.finance.FinanceConstants;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iwebpp.crypto.TweetNaclFast;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -39,10 +40,6 @@ public class TonCoinProvider implements CoinProvider {
 
     private static final BigDecimal NANOTON = new BigDecimal("1000000000");
     private static final long WALLET_ID_V5 = 2147483409L;
-    private static final BigDecimal WITHDRAWAL_MIN_AMOUNT = new BigDecimal("1");
-    private static final BigDecimal WITHDRAWAL_USER_EDGE = new BigDecimal("0.99");
-    private static final BigDecimal MIN_SWEEP_AMOUNT = new BigDecimal("0.1");
-    private static final long VALIDATION_DURATION = 8 * 3600;
     private static final int EXIT_CODE_OK = 0;
     private static final int EXIT_CODE_UNINITIALIZED = -13;
 
@@ -50,16 +47,44 @@ public class TonCoinProvider implements CoinProvider {
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
 
     private final RestClient client;
-    private final ObjectMapper mapper = new ObjectMapper();
     private final boolean testnet;
+    private final BigDecimal withdrawalMinAmount;
+    private final BigDecimal withdrawalUserEdge;
+    private final BigDecimal minSweepAmount;
+    private final Long validationDurationS;
+    private final ObjectMapper mapper = new ObjectMapper();
     private final CryptoExchangeRateService exchangeRateService;
 
     public TonCoinProvider(
-            @Value("${ton.api.key}") String apiKey,
-            @Value("${ton.testnet}") boolean testnet,
+            @Value("${ton.api.key}") @NotNull String apiKey,
+            @Value("${ton.testnet}") @NotNull boolean testnet,
+            @Value("${ton.withdrawal-min-amount}") @NotNull BigDecimal withdrawalMinAmount,
+            @Value("${ton.withdrawal-user-edge}") @NotNull BigDecimal withdrawalUserEdge,
+            @Value("${ton.min-sweep-amount}") @NotNull BigDecimal minSweepAmount,
+            @Value("${ton.validation-duration-s}") @NotNull Long validationDurationS,
             CryptoExchangeRateService exchangeRateService) {
+
+        if (withdrawalMinAmount.compareTo(new BigDecimal("0.01")) < 0) {
+            throw new IllegalArgumentException("specified withdrawal min amount is unsafe");
+        }
+        if (withdrawalUserEdge.compareTo(BigDecimal.ONE) > 0 || withdrawalUserEdge.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("specified withdrawal user edge is malformed");
+        }
+        if (minSweepAmount.compareTo(new BigDecimal("0.01")) < 0) {
+            throw new IllegalArgumentException("specified min sweep amount is unsafe");
+        }
+        if (validationDurationS <= 10 * 60) {
+            throw new IllegalArgumentException("specified validation duration seconds is unsafe");
+        }
+
         this.testnet = testnet;
+        this.withdrawalMinAmount = withdrawalMinAmount;
+        this.withdrawalUserEdge = withdrawalUserEdge;
+        this.minSweepAmount = minSweepAmount;
+        this.validationDurationS = validationDurationS;
         this.exchangeRateService = exchangeRateService;
+
+        log.info("initialization, api key length {} test-net {} withdrawalMinAmount {} withdrawalUserEdge {} minSweepAmount {} validationDurationS {}", apiKey.length(), this.testnet, this.withdrawalMinAmount, this.withdrawalUserEdge, this.minSweepAmount, this.validationDurationS);
 
         String baseUrl = testnet
                 ? "https://testnet.toncenter.com"
@@ -182,7 +207,7 @@ public class TonCoinProvider implements CoinProvider {
             throw new CryptoException("failed to check transfer status");
         }
 
-        if (Instant.now().getEpochSecond() > sendTimestamp + VALIDATION_DURATION) {
+        if (Instant.now().getEpochSecond() > sendTimestamp + validationDurationS) {
             log.warn("status for {}: rejected (timed out)", hash);
             return TransferStatus.REJECTED;
         }
@@ -255,18 +280,17 @@ public class TonCoinProvider implements CoinProvider {
     }
 
     @Override
-    public BigDecimal getWithdrawalMinAmount() { return WITHDRAWAL_MIN_AMOUNT; }
+    public BigDecimal getWithdrawalMinAmount() { return withdrawalMinAmount; }
 
     @Override
     public BigDecimal getWithdrawalUserEdge() {
-        return WITHDRAWAL_USER_EDGE;
+        return withdrawalUserEdge;
     }
 
     @Override
     public BigDecimal getMinSweepAmount() {
-        return MIN_SWEEP_AMOUNT;
+        return minSweepAmount;
     }
-
 
     private record RawTransfer(String txHash, BigDecimal amountTon) {}
 

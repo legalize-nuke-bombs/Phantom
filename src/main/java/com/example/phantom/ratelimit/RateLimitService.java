@@ -4,7 +4,9 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.LevelFeature;
 import com.example.phantom.experience.LevelFeatureService;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +28,13 @@ public class RateLimitService {
 
     private final static long CLEAN_DELAY_SEC = 8L * 3600;
 
-    public RateLimitService(LevelFeatureService levelFeatureService) {
+    public RateLimitService(LevelFeatureService levelFeatureService,
+                            @Value("${file.shortenedLimits}") @NotNull Boolean fileShortenedLimits,
+                            @Value("${chat.messages-per-hour}") @NotNull Long messagesPerHour,
+                            @Value("${chat.chats-per-8-hours}") @NotNull Long chatsPer8Hours,
+                            @Value("${chat.invites-per-8-hours}") @NotNull Long chatInvitesPer8Hours) {
+        log.info("initialization, file shortened limits {} messages per hour {} chats per 8 hours {} chat invites per 8 hours {}", fileShortenedLimits, messagesPerHour, chatsPer8Hours, chatInvitesPer8Hours);
+
         this.levelFeatureService = levelFeatureService;
 
         this.rules = new ConcurrentHashMap<>();
@@ -35,19 +43,19 @@ public class RateLimitService {
         this.registerRule(RateLimitAction.PAGINATION, null, new RateLimitRule(40L * 100, 60L));
         this.registerRule(RateLimitAction.CRYPTO, null, new RateLimitRule(20L, 60L));
         this.registerRule(RateLimitAction.LOTTERY, null, new RateLimitRule(20L, 60L));
-        this.registerRule(RateLimitAction.SEND_MESSAGE, LevelFeature.SEND_MESSAGE, new RateLimitRule(1000L, 1L * 3600));
-        this.registerRule(RateLimitAction.CREATE_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(25L, 8L * 3600));
-        this.registerRule(RateLimitAction.INVITE_TO_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(100L, 8L * 3600));
+        this.registerRule(RateLimitAction.SEND_MESSAGE, LevelFeature.SEND_MESSAGE, new RateLimitRule(messagesPerHour, 1L * 3600));
+        this.registerRule(RateLimitAction.CREATE_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(chatsPer8Hours, 8L * 3600));
+        this.registerRule(RateLimitAction.INVITE_TO_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(chatInvitesPer8Hours, 8L * 3600));
         this.registerRule(RateLimitAction.SEND_PRESENT, LevelFeature.SEND_PRESENT, new RateLimitRule(1000L, 1L * 3600));
 
         this.registerRule(RateLimitAction.DOWNLOAD, null, new RateLimitRule(200L * 1024 * 1024, 8L * 3600));
 
-        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_BASE, new RateLimitRule(2L * 1024 * 1024 * 1024, 8L * 3600));
-        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_BASE, new RateLimitRule(4L * 1024 * 1024 * 1024, 8L * 3600));
+        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_BASE, new RateLimitRule(getFileTokens(2L * 1024 * 1024 * 1024, fileShortenedLimits), 8L * 3600));
+        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_BASE, new RateLimitRule(getFileTokens(4L * 1024 * 1024 * 1024, fileShortenedLimits), 8L * 3600));
         this.registerRule(RateLimitAction.IMAGE_COMPRESS, LevelFeature.DISK_BASE, new RateLimitRule(100L * 7000 * 7000, 8L * 3600));
 
-        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(20L * 1024 * 1024 * 1024, 8L * 3600));
-        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(40L * 1024 * 1024 * 1024, 8L * 3600));
+        this.registerRule(RateLimitAction.UPLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(getFileTokens(20L * 1024 * 1024 * 1024, fileShortenedLimits), 8L * 3600));
+        this.registerRule(RateLimitAction.DOWNLOAD, LevelFeature.DISK_PLUS, new RateLimitRule(getFileTokens(40L * 1024 * 1024 * 1024, fileShortenedLimits), 8L * 3600));
         this.registerRule(RateLimitAction.IMAGE_COMPRESS, LevelFeature.DISK_PLUS, new RateLimitRule(1000L * 7000 * 7000, 8L * 3600));
     }
 
@@ -154,5 +162,12 @@ public class RateLimitService {
         }
 
         return best;
+    }
+
+    private Long getFileTokens(Long base, Boolean fileShortenedLimits) {
+        if (fileShortenedLimits) {
+            return base / 20;
+        }
+        return base;
     }
 }

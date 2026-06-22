@@ -10,7 +10,9 @@ import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,8 +36,9 @@ public class PersonalChatService {
     private final Random chatIdsGenerator;
     private final BanlistService banlistService;
     private final NotificationPublishService notificationPublishService;
+    private final Long maxMembers;
 
-    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BanlistService banlistService, NotificationPublishService notificationPublishService) {
+    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BanlistService banlistService, NotificationPublishService notificationPublishService, @Value("${chats.max-members}") @NotNull Long maxMembers) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
         this.topicRepository = topicRepository;
@@ -45,6 +48,8 @@ public class PersonalChatService {
         this.chatIdsGenerator = chatIdsGenerator;
         this.banlistService = banlistService;
         this.notificationPublishService = notificationPublishService;
+        this.maxMembers = maxMembers;
+        log.info("initialization, max members {}", maxMembers);
     }
 
     @Transactional
@@ -160,7 +165,7 @@ public class PersonalChatService {
             throw new ApiException(ErrorCode.CANT_SELF_ADD);
         }
 
-        if (topicMemberRepository.countByTopicId(chat.getTopic().getId()) >= PersonalChatConstants.MAX_MEMBERS) {
+        if (topicMemberRepository.countByTopicId(chat.getTopic().getId()) >= maxMembers) {
             throw new ApiException(ErrorCode.TOO_MANY_MEMBERS);
         }
 

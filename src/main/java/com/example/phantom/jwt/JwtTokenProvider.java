@@ -2,6 +2,7 @@ package com.example.phantom.jwt;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
@@ -10,6 +11,7 @@ import java.util.Date;
 import java.util.Optional;
 
 @Component
+@Slf4j
 public class JwtTokenProvider {
 
     private final SecretKey key;
@@ -18,6 +20,7 @@ public class JwtTokenProvider {
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.expiration-ms}") long expirationMs) {
+        log.info("initialization, jwt secret length {} expiration ms {}", secret.length(), expirationMs);
         this.key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(secret));
         this.expirationMs = expirationMs;
     }

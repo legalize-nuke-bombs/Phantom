@@ -1,6 +1,7 @@
 package com.example.phantom.disk.cleaner;
 
 import com.example.phantom.disk.FileRepository;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,11 +20,12 @@ public class DiskCleanerService {
 
     private final FileRepository fileRepository;
 
-    @Value("${disk.root}")
-    private String root;
+    private final String root;
 
-    public DiskCleanerService(FileRepository fileRepository) {
+    public DiskCleanerService(FileRepository fileRepository, @Value("${disk.root}") @NotNull String root) {
         this.fileRepository = fileRepository;
+        this.root = root;
+        log.info("initialization, disk root {}", this.root);
     }
 
     @Scheduled(fixedDelay = 8L * 3600 * 1000)
