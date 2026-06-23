@@ -61,12 +61,12 @@ public class RateLimitService {
                             @Value("${rate.image-compress.disk-base.tokens}") @NotNull Long imageCompressDiskBaseTokens,
                             @Value("${rate.image-compress.disk-base.seconds}") @NotNull Long imageCompressDiskBaseSeconds,
 
-                            @Value("${rate.upload.disk-base.tokens}") @NotNull Long uploadDiskPlusTokens,
-                            @Value("${rate.upload.disk-base.seconds}") @NotNull Long uploadDiskPlusSeconds,
-                            @Value("${rate.download.disk-base.tokens}") @NotNull Long downloadDiskPlusTokens,
-                            @Value("${rate.download.disk-base.seconds}") @NotNull Long downloadDiskPlusSeconds,
-                            @Value("${rate.image-compress.disk-base.tokens}") @NotNull Long imageCompressDiskPlusTokens,
-                            @Value("${rate.image-compress.disk-base.seconds}") @NotNull Long imageCompressDiskPlusSeconds
+                            @Value("${rate.upload.disk-plus.tokens}") @NotNull Long uploadDiskPlusTokens,
+                            @Value("${rate.upload.disk-plus.seconds}") @NotNull Long uploadDiskPlusSeconds,
+                            @Value("${rate.download.disk-plus.tokens}") @NotNull Long downloadDiskPlusTokens,
+                            @Value("${rate.download.disk-plus.seconds}") @NotNull Long downloadDiskPlusSeconds,
+                            @Value("${rate.image-compress.disk-plus.tokens}") @NotNull Long imageCompressDiskPlusTokens,
+                            @Value("${rate.image-compress.disk-plus.seconds}") @NotNull Long imageCompressDiskPlusSeconds
 
                             ) {
         log.info("initialization...");
