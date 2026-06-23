@@ -18,7 +18,7 @@ Java 17, Spring Boot 3.5, Spring Security, Spring Data JPA, Spring WebSocket, Hi
 CREATE DATABASE phantom;
 ```
 
-2. Set environment variables. For details see [application.properites](src/main/resources/application.properties).
+2. Set environment variables. For details see [application.properites](src/main/resources/application.properties)
 
 Cloudflare is blocked in some regions. In this case, set up a proxy:
 ```
