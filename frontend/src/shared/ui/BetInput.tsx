@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import clsx from 'clsx';
 import { formatUsd } from '@/shared/lib/money';
 import { useWallet } from '@/shared/lib/wallet';
+import { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 
 export interface BetInputProps {
   /** Raw input string (controlled). Parent stores exactly what the user typed. */
@@ -99,6 +100,8 @@ export default function BetInput({
           }}
           disabled={disabled}
           aria-label="Ставка"
+          autoComplete="off"
+          {...SUPPRESS_AUTOFILL}
           aria-invalid={shownError ? true : undefined}
           className={clsx(
             'min-w-0 flex-1 bg-transparent text-lg font-medium text-fg',

@@ -17,7 +17,7 @@ import { errorMessage } from '@/shared/api/errors';
 import { coinName } from '@/shared/lib/coin';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
-import Input from '@/shared/ui/Input';
+import Input, { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
 import { useCopy } from './useCopy';
 import { ErrorLine, Section, SuccessLine } from './ownerUi';
@@ -127,6 +127,7 @@ export default function MasterWalletSection() {
               onChange={(e) => setMnemonic(e.target.value)}
               maxLength={MNEMONIC_MAX}
               autoComplete="off"
+              {...SUPPRESS_AUTOFILL}
               spellCheck={false}
               disabled={setWallet.isPending}
               className="pr-11"

@@ -90,32 +90,28 @@ export default function ChatConversationPage() {
         <h1 className="truncate text-lg font-semibold tracking-tight text-fg sm:text-xl">
           {chatTitle(chat, myId)}
         </h1>
-        {/* Mobile only — the members panel is a sheet there, opened from here. */}
+        {/* Members open as a slide-over drawer (same on mobile AND desktop) so the chat always
+            keeps full width — the panel is never a permanent column. Shown for every chat,
+            DM included, so you can still add a third person and turn a DM into a group. */}
         <button
           type="button"
           onClick={() => setMembersOpen(true)}
           aria-label="Участники"
-          className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-panel-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton md:hidden"
+          className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-panel-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
         >
           <Users size={18} />
           {memberCount}
         </button>
       </div>
 
-      {/* Chat fills the row; the members panel is the right column on DESKTOP only — on
-          mobile it would steal half the screen, so there it's a sheet instead. */}
-      <div className="flex min-h-0 flex-1 gap-3">
-        <div className="min-h-0 flex-1">
-          <ChatRoom chatId={chatId} />
-        </div>
-        <div className="hidden shrink-0 md:block md:w-72">
-          <ChatMembersPanel chat={chat} onLeft={() => navigate('/chat/groups')} />
-        </div>
+      {/* Chat fills the whole row — members live in the drawer below, never a fixed column. */}
+      <div className="min-h-0 flex-1">
+        <ChatRoom chatId={chatId} />
       </div>
 
-      {/* Mobile: members as a right-side sheet so the chat keeps the full height by default. */}
+      {/* Members drawer — slides in from the right over the chat, identical on every breakpoint. */}
       {membersOpen ? (
-        <div className="fixed inset-0 z-50 flex md:hidden">
+        <div className="fixed inset-0 z-50 flex">
           <button
             type="button"
             className="flex-1 bg-black/60"

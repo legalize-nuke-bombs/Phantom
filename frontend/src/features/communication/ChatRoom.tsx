@@ -3,7 +3,7 @@
 // Everything keys off chatId, so the same component serves the global chat now and 1:1 /
 // group chats later.
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { MessagesSquare } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -93,6 +93,25 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [newestId]);
 
+  // Pagination scroll-anchor: "Загрузить ещё" prepends older messages, growing the list
+  // UPWARD. Without compensation the container keeps its old scrollTop, so the content
+  // visibly jumps. Snapshot the geometry right before fetching, then after the prepend
+  // lands offset scrollTop by exactly the height that was added — the viewport stays put.
+  // Loading older leaves newestId unchanged, so the bottom-stick effect above stays out.
+  const olderAnchor = useRef<{ height: number; top: number } | null>(null);
+  function loadOlder() {
+    const el = scrollRef.current;
+    if (el) olderAnchor.current = { height: el.scrollHeight, top: el.scrollTop };
+    void query.fetchNextPage();
+  }
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const anchor = olderAnchor.current;
+    if (!el || !anchor) return;
+    el.scrollTop = el.scrollHeight - anchor.height + anchor.top;
+    olderAnchor.current = null;
+  }, [messages]);
+
   // Viewing a chat = reading it: clear its unread bucket on open and as new messages
   // land, so this chat's sidebar badge stays at 0 while it's open.
   const chatBucket = `chat:${chatId}`;
@@ -130,7 +149,7 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
               variant="ghost"
               size="sm"
               loading={query.isFetchingNextPage}
-              onClick={() => query.fetchNextPage()}
+              onClick={loadOlder}
             >
               Загрузить ещё
             </Button>

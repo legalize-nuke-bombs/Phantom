@@ -17,7 +17,7 @@ import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
 import type { Role, User } from '@/shared/types';
 import Button from '@/shared/ui/Button';
-import Input from '@/shared/ui/Input';
+import Input, { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 import UserLookup from '@/shared/ui/UserLookup';
 import { ASSIGNABLE_ROLES, ConfirmButton, ErrorLine, ROLE_LABELS, Section, SuccessLine } from './ownerUi';
 import { OWNER_KEY_MAX, useChangeRole, useDeleteUser } from './useOwner';
@@ -110,6 +110,7 @@ function ChangeRoleCard() {
           onChange={(e) => setOwnerKey(e.target.value)}
           maxLength={OWNER_KEY_MAX}
           autoComplete="off"
+          {...SUPPRESS_AUTOFILL}
           spellCheck={false}
           disabled={changeRole.isPending}
         />
@@ -194,6 +195,7 @@ function DeleteUserCard() {
           onChange={(e) => setOwnerKey(e.target.value)}
           maxLength={OWNER_KEY_MAX}
           autoComplete="off"
+          {...SUPPRESS_AUTOFILL}
           spellCheck={false}
           disabled={deleteUser.isPending}
         />

@@ -20,7 +20,7 @@ import { CheckCircle2, History, Power, RefreshCw, Timer } from 'lucide-react';
 import { errorMessage } from '@/shared/api/errors';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
-import Input from '@/shared/ui/Input';
+import Input, { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
 import { formatTime } from '@/shared/lib/time';
 import { ErrorLine, HistoryList, Section, SuccessLine } from './ownerUi';
@@ -164,6 +164,8 @@ function ScheduleEditor() {
               onChange={(e) => setValue(e.target.value)}
               disabled={setSchedule.isPending}
               aria-label="Количество"
+              autoComplete="off"
+              {...SUPPRESS_AUTOFILL}
               className="flex-1"
             />
             <select

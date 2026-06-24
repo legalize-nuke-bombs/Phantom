@@ -24,7 +24,7 @@ import { banExpiry, useBanUser, useUnbanUser, useUserBan } from '@/shared/chat/b
 import type { User } from '@/shared/types';
 import Button from '@/shared/ui/Button';
 import Card from '@/shared/ui/Card';
-import Input from '@/shared/ui/Input';
+import Input, { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
 import UserChip from '@/shared/ui/UserChip';
 import UserLookup from '@/shared/ui/UserLookup';
@@ -87,6 +87,8 @@ function BroadcastComposer() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             disabled={broadcast.isPending}
+            autoComplete="off"
+            {...SUPPRESS_AUTOFILL}
             className={clsx(
               'w-full resize-y rounded-xl px-3 py-2.5 text-sm',
               'bg-panel-2 border border-edge text-fg placeholder:text-muted',
@@ -227,6 +229,8 @@ function BanTool({ myId }: { myId: number }) {
               placeholder="За что блокировка"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
+              autoComplete="off"
+              {...SUPPRESS_AUTOFILL}
             />
             <div className="flex items-end gap-2">
               <div className="w-24">
@@ -236,6 +240,8 @@ function BanTool({ myId }: { myId: number }) {
                   min={1}
                   value={count}
                   onChange={(e) => setCount(e.target.value)}
+                  autoComplete="off"
+                  {...SUPPRESS_AUTOFILL}
                 />
               </div>
               <select

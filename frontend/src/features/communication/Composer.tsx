@@ -42,6 +42,7 @@ import type { ChatMessage } from '@/shared/realtime/types';
 import type { ApiError } from '@/shared/api/client';
 import type { UseMutationResult } from '@tanstack/react-query';
 import Button from '@/shared/ui/Button';
+import { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 import { formatBytes, useUpload, type DiskFile } from '@/features/disk/useDisk';
 
 import DiskFilePicker from './DiskFilePicker';
@@ -424,6 +425,8 @@ export default function Composer({ send, locked }: { send: SendMutation; locked:
           rows={1}
           placeholder="Сообщение…"
           disabled={busy}
+          autoComplete="off"
+          {...SUPPRESS_AUTOFILL}
           className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-xl border border-edge bg-panel-2 px-3 py-2.5 text-sm text-fg placeholder:text-muted focus:border-ton focus:outline-none disabled:opacity-50"
         />
         <Button type="submit" loading={busy} disabled={!canSend} className="h-11 shrink-0 px-4">

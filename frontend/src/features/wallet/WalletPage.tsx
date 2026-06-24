@@ -64,7 +64,7 @@ import type { LevelName, ShortUser, User } from '@/shared/types';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
 import Card from '@/shared/ui/Card';
-import Input from '@/shared/ui/Input';
+import Input, { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
 import Switch from '@/shared/ui/Switch';
 import UserChip from '@/shared/ui/UserChip';
@@ -543,6 +543,7 @@ function WithdrawSection() {
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           autoComplete="off"
+          {...SUPPRESS_AUTOFILL}
           spellCheck={false}
           disabled={withdraw.isPending}
         />
@@ -555,6 +556,8 @@ function WithdrawSection() {
           placeholder="0.00"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
+          autoComplete="off"
+          {...SUPPRESS_AUTOFILL}
           disabled={withdraw.isPending}
         />
 
@@ -833,6 +836,8 @@ function SendPresentCard() {
             placeholder="1.00"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
+            autoComplete="off"
+            {...SUPPRESS_AUTOFILL}
             disabled={send.isPending}
           />
 
@@ -842,6 +847,8 @@ function SendPresentCard() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={1000}
+            autoComplete="off"
+            {...SUPPRESS_AUTOFILL}
             disabled={send.isPending}
           />
 

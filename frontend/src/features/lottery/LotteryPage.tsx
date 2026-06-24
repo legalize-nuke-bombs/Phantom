@@ -55,6 +55,7 @@ import type { ShortUser } from '@/shared/types';
 import Amount from '@/shared/ui/Amount';
 import Button from '@/shared/ui/Button';
 import Card from '@/shared/ui/Card';
+import { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
 import UserChip from '@/shared/ui/UserChip';
 
@@ -286,6 +287,8 @@ function CurrentRound({ lottery }: { lottery: CurrentLottery }) {
                   changeQty(digits === '' ? 1 : Number(digits));
                 }}
                 disabled={controlsDisabled}
+                autoComplete="off"
+                {...SUPPRESS_AUTOFILL}
                 className="min-w-0 flex-1 bg-transparent text-center text-lg font-semibold text-fg focus:outline-none disabled:opacity-50"
               />
               <button

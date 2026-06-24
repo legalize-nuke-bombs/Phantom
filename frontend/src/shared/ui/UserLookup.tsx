@@ -12,7 +12,7 @@ import { api } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
 import { useMyExperience } from '@/shared/lib/experience';
 import type { LevelName, User } from '@/shared/types';
-import Input from '@/shared/ui/Input';
+import Input, { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
 import UserChip from '@/shared/ui/UserChip';
 
@@ -96,7 +96,9 @@ export default function UserLookup({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
+        // "@username" placeholder makes password managers offer a login — opt them out.
         autoComplete="off"
+        {...SUPPRESS_AUTOFILL}
         spellCheck={false}
       />
       {enabled && (

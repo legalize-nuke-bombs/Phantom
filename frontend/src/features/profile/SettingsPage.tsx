@@ -32,7 +32,7 @@ import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
 import type { PrivacySetting, User } from '@/shared/types';
 import Button from '@/shared/ui/Button';
-import Input from '@/shared/ui/Input';
+import Input, { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 import Spinner from '@/shared/ui/Spinner';
 import Switch from '@/shared/ui/Switch';
 
@@ -152,13 +152,11 @@ function PasswordInput({
   label,
   value,
   onChange,
-  autoComplete,
   placeholder,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
-  autoComplete?: string;
   placeholder?: string;
 }) {
   const [show, setShow] = useState(false);
@@ -169,7 +167,9 @@ function PasswordInput({
         type={show ? 'text' : 'password'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        autoComplete={autoComplete}
+        // Settings is not the login form — keep password managers out of these fields.
+        autoComplete="off"
+        {...SUPPRESS_AUTOFILL}
         placeholder={placeholder}
         className="pr-11"
       />
@@ -256,7 +256,8 @@ function ProfileSettingsForm({ user }: { user: User }) {
           mutation.reset();
         }}
         maxLength={DISPLAY_NAME_MAX}
-        autoComplete="nickname"
+        autoComplete="off"
+        {...SUPPRESS_AUTOFILL}
         error={
           nameInvalid && trimmed.length === 0
             ? 'Имя не может быть пустым'
@@ -352,7 +353,6 @@ function SecuritySettingsForm() {
           setCurrentPassword(v);
           mutation.reset();
         }}
-        autoComplete="current-password"
       />
 
       <div className="flex flex-col gap-4 border-t border-edge pt-4">
@@ -363,7 +363,8 @@ function SecuritySettingsForm() {
             setUsername(e.target.value);
             mutation.reset();
           }}
-          autoComplete="username"
+          autoComplete="off"
+          {...SUPPRESS_AUTOFILL}
           placeholder="необязательно"
           maxLength={USERNAME_MAX}
           error={usernameInvalid ? `${USERNAME_MIN}–${USERNAME_MAX}, латиница, цифры, _` : undefined}
@@ -377,7 +378,6 @@ function SecuritySettingsForm() {
               setPassword(v);
               mutation.reset();
             }}
-            autoComplete="new-password"
             placeholder="необязательно"
           />
           {passwordTooShort ? (
@@ -397,7 +397,6 @@ function SecuritySettingsForm() {
               setConfirmPassword(v);
               mutation.reset();
             }}
-            autoComplete="new-password"
             placeholder="необязательно"
           />
           {passwordMismatch && (
@@ -471,7 +470,6 @@ function RecoveryKeyForm() {
           setPassword(v);
           mutation.reset();
         }}
-        autoComplete="current-password"
       />
       {mutation.isError && <FieldError message={errorMessage(mutation.error, 'Не удалось создать ключ')} />}
       <Button type="submit" loading={mutation.isPending} disabled={!password} className="self-start">
@@ -517,7 +515,6 @@ function DeleteAccountForm() {
           setPassword(v);
           mutation.reset();
         }}
-        autoComplete="current-password"
       />
       {mutation.isError && (
         <FieldError message={errorMessage(mutation.error, 'Не удалось удалить аккаунт')} />

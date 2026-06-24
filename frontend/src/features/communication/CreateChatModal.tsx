@@ -52,11 +52,11 @@ export default function CreateChatModal({
   // Create the empty chat, then add each picked member one request at a time. A failed add is
   // collected (not thrown) so one bad member can't sink the whole chat; the result carries the
   // new chat id plus whoever didn't make it in.
-  const create = useMutation<{ chatId: string; failed: User[] }, ApiError, void>({
-    mutationFn: async () => {
+  const create = useMutation<{ chatId: string; failed: User[] }, ApiError, User[]>({
+    mutationFn: async (toAdd) => {
       const chat = await api.post<Chat>('/chat/chats');
       const failed: User[] = [];
-      for (const m of members) {
+      for (const m of toAdd) {
         try {
           await api.post(`/chat/chats/${chat.id}/add/${m.id}`);
         } catch {
@@ -75,6 +75,12 @@ export default function CreateChatModal({
 
   const failed = create.data?.failed ?? [];
   const createdId = create.data?.chatId ?? null;
+
+  // People routinely type a username and hit "Создать" without pressing "Добавить" first,
+  // expecting a chat WITH that person — so fold a resolved-but-unadded lookup into the members
+  // we create with, instead of silently making an empty chat.
+  const effectiveMembers =
+    resolved && !members.some((m) => m.id === resolved.id) ? [...members, resolved] : members;
 
   return (
     <div
@@ -186,8 +192,8 @@ export default function CreateChatModal({
           {/* Hidden once a chat was made but adds failed — the "Перейти в чат" button above
               takes over so we don't create a second chat. */}
           {createdId && failed.length > 0 ? null : (
-            <Button type="button" onClick={() => create.mutate()} loading={create.isPending}>
-              {members.length > 0 ? `Создать · ${members.length}` : 'Создать'}
+            <Button type="button" onClick={() => create.mutate(effectiveMembers)} loading={create.isPending}>
+              {effectiveMembers.length > 0 ? `Создать · ${effectiveMembers.length}` : 'Создать'}
             </Button>
           )}
         </div>
