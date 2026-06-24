@@ -3,10 +3,10 @@ package com.example.phantom.notification;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -27,48 +27,26 @@ public class NotificationCleanerService {
     }
 
     @Scheduled(fixedDelay = 8L * 3600 * 1000)
+    @Transactional
     public void removeExpired() {
-        log.info("expired notification cleaner started");
-        Long threshold = Instant.now().minusSeconds(24L * 3600 * maxDurationD).getEpochSecond();
-        List<Notification> buffer;
-        long deleted = 0, failed = 0;
-        while (true) {
-            buffer = notificationRepository.findOldest(PageRequest.of(0, 1000));
-            long deletedLocal = 0;
-            for (Notification n : buffer) {
-                if (n.getTimestamp() < threshold) {
-                    try {
-                        notificationRepository.delete(n);
-                        deletedLocal++;
-                    }
-                    catch (DataIntegrityViolationException e) {
-                        failed++;
-                    }
-                }
-                else {
-                    break;
-                }
-            }
-            if (deletedLocal == 0) {
-                log.info("expired notification cleaner finished: {} deleted, {} failed", deleted, failed);
-                break;
-            }
-            deleted += deletedLocal;
-        }
+        long threshold = Instant.now().minusSeconds(24L * 3600 * maxDurationD).getEpochSecond();
+        int deleted = notificationRepository.deleteOlderThan(threshold);
+        log.info("expired notification cleaner: deleted {} older than {} d (threshold ts {})", deleted, maxDurationD, threshold);
     }
 
     @Scheduled(fixedDelay = 60 * 1000)
+    @Transactional
     public void maintainLimit() {
         long count = notificationRepository.count();
-        log.info("notification limit maintainer started: found {} notifications", count);
-
-        if (count >= maxHistory) {
-            List<Notification> oldest = notificationRepository.findOldest(PageRequest.of(0, (int)(count / 2)));
-            notificationRepository.deleteAll(oldest);
-            log.info("notification limit maintainer finished: {} notifications deleted", oldest.size());
+        if (count < maxHistory) {
+            return;
         }
-        else {
-            log.info("notification limit maintainer skipped");
+        long keep = maxHistory / 2;
+        List<Long> boundary = notificationRepository.findIdsNewestFirst(PageRequest.of((int) keep, 1));
+        if (boundary.isEmpty()) {
+            return;
         }
+        int deleted = notificationRepository.deleteUpToId(boundary.get(0));
+        log.info("notification limit maintainer: count {} >= {}, kept newest {}, deleted {}", count, maxHistory, keep, deleted);
     }
 }

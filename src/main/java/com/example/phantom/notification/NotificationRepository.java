@@ -4,6 +4,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -47,6 +48,14 @@ ORDER BY n.id DESC
             Pageable pageable
     );
 
-    @Query("SELECT n FROM Notification n ORDER BY n.id ASC")
-    List<Notification> findOldest(Pageable pageable);
+    @Query("SELECT n.id FROM Notification n ORDER BY n.id DESC")
+    List<Long> findIdsNewestFirst(Pageable pageable);
+
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.timestamp < :threshold")
+    int deleteOlderThan(@Param("threshold") long threshold);
+
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.id <= :maxId")
+    int deleteUpToId(@Param("maxId") long maxId);
 }
