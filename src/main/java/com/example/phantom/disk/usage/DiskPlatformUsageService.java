@@ -19,7 +19,7 @@ public class DiskPlatformUsageService {
 
     @Scheduled(fixedDelay = 60 * 1000)
     public void updateCache() {
-        log.info("updating disk platform usage cache");
+        // log.info("updating disk platform usage cache");
         this.platformUsageCache = new DiskQuota(
                 diskUsageRepository.sumSizes(),
                 diskUsageRepository.sumFiles()

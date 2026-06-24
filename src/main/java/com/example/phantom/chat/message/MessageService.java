@@ -9,7 +9,7 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
-import com.example.phantom.notification.topic.TopicAccessService;
+import com.example.phantom.topic.TopicAccessService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;

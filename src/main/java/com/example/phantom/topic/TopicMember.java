@@ -1,4 +1,4 @@
-package com.example.phantom.notification.topic;
+package com.example.phantom.topic;
 
 import com.example.phantom.user.User;
 import jakarta.persistence.*;

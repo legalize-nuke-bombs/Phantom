@@ -5,7 +5,7 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
-import com.example.phantom.notification.topic.*;
+import com.example.phantom.topic.*;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
@@ -120,7 +120,7 @@ public class PersonalChatService {
             log.info("user {} was the last member and left, so the chat is deleted", userId);
         }
         else {
-            topicMemberRepository.deleteByTopicIdUserId(topicId, userId);
+            topicMemberRepository.deleteByTopic_IdAndUser_Id(topicId, userId);
             log.info("user {} left the chat", userId);
         }
 
@@ -146,7 +146,7 @@ public class PersonalChatService {
             throw new ApiException(ErrorCode.CANT_SELF_KICK);
         }
 
-        topicMemberRepository.deleteByTopicIdUserId(topicId, targetId);
+        topicMemberRepository.deleteByTopic_IdAndUser_Id(topicId, targetId);
 
         log.info("user {} kicked another user", userId);
         List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(topicId);

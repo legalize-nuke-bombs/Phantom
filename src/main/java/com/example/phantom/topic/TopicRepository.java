@@ -1,4 +1,4 @@
-package com.example.phantom.notification.topic;
+package com.example.phantom.topic;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

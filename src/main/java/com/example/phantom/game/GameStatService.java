@@ -45,7 +45,7 @@ public class GameStatService {
 
     @Scheduled(fixedDelay = 60 * 1000)
     public void updatePlatformCache() {
-        log.info("updating game stat platform cache");
+        // log.info("updating game stat platform cache");
         long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
         platformCache = new PlatformGameStatRepresentation(
                 gameRepository.countCompleted(),

@@ -1,6 +1,6 @@
 package com.example.phantom.notification;
 
-import com.example.phantom.notification.topic.Topic;
+import com.example.phantom.topic.Topic;
 import com.example.phantom.user.User;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;

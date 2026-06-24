@@ -6,7 +6,7 @@ import com.example.phantom.experience.ExperienceService;
 import com.example.phantom.experience.experiencechange.ExperienceChangeType;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
-import com.example.phantom.notification.topic.globaltopic.GlobalTopicService;
+import com.example.phantom.topic.globaltopic.GlobalTopicService;
 import com.example.phantom.provablyfair.ProvablyFairService;
 import com.example.phantom.ref.RefService;
 import com.example.phantom.ratelimit.RateLimitAction;

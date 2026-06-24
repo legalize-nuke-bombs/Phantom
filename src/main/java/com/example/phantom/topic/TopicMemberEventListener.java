@@ -1,4 +1,4 @@
-package com.example.phantom.notification.topic;
+package com.example.phantom.topic;
 
 import jakarta.persistence.PreRemove;
 import jakarta.persistence.PreUpdate;

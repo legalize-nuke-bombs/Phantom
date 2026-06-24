@@ -2,7 +2,7 @@ package com.example.phantom.notification;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.notification.topic.TopicService;
+import com.example.phantom.topic.TopicService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
@@ -11,9 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 

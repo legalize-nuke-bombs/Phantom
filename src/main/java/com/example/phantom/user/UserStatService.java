@@ -25,7 +25,7 @@ public class UserStatService {
 
     @Scheduled(fixedDelay = 60 * 1000)
     public void updateCache() {
-        log.info("updating user platform stat cache");
+        // log.info("updating user platform stat cache");
         long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
         cache = new UserStatRepresentation(
                 userRepository.countAll(),

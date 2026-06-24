@@ -1,4 +1,4 @@
-package com.example.phantom.notification.topic;
+package com.example.phantom.topic;
 
 public record TopicMemberPreUpdateEvent(TopicMember topicMember) {
 }

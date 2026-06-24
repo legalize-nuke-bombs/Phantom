@@ -1,6 +1,6 @@
 package com.example.phantom.chat.chat;
 
-import com.example.phantom.notification.topic.Topic;
+import com.example.phantom.topic.Topic;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

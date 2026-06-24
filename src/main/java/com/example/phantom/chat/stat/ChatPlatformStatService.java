@@ -26,7 +26,7 @@ public class ChatPlatformStatService {
 
     @Scheduled(fixedDelay = 60 * 1000)
     public void updateCache() {
-        log.info("updating chat platform stat cache");
+        // log.info("updating chat platform stat cache");
         cache = new ChatPlatformStatRepresentation(
                 chatRepository.count(),
                 messageRepository.count()

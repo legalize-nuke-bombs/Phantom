@@ -1,16 +1,15 @@
-package com.example.phantom.notification.topic.globaltopic;
+package com.example.phantom.topic.globaltopic;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.notification.topic.Topic;
-import com.example.phantom.notification.topic.TopicBuilderService;
-import com.example.phantom.notification.topic.TopicRepository;
+import com.example.phantom.topic.Topic;
+import com.example.phantom.topic.TopicBuilderService;
+import com.example.phantom.topic.TopicRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j

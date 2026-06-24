@@ -1,4 +1,4 @@
-package com.example.phantom.notification.topic;
+package com.example.phantom.topic;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,7 +26,5 @@ public interface TopicMemberRepository extends JpaRepository<TopicMember, Long> 
     @Query("SELECT tm FROM TopicMember tm JOIN FETCH tm.user WHERE tm.topic.id = ?1 ORDER BY tm.timestamp ASC, tm.id ASC")
     List<TopicMember> findEldest(String topicId, Pageable pageable);
 
-    @Modifying
-    @Query("DELETE FROM TopicMember tm WHERE tm.topic.id = ?1 AND tm.user.id = ?2")
-    void deleteByTopicIdUserId(String topicId, Long userId);
+    void deleteByTopic_IdAndUser_Id(String topicId, Long userId);
 }

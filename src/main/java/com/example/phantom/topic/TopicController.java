@@ -1,4 +1,4 @@
-package com.example.phantom.notification.topic;
+package com.example.phantom.topic;
 
 import jakarta.validation.constraints.Min;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,7 +12,7 @@ import java.util.List;
 
 @RestController
 @Validated
-@RequestMapping("/api/notifications/topics")
+@RequestMapping("/api/topics")
 public class TopicController {
 
     private final TopicService topicService;

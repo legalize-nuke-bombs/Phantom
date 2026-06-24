@@ -1,6 +1,6 @@
 package com.example.phantom.chat.chat;
 
-import com.example.phantom.notification.topic.TopicMemberRepresentation;
+import com.example.phantom.topic.TopicMemberRepresentation;
 import lombok.Getter;
 
 import java.util.Comparator;

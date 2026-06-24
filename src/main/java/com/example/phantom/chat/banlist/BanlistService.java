@@ -35,9 +35,13 @@ public class BanlistService {
         return new BanRepresentation(ban);
     }
 
-    public void validateChatPermission(Long userId) {
+    public boolean canWrite(Long userId) {
         Ban ban = banRepository.findById(userId).orElse(null);
-        if (ban != null && ban.isActive()) {
+        return (ban == null || !ban.isActive());
+    }
+
+    public void validateChatPermission(Long userId) {
+        if (!canWrite(userId)) {
             throw new ApiException(ErrorCode.BANNED);
         }
     }

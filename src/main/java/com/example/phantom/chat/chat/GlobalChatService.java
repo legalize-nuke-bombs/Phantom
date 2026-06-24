@@ -2,13 +2,11 @@ package com.example.phantom.chat.chat;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import com.example.phantom.notification.topic.globaltopic.GlobalTopicService;
-import com.example.phantom.notification.topic.globaltopic.GlobalTopicsAreReadyEvent;
+import com.example.phantom.topic.globaltopic.GlobalTopicService;
+import com.example.phantom.topic.globaltopic.GlobalTopicsAreReadyEvent;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
