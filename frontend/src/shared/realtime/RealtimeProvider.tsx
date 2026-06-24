@@ -8,7 +8,7 @@
 //
 // Lifecycle, per connect (onConnect → resync):
 //   1. subscribe to our own /topic/users/{userId} (always allowed),
-//   2. paginate /api/notifications/topics → subscribe to every topic we may read,
+//   2. paginate /api/topics → subscribe to every topic we may read,
 //      diffing against live subscriptions (new → subscribe, gone → unsubscribe; that
 //      diff IS the eviction mechanism — the backend drops the socket on access change,
 //      we reconnect, the revoked topic is no longer in the list, we don't resub),
@@ -52,7 +52,7 @@ async function fetchAllTopicIds(): Promise<string[]> {
   for (;;) {
     const q = new URLSearchParams({ limit: String(limit) });
     if (before !== undefined) q.set('before', before);
-    const page = await api.get<string[]>(`/notifications/topics?${q}`);
+    const page = await api.get<string[]>(`/topics?${q}`);
     out.push(...page);
     if (page.length < limit) break;
     before = page[page.length - 1];
