@@ -119,6 +119,10 @@ function CurrentRound({ lottery }: { lottery: CurrentLottery }) {
   const { data: wallet } = useWallet();
 
   const [qty, setQty] = useState(1);
+  // The raw text in the box, kept SEPARATE from the numeric `qty` so the field can be
+  // emptied mid-edit — type 50 straight over the 1 instead of the "150 then delete the 1"
+  // dance. `qty` stays the clamped (≥1) source of truth for cost/buy; `qtyText` is display.
+  const [qtyText, setQtyText] = useState('1');
   const [actionError, setActionError] = useState<string | null>(null);
   // A server rejection is tied to one round; if the round rotates under us, drop
   // the stale message during render (the recommended alternative to an effect).
@@ -131,7 +135,9 @@ function CurrentRound({ lottery }: { lottery: CurrentLottery }) {
   // Changing the desired quantity clears any prior rejection — the next attempt
   // is a fresh one. Clamps to >= 1.
   function changeQty(next: number) {
-    setQty(Math.max(1, next));
+    const clamped = Math.max(1, Math.floor(next) || 1);
+    setQty(clamped);
+    setQtyText(String(clamped));
     setActionError(null);
   }
 
@@ -281,10 +287,23 @@ function CurrentRound({ lottery }: { lottery: CurrentLottery }) {
               <input
                 inputMode="numeric"
                 aria-label="Количество билетов"
-                value={qty}
+                value={qtyText}
                 onChange={(e) => {
+                  // The box follows the field as typed (empty / "0" allowed); qty trails it
+                  // HONESTLY — 0 stays 0, never silently bumped to 1. Buying is disabled below
+                  // when qty < 1, so an empty/zero box can't charge for a phantom ticket.
                   const digits = e.target.value.replace(/\D/g, '');
-                  changeQty(digits === '' ? 1 : Number(digits));
+                  setQtyText(digits);
+                  setActionError(null);
+                  setQty(digits === '' ? 0 : Number(digits));
+                }}
+                // Leaving the field normalises a blank/zero back to the minimum 1, so the
+                // selector never sits empty — but only on blur, never mid-typing.
+                onBlur={() => {
+                  if (qty < 1) {
+                    setQty(1);
+                    setQtyText('1');
+                  }
                 }}
                 disabled={controlsDisabled}
                 autoComplete="off"
@@ -321,7 +340,7 @@ function CurrentRound({ lottery }: { lottery: CurrentLottery }) {
             type="button"
             onClick={() => buy.mutate()}
             loading={buy.isPending}
-            disabled={controlsDisabled || cantAfford}
+            disabled={controlsDisabled || cantAfford || qty < 1}
           >
             <Ticket size={16} strokeWidth={2} />
             Купить
@@ -331,7 +350,7 @@ function CurrentRound({ lottery }: { lottery: CurrentLottery }) {
             variant="ghost"
             onClick={() => refund.mutate()}
             loading={refund.isPending}
-            disabled={controlsDisabled || cantRefund}
+            disabled={controlsDisabled || cantRefund || qty < 1}
           >
             <Minus size={16} strokeWidth={2} />
             Вернуть

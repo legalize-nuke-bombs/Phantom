@@ -50,7 +50,7 @@ const NAV: NavItem[] = [
   { to: '/chat/groups', label: 'Чаты', icon: MessagesSquare, aggregateChats: true },
   { to: '/disk', label: 'Облако', icon: HardDrive },
   { to: '/progress', label: 'Прогресс', icon: Trophy },
-  { to: '/notifications', label: 'Уведомления', icon: Bell, badge: 'misc' },
+  { to: '/notifications', label: 'События', icon: Bell, badge: 'misc' },
   { to: '/moderation', label: 'Модерация', icon: Megaphone, modOnly: true },
   { to: '/owner', label: 'Владелец', icon: ShieldCheck, ownerOnly: true, badge: 'owner' },
 ];

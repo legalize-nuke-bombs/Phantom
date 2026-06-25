@@ -120,11 +120,6 @@ function userLink(payload: unknown, key = 'user'): ReactNode {
   return userLinkFrom(field(payload, key));
 }
 
-/** Clamp a free-text snippet so a long broadcast never blows up the row. */
-function snippet(text: string, max = 120): string {
-  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
-}
-
 /* ── Type registry — one entry per misc type ──────────────────────────────── */
 
 interface NotificationKind {
@@ -176,7 +171,10 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
       const content = str(p, 'content');
       if (!content) return undefined;
       const who = userLink(p); // BroadcastRepresentation carries the sender
-      return who ? <>{who}: {snippet(content)}</> : snippet(content);
+      // Show the FULL announcement — broadcasts are capped at 1000 chars server-side, so a
+      // tall block is fine; clamping it to a snippet just hid the actual message.
+      const body = <span className="whitespace-pre-wrap break-words">{content}</span>;
+      return who ? <>{who}: {body}</> : body;
     },
   },
   ROLE_CLAIMED: {
@@ -341,7 +339,7 @@ export default function NotificationsPage() {
         </span>
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">
-            Уведомления
+            События
           </h1>
           {/* Honest scope: this is a feed of recent NEW account events, not an archive. */}
           <p className="text-sm text-muted">Недавние новые события аккаунта</p>

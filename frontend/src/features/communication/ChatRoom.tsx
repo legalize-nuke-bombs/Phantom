@@ -108,8 +108,17 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
     const el = scrollRef.current;
     const anchor = olderAnchor.current;
     if (!el || !anchor) return;
-    el.scrollTop = el.scrollHeight - anchor.height + anchor.top;
     olderAnchor.current = null;
+    // Restore the viewport so the prepended history doesn't shove the row. Chrome has the
+    // new scrollHeight committed by this synchronous (pre-paint) write, so one pass holds.
+    // Safari commits the prepended height a beat later and ignored that first write — hence
+    // the jump that stayed on Safari. Re-applying on the next frame catches Safari's late
+    // layout; in Chrome scrollHeight is already final, so the second write is a no-op.
+    const restore = () => {
+      el.scrollTop = el.scrollHeight - anchor.height + anchor.top;
+    };
+    restore();
+    requestAnimationFrame(restore);
   }, [messages]);
 
   // Viewing a chat = reading it: clear its unread bucket on open and as new messages
