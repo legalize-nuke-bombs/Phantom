@@ -8,6 +8,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @Validated
@@ -22,7 +23,7 @@ public class MessageController {
 
     @GetMapping
     public ResponseEntity<List<MessageRepresentation>> get(@AuthenticationPrincipal Long userId,
-                                                           @RequestParam Long chatId,
+                                                           @RequestParam UUID chatId,
                                                            @RequestParam(defaultValue = "20") @Min(1) Integer limit,
                                                            @RequestParam(required = false) Long before) {
         return ResponseEntity.ok(service.get(userId, chatId, limit, before));

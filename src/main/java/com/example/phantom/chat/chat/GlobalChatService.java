@@ -4,20 +4,21 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.topic.globaltopic.GlobalTopicService;
 import com.example.phantom.topic.globaltopic.GlobalTopicsAreReadyEvent;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+
+import java.time.Instant;
 
 @Service
 @Slf4j
 public class GlobalChatService {
 
     private final ChatRepository chatRepository;
-    private final GlobalTopicService globalTopicService;
 
-    public GlobalChatService(ChatRepository chatRepository, GlobalTopicService globalTopicService) {
+    public GlobalChatService(ChatRepository chatRepository) {
         this.chatRepository = chatRepository;
-        this.globalTopicService = globalTopicService;
     }
 
     public Chat find() {
@@ -30,16 +31,13 @@ public class GlobalChatService {
     }
 
     @EventListener(GlobalTopicsAreReadyEvent.class)
+    @Transactional
     public void create() {
-        if (chatRepository.findById(GlobalChatConstants.ID).isEmpty()) {
-            Chat chat = new Chat();
-            chat.setId(GlobalChatConstants.ID);
-            chat.setTopic(globalTopicService.findAuthorized());
-            chatRepository.save(chat);
-            log.info("chat created");
+        if (chatRepository.insertIfNotExists(GlobalChatConstants.ID, GlobalTopicService.AUTHORIZED_ID, ChatType.GROUP, "The Global Chat", Instant.now().getEpochSecond()) == 1) {
+            log.info("global chat created");
         }
         else {
-            log.info("chat creation skipped: already exists");
+            log.info("global chat creation skipped: already exists");
         }
     }
 }

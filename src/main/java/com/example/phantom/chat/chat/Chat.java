@@ -8,6 +8,8 @@ import lombok.Setter;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "chats")
 @Getter
@@ -15,10 +17,20 @@ import org.hibernate.annotations.OnDeleteAction;
 @NoArgsConstructor
 public class Chat {
     @Id
-    private Long id;
+    private UUID id;
 
     @OneToOne
     @JoinColumn(name = "topic_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Topic topic;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ChatType type;
+
+    @Column
+    private String name;
+
+    @Column(nullable = false)
+    private Long lastEdit;
 }

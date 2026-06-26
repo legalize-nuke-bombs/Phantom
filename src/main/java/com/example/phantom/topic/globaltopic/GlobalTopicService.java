@@ -19,6 +19,10 @@ public class GlobalTopicService {
     private final TopicBuilderService topicBuilderService;
     private final ApplicationEventPublisher applicationEventPublisher;
 
+    public static final String AUTHORIZED_ID = "authorized";
+    public static final String CHAT_MODERATORS_ID = "chat-moderators";
+    public static final String OWNERS_ID = "owners";
+
     public GlobalTopicService(TopicRepository topicRepository, TopicBuilderService topicBuilderService, ApplicationEventPublisher applicationEventPublisher) {
         this.topicRepository = topicRepository;
         this.topicBuilderService = topicBuilderService;
@@ -26,15 +30,15 @@ public class GlobalTopicService {
     }
 
     public Topic findAuthorized() {
-        return findTopic("authorized");
+        return findTopic(AUTHORIZED_ID);
     }
 
     public Topic findChatModerators() {
-        return findTopic("chat-moderators");
+        return findTopic(CHAT_MODERATORS_ID);
     }
 
     public Topic findOwners() {
-        return findTopic("owners");
+        return findTopic(OWNERS_ID);
     }
 
     private Topic findTopic(String id) {
@@ -48,9 +52,9 @@ public class GlobalTopicService {
 
     @EventListener(ApplicationStartedEvent.class)
     public void create() {
-        createTopic("authorized", true, false, false);
-        createTopic("chat-moderators", false, true, false);
-        createTopic("owners", false, false, true);
+        createTopic(AUTHORIZED_ID, true, false, false);
+        createTopic(CHAT_MODERATORS_ID, false, true, false);
+        createTopic(OWNERS_ID, false, false, true);
         applicationEventPublisher.publishEvent(new GlobalTopicsAreReadyEvent());
     }
 

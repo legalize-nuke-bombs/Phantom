@@ -33,19 +33,17 @@ public class PersonalChatService {
     private final TopicMemberRepository topicMemberRepository;
     private final TopicBuilderService topicBuilderService;
     private final RateLimitService rateLimitService;
-    private final Random chatIdsGenerator;
     private final BanlistService banlistService;
     private final NotificationPublishService notificationPublishService;
     private final Long maxMembers;
 
-    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, Random chatIdsGenerator, BanlistService banlistService, NotificationPublishService notificationPublishService, @Value("${chats.max-members}") @NotNull Long maxMembers) {
+    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, BanlistService banlistService, NotificationPublishService notificationPublishService, @Value("${chats.max-members}") @NotNull Long maxMembers) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
         this.topicRepository = topicRepository;
         this.topicMemberRepository = topicMemberRepository;
         this.topicBuilderService = topicBuilderService;
         this.rateLimitService = rateLimitService;
-        this.chatIdsGenerator = chatIdsGenerator;
         this.banlistService = banlistService;
         this.notificationPublishService = notificationPublishService;
         this.maxMembers = maxMembers;
@@ -53,42 +51,97 @@ public class PersonalChatService {
     }
 
     @Transactional
-    public ChatRepresentation post(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
-
+    public ChatRepresentation post(Long userId, PostChatRequest request) {
         banlistService.validateChatPermission(userId);
 
-        rateLimitService.startAction(user.getId(), RateLimitAction.CREATE_CHAT, 1);
+        ChatType type = request.getType();
+        String name = request.getName();
+        List<Long> userIds = request.getUserIds();
+        if (userIds == null) {
+            userIds = new ArrayList<>();
+        }
 
-        Long id = chatIdsGenerator.nextLong();
+        UUID id;
+        switch (type) {
+            case FAVORITES -> {
+                if (!userIds.isEmpty() || name != null) {
+                    log.info("user {} couldn't create the favorites chat: malformed request", userId);
+                    throw new ApiException(ErrorCode.INVALID_CHAT_TYPE);
+                }
+                id = buildFavoriteId(userId);
+            }
+            case P2 -> {
+                if (userIds.size() != 1 || name != null) {
+                    log.info("user {} couldn't create the p2 chat: malformed request", userId);
+                    throw new ApiException(ErrorCode.INVALID_CHAT_TYPE);
+                }
+                id = buildP2Id(userId, userIds.get(0));
+            }
+            case GROUP -> {
+                if (name == null) {
+                    log.info("user {} couldn't create the group chat: malformed request", userId);
+                    throw new ApiException(ErrorCode.INVALID_CHAT_TYPE);
+                }
+                id = buildRandomId();
+            }
+            default -> {
+                throw new ApiException(ErrorCode.INVALID_CHAT_TYPE);
+            }
+        }
+
+        if (userIds.size() + 1 > maxMembers) {
+            log.info("user {} couldn't create the chat: too many members", userId);
+            throw new ApiException(ErrorCode.TOO_MANY_MEMBERS);
+        }
 
         Topic topic = topicBuilderService.build(PersonalChatConstants.TOPIC_PREFIX + id, false, false, false, true);
-        topicRepository.save(topic);
+        topic = topicRepository.save(topic);
 
-        TopicMember chatMember = new TopicMember();
-        chatMember.setTimestamp(Instant.now().getEpochSecond());
-        chatMember.setTopic(topic);
-        chatMember.setUser(user);
-        chatMember = topicMemberRepository.save(chatMember);
+        if (chatRepository.insertIfNotExists(id, topic.getId(), type, name, topic.getTimestamp()) == 0) {
+            log.info("user {} couldn't create the chat: chat already exists", userId);
+            throw new ApiException(ErrorCode.CHAT_ALREADY_EXISTS);
+        }
 
-        Chat chat = new Chat();
-        chat.setId(id);
-        chat.setTopic(topic);
-        chatRepository.save(chat);
+        rateLimitService.startAction(userId, RateLimitAction.CREATE_CHAT, 1);
+        rateLimitService.startAction(userId, RateLimitAction.INVITE_TO_CHAT, userIds.size());
+
+        userIds.add(0, userId);
+        List<TopicMember> chatMembers = new ArrayList<>();
+        for (Long memberId : userIds) {
+            if (Objects.equals(userId, memberId)) {
+                throw new ApiException(ErrorCode.ALREADY_ADDED);
+            }
+            TopicMember chatMember = new TopicMember();
+            chatMember.setTimestamp(Instant.now().getEpochSecond());
+            chatMember.setTopic(topic);
+            chatMember.setUser(userRepository.findById(memberId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND)));
+            chatMembers.add(topicMemberRepository.save(chatMember));
+        }
 
         log.info("user {} created the chat", userId);
-        return new ChatRepresentation(chat, List.of(new TopicMemberRepresentation(chatMember)));
+        return new ChatRepresentation(
+                chatRepository.findById(id).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND)),
+                chatMembers.stream().map(TopicMemberRepresentation::new).toList()
+        );
     }
 
-    public List<ChatRepresentation> get(Long userId, Integer limit, Long beforeTimestamp, Long beforeId) {
-        rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
+    public UUID buildFavoriteId(Long userId) {
+        return new UUID(userId, userId);
+    }
 
-        Pageable pageable = PageRequest.of(0, limit);
+    public UUID buildP2Id(Long userId, Long targetId) {
+        return new UUID(Math.min(userId, targetId), Math.max(userId, targetId));
+    }
 
+    public UUID buildRandomId() {
+        return UUID.randomUUID();
+    }
+
+    public List<ChatRepresentation> get(Long userId) {
         List<TopicMember> chatMembers = topicMemberRepository.findByUserIdWithTopics(userId);
         List<String> chatMemberTopicIds = chatMembers.stream().map(TopicMember::getTopic).map(Topic::getId).filter(s -> s.startsWith(PersonalChatConstants.TOPIC_PREFIX)).toList();
 
-        List<Chat> chats = chatRepository.findByTopicIdsWithTopics(chatMemberTopicIds, beforeTimestamp, beforeId, pageable);
+        List<Chat> chats = chatRepository.findByTopicIdsWithTopics(chatMemberTopicIds, null, null, Pageable.unpaged());
         List<String> chatTopicIds = chats.stream().map(Chat::getTopic).map(Topic::getId).toList();
 
         List<TopicMember> globalChatMembers = topicMemberRepository.findByTopicIdsWithUsersTopics(chatTopicIds);
@@ -98,10 +151,10 @@ public class PersonalChatService {
             globalChatMemberMap.get(tm.getTopic().getId()).add(new TopicMemberRepresentation(tm));
         }
 
-        return chats.stream().map(c -> new ChatRepresentation(c, globalChatMemberMap.get(c.getTopic().getId()))).toList();
+        return chats.stream().map(c -> new ChatRepresentation(c, globalChatMemberMap.get(c.getTopic().getId()))).sorted(Comparator.comparing(ChatRepresentation::getLastEdit).reversed()).toList();
     }
 
-    public ChatRepresentation getChat(Long userId, Long chatId) {
+    public ChatRepresentation getChat(Long userId, UUID chatId) {
         Chat chat = getChat(chatId);
         validateMembership(userId, chat.getTopic().getId());
 
@@ -109,55 +162,99 @@ public class PersonalChatService {
         return new ChatRepresentation(chat, chatMembers.stream().map(TopicMemberRepresentation::new).toList());
     }
 
+    public ChatRepresentation getFavoriteChat(Long userId) {
+        return getChat(userId, buildFavoriteId(userId));
+    }
+
+    public ChatRepresentation getP2Chat(Long userId, Long targetId) {
+        return getChat(userId, buildP2Id(userId, targetId));
+    }
+
     @Transactional
-    public Void leave(Long userId, Long chatId) {
+    public Void leave(Long userId, UUID chatId) {
         Chat chat = lockChat(chatId);
         String topicId = chat.getTopic().getId();
         validateMembership(userId, topicId);
 
-        if (topicMemberRepository.countByTopicId(topicId) == 1) {
-            topicRepository.delete(chat.getTopic());
-            log.info("user {} was the last member and left, so the chat is deleted", userId);
-        }
-        else {
-            topicMemberRepository.deleteByTopic_IdAndUser_Id(topicId, userId);
-            log.info("user {} left the chat", userId);
+        switch (chat.getType()) {
+            case FAVORITES, P2 -> {
+                log.info("user {} couldn't leave chat {}", userId, chat.getType());
+                throw new ApiException(ErrorCode.CANT_LEAVE_THE_CHAT);
+            }
+            case GROUP -> {
+                if (topicMemberRepository.countByTopicId(topicId) == 1) {
+                    topicRepository.delete(chat.getTopic());
+                    log.info("user {} was the last member of the group chat and left, so the chat was deleted", userId);
+                }
+                else {
+                    topicMemberRepository.deleteByTopic_IdAndUser_Id(topicId, userId);
+                    log.info("user {} left the group chat", userId);
+                }
+            }
+            default -> {
+                throw new ApiException(ErrorCode.INVALID_CHAT_TYPE);
+            }
         }
 
         return null;
     }
 
     @Transactional
-    public void delete(Long userId, Long chatId) {
-        Chat chat = getChat(chatId);
-        validateEldership(userId, chat.getTopic().getId());
+    public void delete(Long userId, UUID chatId) {
+        Chat chat = lockChat(chatId);
+        switch (chat.getType()) {
+            case FAVORITES, P2 -> {
+                validateMembership(userId, chat.getTopic().getId());
+            }
+            case GROUP -> {
+                validateEldership(userId, chat.getTopic().getId());
+            }
+            default -> {
+                throw new ApiException(ErrorCode.INVALID_CHAT_TYPE);
+            }
+        }
 
         topicRepository.delete(chat.getTopic());
         log.info("user {} deleted the chat", userId);
     }
 
     @Transactional
-    public ChatRepresentation kick(Long userId, Long chatId, Long targetId) {
+    public ChatRepresentation kick(Long userId, UUID chatId, Long targetId) {
         Chat chat = lockChat(chatId);
-        String topicId = chat.getTopic().getId();
-        validateEldership(userId, topicId);
 
         if (Objects.equals(userId, targetId)) {
             throw new ApiException(ErrorCode.CANT_SELF_KICK);
         }
 
-        topicMemberRepository.deleteByTopic_IdAndUser_Id(topicId, targetId);
+        switch (chat.getType()) {
+            case GROUP -> {
+                validateEldership(userId, chat.getTopic().getId());
+            }
+            default -> {
+                throw new ApiException(ErrorCode.INVALID_CHAT_TYPE);
+            }
+        }
+
+        topicMemberRepository.deleteByTopic_IdAndUser_Id(chat.getTopic().getId(), targetId);
 
         log.info("user {} kicked another user", userId);
-        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(topicId);
+        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
         return new ChatRepresentation(chat, chatMembers.stream().map(TopicMemberRepresentation::new).toList());
     }
 
     @Transactional
-    public ChatRepresentation add(Long userId, Long chatId, Long targetId) {
+    public ChatRepresentation add(Long userId, UUID chatId, Long targetId) {
         Chat chat = lockChat(chatId);
         String topicId = chat.getTopic().getId();
-        validateEldership(userId, topicId);
+
+        switch (chat.getType()) {
+            case GROUP -> {
+                validateEldership(userId, topicId);
+            }
+            default -> {
+                throw new ApiException(ErrorCode.INVALID_CHAT_TYPE);
+            }
+        }
 
         banlistService.validateChatPermission(userId);
 
@@ -190,7 +287,7 @@ public class PersonalChatService {
         return representation;
     }
 
-    private Chat getChat(Long chatId) {
+    private Chat getChat(UUID chatId) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
         if (!chat.getTopic().getId().startsWith(PersonalChatConstants.TOPIC_PREFIX)) {
             throw new ApiException(ErrorCode.NO_PERMISSION);
@@ -198,7 +295,7 @@ public class PersonalChatService {
         return chat;
     }
 
-    private Chat lockChat(Long chatId) {
+    private Chat lockChat(UUID chatId) {
         Chat chat =  chatRepository.findByIdForPessimisticWrite(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
         if (!chat.getTopic().getId().startsWith(PersonalChatConstants.TOPIC_PREFIX)) {
             throw new ApiException(ErrorCode.NO_PERMISSION);

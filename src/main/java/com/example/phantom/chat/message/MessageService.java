@@ -48,7 +48,7 @@ public class MessageService {
         this.notificationPublishService = notificationPublishService;
     }
 
-    public List<MessageRepresentation> get(Long userId, Long chatId, Integer limit, Long before) {
+    public List<MessageRepresentation> get(Long userId, UUID chatId, Integer limit, Long before) {
         User user = getUser(userId);
         Chat chat = getChat(chatId, user);
 
@@ -79,6 +79,9 @@ public class MessageService {
         if (content.isBlank() && attachment == null) {
             throw new ApiException(ErrorCode.EMPTY_REQUEST);
         }
+
+        chat.setLastEdit(Math.max(chat.getLastEdit(), Instant.now().getEpochSecond()));
+        chat = chatRepository.save(chat);
 
         Message message = new Message();
         message.setUser(user);
@@ -118,7 +121,7 @@ public class MessageService {
         return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
     }
 
-    private Chat getChat(Long chatId, User user) {
+    private Chat getChat(UUID chatId, User user) {
         Chat chat = chatRepository.findById(chatId).orElseThrow(() -> new ApiException(ErrorCode.CHAT_NOT_FOUND));
         if (!topicAccessService.canReadTopic(user.getId(), chat.getTopic().getId())) {
             throw new ApiException(ErrorCode.NO_PERMISSION);

@@ -4,10 +4,12 @@ import com.example.phantom.disk.FileRepresentation;
 import com.example.phantom.user.UserShortRepresentation;
 import lombok.Getter;
 
+import java.util.UUID;
+
 @Getter
 public class MessageRepresentation {
     private final Long id;
-    private final String chatId;
+    private final UUID chatId;
     private final UserShortRepresentation user;
     private final Long timestamp;
     private final String content;
@@ -15,7 +17,7 @@ public class MessageRepresentation {
 
     public MessageRepresentation(Message message) {
         this.id = message.getId();
-        this.chatId = String.valueOf(message.getChat().getId());
+        this.chatId = message.getChat().getId();
         this.user = new UserShortRepresentation(message.getUser());
         this.timestamp = message.getTimestamp();
         this.content = message.getContent();

@@ -5,7 +5,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 // Phantom backend (LAN). Dev server proxies API + websockets here so the
 // SPA can use same-origin relative paths (/api, /ws) with no CORS.
-const BACKEND = 'http://192.168.1.11:8080'
+const BACKEND = 'http://192.168.1.12:8080'
 
 // https://vite.dev/config/
 export default defineConfig({

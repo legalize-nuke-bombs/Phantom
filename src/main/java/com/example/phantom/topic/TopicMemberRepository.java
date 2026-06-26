@@ -23,7 +23,7 @@ public interface TopicMemberRepository extends JpaRepository<TopicMember, Long> 
     @Query("SELECT COUNT(tm) FROM TopicMember tm WHERE tm.topic.id = ?1")
     long countByTopicId(String topicId);
 
-    @Query("SELECT tm FROM TopicMember tm JOIN FETCH tm.user WHERE tm.topic.id = ?1 ORDER BY tm.timestamp ASC, tm.id ASC")
+    @Query("SELECT tm FROM TopicMember tm JOIN FETCH tm.user WHERE tm.topic.id = ?1 ORDER BY tm.id ASC")
     List<TopicMember> findEldest(String topicId, Pageable pageable);
 
     void deleteByTopic_IdAndUser_Id(String topicId, Long userId);

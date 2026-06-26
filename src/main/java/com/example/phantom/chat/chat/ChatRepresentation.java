@@ -12,11 +12,17 @@ public class ChatRepresentation {
     private final String topicId;
     private final Long timestamp;
     private final List<TopicMemberRepresentation> members;
+    private final ChatType type;
+    private final String name;
+    private final Long lastEdit;
 
     public ChatRepresentation(Chat chat, List<TopicMemberRepresentation> members) {
         this.id = String.valueOf(chat.getId());
         this.topicId = chat.getTopic().getId();
         this.timestamp = chat.getTopic().getTimestamp();
-        this.members = members.stream().sorted(Comparator.comparing(TopicMemberRepresentation::getTimestamp).thenComparing(TopicMemberRepresentation::getId)).toList();
+        this.members = members.stream().sorted(Comparator.comparing(TopicMemberRepresentation::getId)).toList();
+        this.type = chat.getType();
+        this.name = chat.getName();
+        this.lastEdit = chat.getLastEdit();
     }
 }
