@@ -33,7 +33,7 @@ public class GlobalChatService {
     @EventListener(GlobalTopicsAreReadyEvent.class)
     @Transactional
     public void create() {
-        if (chatRepository.insertIfNotExists(GlobalChatConstants.ID, GlobalTopicService.AUTHORIZED_ID, ChatType.GROUP, "The Global Chat", Instant.now().getEpochSecond()) == 1) {
+        if (chatRepository.insertIfNotExists(GlobalChatConstants.ID, GlobalTopicService.AUTHORIZED_ID, ChatType.GROUP.name(), "The Global Chat", Instant.now().getEpochSecond()) == 1) {
             log.info("global chat created");
         }
         else {

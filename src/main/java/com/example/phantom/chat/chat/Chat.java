@@ -24,8 +24,8 @@ public class Chat {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Topic topic;
 
-    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private ChatType type;
 
     @Column

@@ -97,7 +97,7 @@ public class PersonalChatService {
         Topic topic = topicBuilderService.build(PersonalChatConstants.TOPIC_PREFIX + id, false, false, false, true);
         topic = topicRepository.save(topic);
 
-        if (chatRepository.insertIfNotExists(id, topic.getId(), type, name, topic.getTimestamp()) == 0) {
+        if (chatRepository.insertIfNotExists(id, topic.getId(), type.name(), name, topic.getTimestamp()) == 0) {
             log.info("user {} couldn't create the chat: chat already exists", userId);
             throw new ApiException(ErrorCode.CHAT_ALREADY_EXISTS);
         }

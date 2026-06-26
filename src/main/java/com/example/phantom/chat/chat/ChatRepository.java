@@ -27,5 +27,5 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
 
     @Modifying
     @Query(value = "INSERT INTO chats (id, topic_id, type, name, last_edit) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT DO NOTHING", nativeQuery = true)
-    int insertIfNotExists(UUID id, String topicId, ChatType type, String name, Long lastEdit);
+    int insertIfNotExists(UUID id, String topicId, String type, String name, Long lastEdit);
 }
