@@ -1,8 +1,7 @@
 // Chats hub — lists MY favourites / 1:1 / group chats (newest activity first) and lets me
-// start a new GROUP. A chat's identity is its `type`: the row's avatar, title and subline
-// adapt to it. 1:1 (P2) chats aren't created here — they're opened from a user's profile
-// ("Написать"), which is duplicate-safe now that P2 ids are deterministic — so the only
-// create action on this page is "Новая группа". Opening a row routes to its conversation.
+// start a new one. A chat's identity is its `type`: the row's avatar, title and subline adapt
+// to it. "Новый чат" opens a modal that creates any type (личный / группа / избранное).
+// Opening a row routes to its conversation.
 //
 // Reuses the chat-entity layer in shared/chat/chats.ts; messaging itself lives in ChatRoom.
 
@@ -158,7 +157,7 @@ export default function ChatsPage() {
           )}
           <Button size="sm" onClick={openCreate} disabled={createLocked}>
             <Plus size={16} />
-            Новая группа
+            Новый чат
           </Button>
         </div>
       </header>
@@ -189,7 +188,7 @@ export default function ChatsPage() {
                 <MessagesSquare size={28} className="text-muted" />
                 <p className="text-sm font-medium text-fg">Пока нет чатов</p>
                 <p className="text-xs text-muted">
-                  Создайте группу кнопкой «Новая группа», а личный чат — из профиля игрока
+                  Создайте чат кнопкой «Новый чат» вверху справа
                 </p>
               </div>
             </div>

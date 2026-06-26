@@ -18,6 +18,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
+  Ban,
   BarChart3,
   EyeOff,
   Gamepad2,
@@ -34,9 +35,10 @@ import clsx from 'clsx';
 import { api, ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
+import { useMyBan } from '@/shared/chat/ban';
 import { useStartDirectChat } from '@/shared/chat/chats';
 import { useMyExperience } from '@/shared/lib/experience';
-import { useLevels } from '@/shared/lib/levelFeatures';
+import { FeatureLock, useFeatureGate, useLevels } from '@/shared/lib/levelFeatures';
 import { formatTime } from '@/shared/lib/time';
 import { RANKS_ASC } from '@/shared/types';
 import type {
@@ -497,6 +499,11 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
   const navigate = useNavigate();
   const { user: myUser } = useAuth();
   const startChat = useStartDirectChat();
+  // "Написать" needs the chat feature (backend refuses otherwise) and is blocked by a ban —
+  // gate it the same way the chats hub gates creating chats, so a locked user sees why.
+  const writeGate = useFeatureGate('SEND_MESSAGE');
+  const writeBanned = useMyBan().data != null;
+  const writeLocked = writeGate.locked || writeBanned;
   const userQuery = useQuery<User>({
     queryKey: isOwn ? ['users', 'me'] : ['users', 'profile', String(userId)],
     queryFn: () =>
@@ -560,12 +567,24 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
                   onSuccess: (chatId) => navigate(`/chat/groups/${chatId}`),
                 })
               }
+              disabled={writeLocked}
               loading={startChat.isPending}
               className="w-full"
             >
               <MessageSquare size={17} strokeWidth={2} />
               Написать
             </Button>
+            {writeLocked ? (
+              <div className="mt-2 flex justify-center">
+                {writeBanned ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-lose">
+                    <Ban size={12} /> Вы заблокированы
+                  </span>
+                ) : (
+                  <FeatureLock feature="SEND_MESSAGE" />
+                )}
+              </div>
+            ) : null}
             {startChat.isError ? (
               <p className="mt-2 text-sm text-lose">
                 {errorMessage(startChat.error, 'Не удалось открыть чат')}

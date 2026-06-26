@@ -1,12 +1,8 @@
-// Members panel for one chat — a slide-over sheet listing members with the membership actions
-// that are legal FOR THIS CHAT TYPE:
-//   • GROUP — eldest member (members[0]) is the de-facto OWNER: only they add / kick / delete;
-//             everyone else can leave.
-//   • P2    — a 1:1: no add / kick / leave (the backend forbids them); either side can delete
-//             the conversation (it's wiped for both).
-//   • FAVORITES never opens this panel (handled by ChatConversationPage), but if it ever did,
-//     only delete is offered.
-// After a leave/delete the chat is gone for me, so the caller navigates back to the list (onLeft).
+// Members panel for a GROUP chat — a slide-over sheet listing members with the membership
+// actions. The eldest member (members[0]) is the de-facto OWNER: only they add / kick / delete;
+// everyone else can leave. P2 and favourites manage themselves from the conversation header and
+// never open this panel. After a leave/delete the chat is gone for me, so the caller navigates
+// back to the list (onLeft).
 
 import { useState } from 'react';
 import { Ban, Crown, LogOut, Trash2, UserPlus } from 'lucide-react';
@@ -168,33 +164,19 @@ export interface ChatMembersPanelProps {
 }
 
 /**
- * The members panel, rendered in a slide-over drawer. Lists members and offers exactly the
- * actions legal for the chat's type (see file header). After a leave/delete the chat is gone
- * for me, so the caller navigates away (onLeft).
+ * The members panel for a GROUP chat, rendered in a slide-over drawer. Lists members; the
+ * eldest (owner) can add / kick / delete, everyone can leave. After a leave/delete the chat
+ * is gone for me, so the caller navigates away (onLeft).
  */
 export default function ChatMembersPanel({ chat, onLeft }: ChatMembersPanelProps) {
   const { user } = useAuth();
   const myId = user?.id ?? 0;
   const chatId = chat.id;
 
-  const isGroup = chat.type === 'GROUP';
   const ownerId = chatOwnerId(chat);
   const amOwner = ownerId != null && ownerId === myId;
-
-  // Group: owner manages members, anyone can leave. P2/FAVORITES: no add/kick/leave; either
-  // member can delete (a P2 delete wipes the conversation for BOTH sides).
-  const canManageMembers = isGroup && amOwner;
-  const canLeave = isGroup;
-  const canDelete = isGroup ? amOwner : true;
-
-  const deleteLabel =
-    chat.type === 'GROUP' ? 'Удалить чат' : chat.type === 'P2' ? 'Удалить переписку' : 'Удалить избранное';
-  const deletePrompt =
-    chat.type === 'GROUP'
-      ? 'Удалить чат безвозвратно?'
-      : chat.type === 'P2'
-        ? 'Удалить переписку? Сообщения исчезнут у обоих участников.'
-        : 'Удалить избранное безвозвратно?';
+  // Only the eldest member (owner) can add / kick / delete; everyone can leave.
+  const canManage = amOwner;
 
   const exp = useExperienceBatch(chat.members.map((m) => m.user.id));
 
@@ -223,8 +205,8 @@ export default function ChatMembersPanel({ chat, onLeft }: ChatMembersPanelProps
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
-        {/* Owner-only (group): add a member */}
-        {canManageMembers ? <AddMemberField chatId={chatId} myId={myId} /> : null}
+        {/* Owner-only: add a member */}
+        {canManage ? <AddMemberField chatId={chatId} myId={myId} /> : null}
 
         {/* Member list */}
         <div className="divide-y divide-edge">
@@ -233,8 +215,8 @@ export default function ChatMembersPanel({ chat, onLeft }: ChatMembersPanelProps
               key={member.id}
               member={member}
               level={levelFor(exp.data, member.user.id)}
-              isOwner={isGroup && member.user.id === ownerId}
-              canManage={canManageMembers && member.user.id !== myId}
+              isOwner={member.user.id === ownerId}
+              canManage={canManage && member.user.id !== myId}
               onKick={() => kickMember.mutate(member.user.id)}
               kicking={kickMember.isPending && kickMember.variables === member.user.id}
             />
@@ -249,10 +231,10 @@ export default function ChatMembersPanel({ chat, onLeft }: ChatMembersPanelProps
       {/* Footer actions: delete (per type), and leave (groups only). Both are two-step — the
           first click arms an inline "точно?" confirm row in place. */}
       <footer className="flex shrink-0 flex-col gap-2 border-t border-edge p-4">
-        {canDelete ? (
+        {canManage ? (
           confirm === 'delete' ? (
             <ConfirmRow
-              prompt={deletePrompt}
+              prompt="Удалить чат безвозвратно?"
               confirmLabel="Удалить"
               onConfirm={handleDelete}
               onCancel={() => setConfirm(null)}
@@ -265,27 +247,25 @@ export default function ChatMembersPanel({ chat, onLeft }: ChatMembersPanelProps
               className="border-lose/40 text-lose hover:bg-lose/10"
             >
               <Trash2 size={16} />
-              {deleteLabel}
+              Удалить чат
             </Button>
           )
         ) : null}
 
-        {canLeave ? (
-          confirm === 'leave' ? (
-            <ConfirmRow
-              prompt="Выйти из чата?"
-              confirmLabel="Выйти"
-              onConfirm={handleLeave}
-              onCancel={() => setConfirm(null)}
-              loading={leaveChat.isPending}
-            />
-          ) : (
-            <Button variant="ghost" onClick={() => setConfirm('leave')}>
-              <LogOut size={16} />
-              Выйти из чата
-            </Button>
-          )
-        ) : null}
+        {confirm === 'leave' ? (
+          <ConfirmRow
+            prompt="Выйти из чата?"
+            confirmLabel="Выйти"
+            onConfirm={handleLeave}
+            onCancel={() => setConfirm(null)}
+            loading={leaveChat.isPending}
+          />
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirm('leave')}>
+            <LogOut size={16} />
+            Выйти из чата
+          </Button>
+        )}
 
         {leaveChat.isError ? (
           <p className="text-xs text-lose">{errorMessage(leaveChat.error, 'Не удалось выйти из чата')}</p>

@@ -223,6 +223,38 @@ async function openOrCreateP2(targetId: number): Promise<string> {
   }
 }
 
+/**
+ * Open (or create) my FAVORITES chat — a private one-person space for saved messages/files.
+ * There's exactly one per user (its id is UUID(me,me)), so this is the same race-safe
+ * get-or-create as P2: GET it; on 404 create it; on a 409 create-race GET the winner. Returns
+ * its id for the caller to route to.
+ */
+export function useOpenFavorites() {
+  const qc = useQueryClient();
+  return useMutation<string, ApiError, void>({
+    mutationFn: () => openOrCreateFavorites(),
+    onSuccess: () => {
+      void invalidateList(qc);
+    },
+  });
+}
+
+async function openOrCreateFavorites(): Promise<string> {
+  try {
+    return (await api.get<Chat>('/chat/chats/favourite')).id;
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 404) throw err;
+  }
+  try {
+    return (await api.post<Chat>('/chat/chats', { type: 'FAVORITES' })).id;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 409) {
+      return (await api.get<Chat>('/chat/chats/favourite')).id;
+    }
+    throw err;
+  }
+}
+
 /* ── pure helpers (no hooks — usable anywhere) ──────────────────────────────── */
 
 /** The eldest member's user id = the de-facto owner (members[0]). null if no members. */
