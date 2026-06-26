@@ -33,10 +33,15 @@ export function useMyExperience(userId: number | null | undefined) {
 /** A map of userId → Experience. Users who hid their experience are absent. */
 export type ExperienceMap = Record<number, Experience>;
 
+/** The backend caps /experience/batch at 100 ids (ExperienceService.MAX_BATCH_SIZE). */
+const BATCH_MAX = 100;
+
 /**
- * Levels for many users in one request. Ids are de-duplicated and sorted so the
- * query key is stable regardless of input order; an empty list skips the request.
- * The backend omits hidden users, so a missing id means "unknown level".
+ * Levels for many users in one logical request. Ids are de-duplicated and sorted so the
+ * query key is stable regardless of input order; an empty list skips the request. The backend
+ * omits hidden users, so a missing id means "unknown level". Ids beyond the backend's 100-cap
+ * are split into ≤100 chunks and merged — so a long list (e.g. >100 referrals) doesn't 400 and
+ * silently drop every rank badge.
  */
 export function useExperienceBatch(ids: ReadonlyArray<number>) {
   const unique = Array.from(new Set(ids)).sort((a, b) => a - b);
@@ -44,7 +49,14 @@ export function useExperienceBatch(ids: ReadonlyArray<number>) {
   return useQuery<ExperienceMap>({
     queryKey: ['experience', 'batch', key],
     enabled: unique.length > 0,
-    queryFn: () => api.get<ExperienceMap>('/experience/batch?ids=' + key),
+    queryFn: async () => {
+      const out: ExperienceMap = {};
+      for (let i = 0; i < unique.length; i += BATCH_MAX) {
+        const chunk = unique.slice(i, i + BATCH_MAX);
+        Object.assign(out, await api.get<ExperienceMap>('/experience/batch?ids=' + chunk.join(',')));
+      }
+      return out;
+    },
   });
 }
 

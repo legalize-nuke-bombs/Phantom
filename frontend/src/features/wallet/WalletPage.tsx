@@ -113,6 +113,9 @@ const COIN: CoinType = 'TON';
 
 const PRESENTS_QUERY_KEY = ['presents', 'received'] as const;
 const PRESENTS_PAGE_SIZE = 100;
+// Deposit/withdrawal history page size — used for BOTH the request limit and the "is there
+// another page?" threshold, so they can't drift apart (they did: limit 100 vs threshold 20).
+const HISTORY_PAGE_SIZE = 100;
 
 /* ── clipboard ─────────────────────────────────────────────────────────────
  * Small reusable copy hook with a transient "copied" flag, mirroring the
@@ -426,12 +429,12 @@ function DepositHistory() {
   const deposits = useInfiniteQuery({
     queryKey: ['crypto', 'deposits', COIN],
     queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams({ limit: '100' });
+      const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
       if (pageParam !== undefined) params.set('before', String(pageParam));
       return api.get<Deposit[]>(`/wallets/me/crypto/${COIN}/deposits?${params}`);
     },
     initialPageParam: undefined as number | undefined,
-    getNextPageParam: (last) => (last.length < 20 ? undefined : last[last.length - 1].id),
+    getNextPageParam: (last) => (last.length < HISTORY_PAGE_SIZE ? undefined : last[last.length - 1].id),
   });
 
   const items = deposits.data?.pages.flat() ?? [];
@@ -616,12 +619,12 @@ function WithdrawHistory() {
   const withdrawals = useInfiniteQuery({
     queryKey: ['crypto', 'withdrawals', COIN],
     queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams({ limit: '100' });
+      const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
       if (pageParam !== undefined) params.set('before', String(pageParam));
       return api.get<Withdrawal[]>(`/wallets/me/crypto/${COIN}/withdrawals?${params}`);
     },
     initialPageParam: undefined as number | undefined,
-    getNextPageParam: (last) => (last.length < 20 ? undefined : last[last.length - 1].id),
+    getNextPageParam: (last) => (last.length < HISTORY_PAGE_SIZE ? undefined : last[last.length - 1].id),
   });
 
   const items = withdrawals.data?.pages.flat() ?? [];

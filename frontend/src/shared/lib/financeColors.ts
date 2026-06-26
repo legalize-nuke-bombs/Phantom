@@ -104,13 +104,21 @@ export function useFinanceColors() {
   });
 }
 
-/** Classify an amount into its tier: the highest threshold that is <= amount. */
+/**
+ * Classify an amount into its tier: the one with the HIGHEST threshold that is <= amount.
+ * Scans all tiers (no early break) so it stays correct even if the backend ever returns
+ * thresholds out of ascending order — an early break would skip a tier the amount qualifies for.
+ */
 export function amountTier(amount: number, thresholds: Thresholds): FinanceTier {
   if (!Number.isFinite(amount)) return 'grey';
   let tier: FinanceTier = 'grey';
+  let best = -Infinity;
   for (const candidate of TIER_ORDER) {
-    if (amount >= thresholds[candidate]) tier = candidate;
-    else break;
+    const threshold = thresholds[candidate];
+    if (amount >= threshold && threshold >= best) {
+      tier = candidate;
+      best = threshold;
+    }
   }
   return tier;
 }

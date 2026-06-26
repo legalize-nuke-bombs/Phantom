@@ -11,7 +11,7 @@ import type { ChatMessage } from '@/shared/realtime/types';
 
 export type ChatPages = InfiniteData<ChatMessage[], number | undefined>;
 
-/** Query key for one chat's message history. chatId is the string id (global = "1"). */
+/** Query key for one chat's message history. chatId is the string id (global = the nil-UUID). */
 export function chatMessagesKey(chatId: string) {
   return ['chat', chatId, 'messages'] as const;
 }

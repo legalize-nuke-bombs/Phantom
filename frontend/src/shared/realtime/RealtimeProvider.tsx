@@ -315,14 +315,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         void api.post('/notifications/read', { ids: staleDeletedIds });
       }
 
-      // Items newly seen in THIS drain arrived while we were away (a dropped socket, or a
-      // role change that kicked us). Treat them like live frames we missed: chime ONCE if any
-      // is audible — so a message/gift/role that landed during the gap still nudges the user —
-      // and refetch experience if a LEVEL_UP slipped in, so its feature unlocks re-evaluate.
-      // Known ids (already in the store from before this resync) are old and stay silent, so a
-      // plain reconnect with no new traffic makes no sound.
+      // A role change usually arrives while we were briefly disconnected (the access change
+      // kicks the socket), so it lands in this drain rather than live dispatch. Chime ONCE for
+      // a newly-seen ROLE_CLAIMED so the user still hears it. Everything else stays SILENT on a
+      // drain: chiming for every message/gift pulled in on each reconnect made leaving a chat
+      // (or any brief socket drop) spam the sound — and the badges already reflect those.
+      // A LEVEL_UP slipped in during the gap still refetches experience so feature gates re-eval.
       const freshDrained = items.filter((n) => !knownIds.has(n.id));
-      if (freshDrained.some(isAudible)) {
+      if (freshDrained.some((n) => n.type === 'ROLE_CLAIMED')) {
         sfx.notify();
       }
       if (freshDrained.some((n) => n.type === 'LEVEL_UP')) {

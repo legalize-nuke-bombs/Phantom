@@ -156,7 +156,9 @@ function CurrentRound({ lottery }: { lottery: CurrentLottery }) {
       : 0;
 
   const orderCost = Number.isFinite(ticketCost) ? ticketCost * qty : 0;
-  const cantAfford = orderCost > balance;
+  // Compare in whole cents so binary float error can't block an affordable buy
+  // (e.g. 3 × 0.1 = 0.30000000000000004 must not exceed a balance of exactly 0.30).
+  const cantAfford = Math.round(orderCost * 100) > Math.round(balance * 100);
   const cantRefund = qty > lottery.ticketsAmountPersonal;
 
   // While the draw is happening, poll harder so the next round appears promptly.

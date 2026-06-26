@@ -21,9 +21,11 @@ export function formatUsd(
   // shortfall up a whole cent.
   const factor = 10 ** decimals;
   const floored = (Math.sign(n) * Math.floor(Math.abs(n) * factor + 1e-6)) / factor;
+  // Any tiny negative truncates to -0, which toLocaleString renders as "-$0.00"; normalize it.
+  const value = floored === 0 ? 0 : floored;
   return (
     '$' +
-    floored.toLocaleString('en-US', {
+    value.toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     })

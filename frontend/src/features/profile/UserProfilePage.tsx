@@ -17,9 +17,15 @@ export default function UserProfilePage() {
     return <Navigate to="/" replace />;
   }
 
-  // A numeric handle that is me → the editable own-profile page. (A username handle that
-  // resolves to me still shows the public view — fine; resolving it here would need a fetch.)
-  if (user && /^\d+$/.test(handle) && Number(handle) === user.id) {
+  // Reaching my OWN profile by either form of handle → the editable own-profile page. Compare
+  // ids as STRINGS (a user id is a Java long; Number() would lose precision past 2^53), and
+  // also match my @username so /u/<myUsername> (e.g. a self-mention) doesn't show me the
+  // privacy-gated public view of myself.
+  if (
+    user &&
+    ((/^\d+$/.test(handle) && handle === String(user.id)) ||
+      handle.toLowerCase() === user.username.toLowerCase())
+  ) {
     return <Navigate to="/profile" replace />;
   }
 
