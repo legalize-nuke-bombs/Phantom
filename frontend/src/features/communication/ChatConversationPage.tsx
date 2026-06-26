@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MessagesSquare, Users, X } from 'lucide-react';
+import { ArrowLeft, Bookmark, Users, X } from 'lucide-react';
 
 import ChatRoom from '@/features/communication/ChatRoom';
 import ChatMembersPanel from '@/features/communication/ChatMembersPanel';
@@ -15,25 +15,23 @@ import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import RankBadge from '@/shared/ui/RankBadge';
 import Spinner from '@/shared/ui/Spinner';
 import {
-  chatKind,
   chatTitle,
   otherMembers,
   useChatDetail,
   type Chat,
 } from '@/shared/chat/chats';
 
-/** The header avatar — other user's rank for a DM, a group glyph otherwise. */
+/** The header avatar — other user's rank for a P2, a group / favourites glyph otherwise. */
 function HeaderAvatar({ chat, myId }: { chat: Chat; myId: number }) {
-  const kind = chatKind(chat, myId);
-  const otherId = kind === 'dm' ? otherMembers(chat, myId)[0]?.user.id : undefined;
+  const otherId = chat.type === 'P2' ? otherMembers(chat, myId)[0]?.user.id : undefined;
   const exp = useExperienceBatch(otherId != null ? [otherId] : []);
 
-  if (kind === 'dm' && otherId != null) {
+  if (chat.type === 'P2' && otherId != null) {
     return <RankBadge level={levelFor(exp.data, otherId)} size={26} className="shrink-0" />;
   }
   return (
     <span className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full border border-edge bg-panel-2 text-ice">
-      {kind === 'group' ? <Users size={15} strokeWidth={2} /> : <MessagesSquare size={15} strokeWidth={2} />}
+      {chat.type === 'GROUP' ? <Users size={15} strokeWidth={2} /> : <Bookmark size={15} strokeWidth={2} />}
     </span>
   );
 }
@@ -73,6 +71,8 @@ export default function ChatConversationPage() {
   }
 
   const memberCount = chat.members.length;
+  // FAVORITES is a private one-person chat — there's no membership to manage, so no panel.
+  const showMembers = chat.type !== 'FAVORITES';
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
@@ -91,17 +91,19 @@ export default function ChatConversationPage() {
           {chatTitle(chat, myId)}
         </h1>
         {/* Members open as a slide-over drawer (same on mobile AND desktop) so the chat always
-            keeps full width — the panel is never a permanent column. Shown for every chat,
-            DM included, so you can still add a third person and turn a DM into a group. */}
-        <button
-          type="button"
-          onClick={() => setMembersOpen(true)}
-          aria-label="Участники"
-          className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-panel-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
-        >
-          <Users size={18} />
-          {memberCount}
-        </button>
+            keeps full width — the panel is never a permanent column. Hidden for FAVORITES
+            (a one-person chat); shown for P2 and groups. */}
+        {showMembers ? (
+          <button
+            type="button"
+            onClick={() => setMembersOpen(true)}
+            aria-label="Участники"
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-panel-2 hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
+          >
+            <Users size={18} />
+            {memberCount}
+          </button>
+        ) : null}
       </div>
 
       {/* Chat fills the whole row — members live in the drawer below, never a fixed column. */}
@@ -110,7 +112,7 @@ export default function ChatConversationPage() {
       </div>
 
       {/* Members drawer — slides in from the right over the chat, identical on every breakpoint. */}
-      {membersOpen ? (
+      {showMembers && membersOpen ? (
         <div className="fixed inset-0 z-50 flex">
           <button
             type="button"

@@ -1,30 +1,41 @@
-// Chat-ENTITY layer — 1:1 DMs and group chats are the SAME backend object (a Chat = a
-// topic + members). This module owns the chat list / detail / membership; the MESSAGE
-// layer (useChat.ts, chatCache.ts) is separate and serves any chatId once you have one.
+// Chat-ENTITY layer — favourites, 1:1 (P2) and group chats. A Chat is a topic + members;
+// its `type` (fixed at creation) decides its identity, its title, and which membership
+// actions are legal. The MESSAGE layer (useChat.ts, chatCache.ts) is separate and serves
+// any chatId once you have one.
 //
 // Backend (verified — PersonalChatController / PersonalChatService):
-//   POST   /api/chat/chats                                   → create an EMPTY chat (me only)
-//   GET    /api/chat/chats?limit&beforeTimestamp&beforeId    → MY chats, topic.timestamp DESC, id DESC
+//   POST   /api/chat/chats          {type, name?, userIds?}  → create a chat, returns it
+//   GET    /api/chat/chats                                   → ALL my chats, lastEdit DESC
 //   GET    /api/chat/chats/{chatId}                          → one chat (+ members)
-//   POST   /api/chat/chats/{chatId}/leave                    → leave (last member → chat deleted)
-//   DELETE /api/chat/chats/{chatId}                          → delete the chat (ELDEST only)
-//   POST   /api/chat/chats/{chatId}/kick/{targetId}          → kick a member (ELDEST only)
-//   POST   /api/chat/chats/{chatId}/add/{targetId}           → add a member (ELDEST only, max 1000)
+//   GET    /api/chat/chats/favourite                         → my favourites chat
+//   GET    /api/chat/chats/p2/{targetId}                     → my 1:1 with targetId
+//   POST   /api/chat/chats/{chatId}/leave                    → leave (GROUP only)
+//   DELETE /api/chat/chats/{chatId}                          → delete the chat
+//   POST   /api/chat/chats/{chatId}/kick/{targetId}          → kick a member (GROUP, eldest)
+//   POST   /api/chat/chats/{chatId}/add/{targetId}           → add a member  (GROUP, eldest)
 //
-// ChatRepresentation: { id:string; topicId:string; timestamp:number; members:ChatMember[] }.
-// `id` is a STRING and MUST stay one end-to-end: chat ids are Java longs up to 2^63, far
-// past JS's safe-integer range (2^53), so Number(chat.id) silently corrupts large ids and
-// the backend then 404s the wrong chat. members come SORTED ascending by (timestamp,id), so
-// members[0] is the ELDEST = the de-facto owner: only members[0] can add / kick / delete;
-// everyone can leave.
+// Create bodies, per type:
+//   FAVORITES → { type:'FAVORITES' }                 — no name, no userIds (id = UUID(me,me))
+//   P2        → { type:'P2', userIds:[targetId] }     — no name        (id derived from the pair)
+//   GROUP     → { type:'GROUP', name, userIds? }      — name REQUIRED  (id = random UUID)
+//
+// `id` is now a backend UUID — a STRING, and MUST stay one end-to-end (a UUID is not a number,
+// so never Number() it). FAVORITES and P2 ids are DETERMINISTIC (derived from the user / the
+// pair), so their "create" is idempotent: the backend 409s if the chat already exists, which
+// is exactly what makes the get-or-create helpers below race-safe — one pair maps to ONE chat,
+// so a profile "Написать" button can never spawn duplicates. members arrive sorted by member
+// id ASC, so members[0] is the ELDEST = the GROUP's de-facto owner (add/kick/delete powers).
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/shared/api/client';
 import { markBucketRead } from '@/shared/realtime/badges';
-import type { ShortUser, User } from '@/shared/types';
+import type { ShortUser } from '@/shared/types';
 
 /* ── types (mirror the backend representations) ─────────────────────────────── */
+
+/** ChatType (com.example.phantom.chat.chat.ChatType) — fixed at creation. */
+export type ChatType = 'FAVORITES' | 'P2' | 'GROUP';
 
 /** TopicMemberRepresentation — one member of a chat. */
 export interface ChatMember {
@@ -33,20 +44,16 @@ export interface ChatMember {
   timestamp: number; // epoch seconds — when they joined
 }
 
-/** ChatRepresentation — a chat entity (a topic + its members). `id` is a STRING. */
+/** ChatRepresentation — a chat entity (a topic + its members). `id` is a UUID STRING. */
 export interface Chat {
   id: string;
   topicId: string;
-  timestamp: number; // topic.timestamp (epoch seconds) — drives list ordering
-  members: ChatMember[]; // SORTED ascending by (timestamp, id); members[0] = eldest/owner
+  timestamp: number; // topic.timestamp (epoch seconds)
+  members: ChatMember[]; // SORTED ascending by member id; members[0] = eldest/owner
+  type: ChatType;
+  name: string | null; // GROUP only — null for FAVORITES / P2
+  lastEdit: number; // epoch seconds of the last message — drives list ordering
 }
-
-/** What kind of chat this is, from the signed-in user's point of view. */
-export type ChatKind = 'empty' | 'dm' | 'group';
-
-const PAGE_SIZE = 100;
-/** A sane cap on how many list pages useStartDirectChat scans for an existing DM. */
-const DM_SCAN_PAGE_CAP = 5;
 
 /* ── query keys (one home; mutations invalidate these) ──────────────────────── */
 export const chatsListKey = ['chats', 'list'] as const;
@@ -54,18 +61,8 @@ export const chatDetailKey = (chatId: string) => ['chats', 'detail', chatId] as 
 
 /* ── REST ───────────────────────────────────────────────────────────────────── */
 
-interface ChatsCursor {
-  beforeTimestamp: number;
-  beforeId: string; // a chat id (Java long) — kept as a string to preserve precision
-}
-
-function fetchMyChats(cursor: ChatsCursor | undefined): Promise<Chat[]> {
-  const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
-  if (cursor) {
-    params.set('beforeTimestamp', String(cursor.beforeTimestamp));
-    params.set('beforeId', String(cursor.beforeId));
-  }
-  return api.get<Chat[]>(`/chat/chats?${params}`);
+function fetchMyChats(): Promise<Chat[]> {
+  return api.get<Chat[]>('/chat/chats');
 }
 
 function fetchChat(chatId: string): Promise<Chat> {
@@ -75,33 +72,19 @@ function fetchChat(chatId: string): Promise<Chat> {
 /* ── reads ──────────────────────────────────────────────────────────────────── */
 
 /**
- * ALL my chats, newest activity first — paged to the end (a short page = done) and returned
- * whole. Chats are few enough not to need a "load more"; loading the COMPLETE set also lets
- * the hub reconcile stale unread badges (a chat I was removed from / that was deleted can no
- * longer be opened to clear its notifications, so the hub marks them read on open).
- */
-async function fetchAllMyChats(): Promise<Chat[]> {
-  const out: Chat[] = [];
-  let cursor: ChatsCursor | undefined;
-  for (;;) {
-    const page = await fetchMyChats(cursor);
-    out.push(...page);
-    if (page.length < PAGE_SIZE) break; // reached the end
-    const last = page[page.length - 1];
-    cursor = { beforeTimestamp: last.timestamp, beforeId: last.id };
-  }
-  return out;
-}
-
-/**
- * My chats, loaded whole and refetched fresh every mount. The list is membership/activity
- * state that drifts the moment anyone adds/kicks/leaves/messages — caching it was the source
- * of stale-row bugs — so staleTime/gcTime are 0 and it always refetches on mount.
+ * ALL my chats, already ordered by last activity (lastEdit DESC) server-side. There's no
+ * paging anymore — chats are few, and loading the COMPLETE set also lets the hub reconcile
+ * stale unread badges (a chat I was removed from / that was deleted can't be opened to clear
+ * its notifications, so the hub marks those read once it sees the full list).
+ *
+ * The list is membership/activity state that drifts the moment anyone adds/kicks/leaves or
+ * sends a message (lastEdit moves the row) — caching it was the source of stale-row bugs — so
+ * staleTime/gcTime are 0 and it always refetches on mount.
  */
 export function useMyChats() {
   return useQuery<Chat[]>({
     queryKey: chatsListKey,
-    queryFn: fetchAllMyChats,
+    queryFn: fetchMyChats,
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: 'always',
@@ -120,10 +103,10 @@ export function useChatDetail(chatId: string) {
 /* ── mutations ──────────────────────────────────────────────────────────────── */
 
 /**
- * Drop the list cache so it refetches. We deliberately do NOT seed list/detail caches
- * from mutation results anymore: those optimistic writes drifted out of sync with the
- * server (member order, timestamps, sibling edits) and caused stale rows. Mutations
- * now invalidate and let the queries refetch the authoritative copy instead.
+ * Drop the list cache so it refetches. We deliberately do NOT seed list/detail caches from
+ * mutation results: those optimistic writes drifted out of sync with the server (member
+ * order, timestamps, sibling edits) and caused stale rows. Mutations invalidate and let the
+ * queries refetch the authoritative copy instead.
  */
 function invalidateList(qc: QueryClient): Promise<void> {
   return qc.invalidateQueries({ queryKey: chatsListKey });
@@ -134,18 +117,25 @@ function invalidateDetail(qc: QueryClient, chatId: string): Promise<void> {
   return qc.invalidateQueries({ queryKey: chatDetailKey(chatId) });
 }
 
-/** Create an EMPTY chat (just me). Returns the new chat — caller navigates to it. */
-export function useCreateChat() {
+/** Arguments for creating a GROUP chat — a required name plus the members to seed it with. */
+export interface CreateGroupArgs {
+  name: string;
+  userIds: number[];
+}
+
+/** Create a GROUP chat (name required; seeded with `userIds`). Returns the new chat. */
+export function useCreateGroupChat() {
   const qc = useQueryClient();
-  return useMutation<Chat, ApiError, void>({
-    mutationFn: () => api.post<Chat>('/chat/chats'),
+  return useMutation<Chat, ApiError, CreateGroupArgs>({
+    mutationFn: ({ name, userIds }) =>
+      api.post<Chat>('/chat/chats', { type: 'GROUP', name, userIds }),
     onSuccess: () => {
       void invalidateList(qc);
     },
   });
 }
 
-/** Add a member by user id (eldest only). Returns the updated chat. */
+/** Add a member by user id (GROUP, eldest only). Returns the updated chat. */
 export function useAddMember(chatId: string) {
   const qc = useQueryClient();
   return useMutation<Chat, ApiError, number>({
@@ -157,7 +147,7 @@ export function useAddMember(chatId: string) {
   });
 }
 
-/** Kick a member by user id (eldest only). Returns the updated chat. */
+/** Kick a member by user id (GROUP, eldest only). Returns the updated chat. */
 export function useKickMember(chatId: string) {
   const qc = useQueryClient();
   return useMutation<Chat, ApiError, number>({
@@ -169,7 +159,7 @@ export function useKickMember(chatId: string) {
   });
 }
 
-/** Leave the chat (anyone). If I was the last member the backend deletes it. */
+/** Leave the chat (GROUP only — backend refuses FAVORITES/P2). Last member out → deleted. */
 export function useLeaveChat(chatId: string) {
   const qc = useQueryClient();
   return useMutation<void, ApiError, void>({
@@ -184,7 +174,7 @@ export function useLeaveChat(chatId: string) {
   });
 }
 
-/** Delete the chat (eldest only). */
+/** Delete the chat (GROUP: eldest only; FAVORITES/P2: any member — wipes the conversation). */
 export function useDeleteChat(chatId: string) {
   const qc = useQueryClient();
   return useMutation<void, ApiError, void>({
@@ -200,55 +190,37 @@ export function useDeleteChat(chatId: string) {
 }
 
 /**
- * Open (or start) a 1:1 DM with `target`. To avoid duplicate DMs we first page my
- * existing chats (up to DM_SCAN_PAGE_CAP pages) looking for one whose members are
- * EXACTLY {me, target}; if found, return its id. Otherwise create an empty chat and
- * add the target, then return the new id. Either way the caller navigates to the id.
- *
- * Returns the chat id as a STRING (matching chat.id) so the caller can route to it.
+ * Open (or start) the 1:1 (P2) chat with `targetId`, returning its id so the caller can
+ * route to it. P2 ids are deterministic, so this is a race-safe get-or-create: GET the
+ * existing chat; on 404 create it; if the create loses a race (409 — our other device or a
+ * near-simultaneous open already made it) the chat now exists, so GET it. Every branch yields
+ * the SAME id — the pair maps to one chat — so the caller can never produce duplicate DMs.
  */
 export function useStartDirectChat() {
   const qc = useQueryClient();
-
-  // The caller passes both the target and their OWN id (myId) — the chats layer is
-  // hook-agnostic and doesn't read auth itself, so the page supplies it from useAuth.
-  return useMutation<string, ApiError, { target: Pick<User, 'id'> | ShortUser; myId: number }>({
-    mutationFn: async ({ target, myId: me }) => {
-      const existing = await findDirectChat(me, target.id);
-      if (existing) return existing;
-
-      const chat = await api.post<Chat>('/chat/chats');
-      const withMember = await api.post<Chat>(`/chat/chats/${chat.id}/add/${target.id}`);
-      // No optimistic detail seed — the conversation page fetches the authoritative
-      // chat fresh on navigate (same drift fix as the other mutations).
-      return withMember.id;
-    },
+  return useMutation<string, ApiError, number>({
+    mutationFn: (targetId) => openOrCreateP2(targetId),
     onSuccess: () => {
       void invalidateList(qc);
     },
   });
 }
 
-/** Scan up to DM_SCAN_PAGE_CAP pages for an existing 1:1 chat with exactly {me, target}. */
-async function findDirectChat(myId: number, targetId: number): Promise<string | null> {
-  let cursor: ChatsCursor | undefined;
-  for (let page = 0; page < DM_SCAN_PAGE_CAP; page++) {
-    const chats = await fetchMyChats(cursor);
-    for (const chat of chats) {
-      if (isDirectWith(chat, myId, targetId)) return chat.id;
-    }
-    if (chats.length < PAGE_SIZE) break; // reached the end
-    const last = chats[chats.length - 1];
-    cursor = { beforeTimestamp: last.timestamp, beforeId: last.id };
+async function openOrCreateP2(targetId: number): Promise<string> {
+  try {
+    return (await api.get<Chat>(`/chat/chats/p2/${targetId}`)).id;
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 404) throw err;
   }
-  return null;
-}
-
-/** True when `chat` has EXACTLY the two members {myId, targetId} and nothing else. */
-function isDirectWith(chat: Chat, myId: number, targetId: number): boolean {
-  if (chat.members.length !== 2) return false;
-  const ids = new Set(chat.members.map((m) => m.user.id));
-  return ids.has(myId) && ids.has(targetId);
+  try {
+    return (await api.post<Chat>('/chat/chats', { type: 'P2', userIds: [targetId] })).id;
+  } catch (err) {
+    // Lost the create race — the deterministic id already exists; fetch the winner's copy.
+    if (err instanceof ApiError && err.status === 409) {
+      return (await api.get<Chat>(`/chat/chats/p2/${targetId}`)).id;
+    }
+    throw err;
+  }
 }
 
 /* ── pure helpers (no hooks — usable anywhere) ──────────────────────────────── */
@@ -264,34 +236,20 @@ export function otherMembers(chat: Chat, myId: number): ChatMember[] {
 }
 
 /**
- * What this chat is from my point of view:
- *   • 'empty' — only me (a brand-new chat before I add anyone),
- *   • 'dm'    — exactly two members (me + one other),
- *   • 'group' — three or more.
- */
-export function chatKind(chat: Chat, myId: number): ChatKind {
-  void myId; // kind is purely a function of member count, but myId keeps the call site honest
-  const n = chat.members.length;
-  if (n <= 1) return 'empty';
-  if (n === 2) return 'dm';
-  return 'group';
-}
-
-/**
  * A display title for the chat:
- *   • DM    → the other member's displayName,
- *   • group → "Группа · N" (N = member count),
- *   • empty → "Только вы".
+ *   • FAVORITES → "Избранное",
+ *   • P2        → the other member's displayName,
+ *   • GROUP     → its name (falls back to "Группа · N" if somehow unnamed).
  */
 export function chatTitle(chat: Chat, myId: number): string {
-  switch (chatKind(chat, myId)) {
-    case 'dm': {
+  switch (chat.type) {
+    case 'FAVORITES':
+      return 'Избранное';
+    case 'P2': {
       const other = otherMembers(chat, myId)[0];
       return other?.user.displayName ?? 'Диалог';
     }
-    case 'group':
-      return `Группа · ${chat.members.length}`;
-    default:
-      return 'Только вы';
+    case 'GROUP':
+      return chat.name?.trim() || `Группа · ${chat.members.length}`;
   }
 }

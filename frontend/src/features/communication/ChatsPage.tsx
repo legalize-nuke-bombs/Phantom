@@ -1,19 +1,21 @@
-// Chats hub — lists MY personal & group chats and lets me start a new one. A 1:1 DM and a
-// group are the SAME entity (a Chat), so one list shows both; the row's look adapts to its
-// kind. "Новый чат" creates an EMPTY chat (just me) and drops me into its conversation,
-// where I add members. Opening a row routes to chat/groups/:chatId (the conversation page).
+// Chats hub — lists MY favourites / 1:1 / group chats (newest activity first) and lets me
+// start a new GROUP. A chat's identity is its `type`: the row's avatar, title and subline
+// adapt to it. 1:1 (P2) chats aren't created here — they're opened from a user's profile
+// ("Написать"), which is duplicate-safe now that P2 ids are deterministic — so the only
+// create action on this page is "Новая группа". Opening a row routes to its conversation.
 //
 // Reuses the chat-entity layer in shared/chat/chats.ts; messaging itself lives in ChatRoom.
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Ban, MessagesSquare, Plus, Users } from 'lucide-react';
+import { Ban, Bookmark, MessagesSquare, Plus, Users } from 'lucide-react';
 import clsx from 'clsx';
 
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
 import { reconcileChatBadges, useUnreadCount } from '@/shared/realtime/badges';
+import { GLOBAL_CHAT_ID } from '@/shared/chat/useChat';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
 import { useMyBan } from '@/shared/chat/ban';
@@ -21,7 +23,6 @@ import Button from '@/shared/ui/Button';
 import RankBadge from '@/shared/ui/RankBadge';
 import Spinner from '@/shared/ui/Spinner';
 import {
-  chatKind,
   chatTitle,
   otherMembers,
   useMyChats,
@@ -41,30 +42,28 @@ function RowBadge({ chatId }: { chatId: string }) {
   );
 }
 
-/** Avatar for a row: the other user's RankBadge for a DM, a group glyph otherwise. */
-function RowAvatar({ chat, myId, level }: { chat: Chat; myId: number; level: ReturnType<typeof levelFor> }) {
-  const kind = chatKind(chat, myId);
-  if (kind === 'dm') {
+/** Avatar for a row: the other user's RankBadge for a P2, a glyph for group / favourites. */
+function RowAvatar({ chat, level }: { chat: Chat; level: ReturnType<typeof levelFor> }) {
+  if (chat.type === 'P2') {
     return <RankBadge level={level} size={44} className="shrink-0" />;
   }
   return (
     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-edge bg-panel-2 text-ice">
-      {kind === 'group' ? <Users size={20} strokeWidth={2} /> : <MessagesSquare size={20} strokeWidth={2} />}
+      {chat.type === 'GROUP' ? <Users size={20} strokeWidth={2} /> : <Bookmark size={20} strokeWidth={2} />}
     </span>
   );
 }
 
-/** One chat row — avatar, title, a member-count / kind subline, unread badge. */
+/** One chat row — avatar, title, a kind/member-count subline, unread badge. */
 function ChatRow({ chat, myId, level }: { chat: Chat; myId: number; level: ReturnType<typeof levelFor> }) {
   const navigate = useNavigate();
-  const kind = chatKind(chat, myId);
 
   const subline =
-    kind === 'group'
+    chat.type === 'GROUP'
       ? `${chat.members.length} участников`
-      : kind === 'dm'
+      : chat.type === 'P2'
         ? 'Личный чат'
-        : 'Добавьте участников';
+        : 'Сохранённые сообщения';
 
   return (
     <button
@@ -75,7 +74,7 @@ function ChatRow({ chat, myId, level }: { chat: Chat; myId: number; level: Retur
         'hover:bg-panel-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ton',
       )}
     >
-      <RowAvatar chat={chat} myId={myId} level={level} />
+      <RowAvatar chat={chat} level={level} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-fg">{chatTitle(chat, myId)}</p>
         <p className="truncate text-xs text-muted">{subline}</p>
@@ -89,18 +88,18 @@ function ChatRow({ chat, myId, level }: { chat: Chat; myId: number; level: Retur
   );
 }
 
-/** Each row needs the OTHER user's rank for the DM avatar; batch-load the whole page's. */
+/** Each row needs the OTHER user's rank for the P2 avatar; batch-load the whole list's. */
 function ChatList({ chats, myId }: { chats: Chat[]; myId: number }) {
-  // Collect every "other" user id across DMs so we resolve ranks in one batched request.
+  // Collect every "other" user id across P2 chats so we resolve ranks in one batched request.
   const otherIds = chats
-    .map((c) => (chatKind(c, myId) === 'dm' ? otherMembers(c, myId)[0]?.user.id : undefined))
+    .map((c) => (c.type === 'P2' ? otherMembers(c, myId)[0]?.user.id : undefined))
     .filter((id): id is number => id != null);
   const exp = useExperienceBatch(otherIds);
 
   return (
     <div className="flex flex-col p-1.5">
       {chats.map((chat) => {
-        const otherId = chatKind(chat, myId) === 'dm' ? otherMembers(chat, myId)[0]?.user.id : undefined;
+        const otherId = chat.type === 'P2' ? otherMembers(chat, myId)[0]?.user.id : undefined;
         const level = otherId != null ? levelFor(exp.data, otherId) : null;
         return <ChatRow key={chat.id} chat={chat} myId={myId} level={level} />;
       })}
@@ -117,7 +116,7 @@ export default function ChatsPage() {
   const list = useMyChats();
   const [createOpen, setCreateOpen] = useState(false);
   // Creating a chat needs the chat feature (backend refuses otherwise), so gate the
-  // "Новый чат" action on SEND_MESSAGE — same feature that gates messaging.
+  // "Новая группа" action on SEND_MESSAGE — same feature that gates messaging.
   const createGate = useFeatureGate('SEND_MESSAGE');
   // A ban blocks creating chats too (backend refuses), so fold it into the same lock.
   const banned = useMyBan().data != null;
@@ -135,7 +134,7 @@ export default function ChatsPage() {
   // opened to clear, so mark it read. Runs on each fresh load (keyed on the data identity).
   useEffect(() => {
     if (!list.data) return;
-    void reconcileChatBadges(new Set<string>(['1', ...list.data.map((c) => c.id)]));
+    void reconcileChatBadges(new Set<string>([GLOBAL_CHAT_ID, ...list.data.map((c) => c.id)]));
   }, [list.data]);
 
   function openCreate() {
@@ -159,7 +158,7 @@ export default function ChatsPage() {
           )}
           <Button size="sm" onClick={openCreate} disabled={createLocked}>
             <Plus size={16} />
-            Новый чат
+            Новая группа
           </Button>
         </div>
       </header>
@@ -189,7 +188,9 @@ export default function ChatsPage() {
               <div className="flex flex-col items-center gap-2">
                 <MessagesSquare size={28} className="text-muted" />
                 <p className="text-sm font-medium text-fg">Пока нет чатов</p>
-                <p className="text-xs text-muted">Создайте чат кнопкой «Новый чат» вверху справа</p>
+                <p className="text-xs text-muted">
+                  Создайте группу кнопкой «Новая группа», а личный чат — из профиля игрока
+                </p>
               </div>
             </div>
           ) : (

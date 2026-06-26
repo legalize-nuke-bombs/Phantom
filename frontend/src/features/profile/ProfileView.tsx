@@ -15,7 +15,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
@@ -23,6 +23,7 @@ import {
   Gamepad2,
   Gift,
   History,
+  MessageSquare,
   Search,
   Settings,
   ShieldCheck,
@@ -32,6 +33,8 @@ import clsx from 'clsx';
 
 import { api, ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
+import { useAuth } from '@/shared/auth/AuthContext';
+import { useStartDirectChat } from '@/shared/chat/chats';
 import { useMyExperience } from '@/shared/lib/experience';
 import { useLevels } from '@/shared/lib/levelFeatures';
 import { formatTime } from '@/shared/lib/time';
@@ -491,6 +494,9 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
   // `userId` is a numeric id OR a @username (mentions / deep links route by handle).
   // Resolve via /by-id for all-digits, /by-username otherwise; own → /me.
   const numericId = typeof userId === 'number' || /^\d+$/.test(String(userId));
+  const navigate = useNavigate();
+  const { user: myUser } = useAuth();
+  const startChat = useStartDirectChat();
   const userQuery = useQuery<User>({
     queryKey: isOwn ? ['users', 'me'] : ['users', 'profile', String(userId)],
     queryFn: () =>
@@ -542,7 +548,31 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
     <div className="flex flex-col gap-5 sm:gap-6">
       <Card className="p-5 sm:p-6">
         <ProfileHeader user={user} level={level} />
-        {isOwn ? <OwnNav /> : null}
+        {isOwn ? (
+          <OwnNav />
+        ) : myUser && myUser.id !== user.id ? (
+          // Open (or create) the 1:1 with this user. The deterministic P2 id makes this
+          // idempotent — repeated taps land in the SAME chat, never a duplicate.
+          <div className="mt-5 border-t border-edge pt-4">
+            <Button
+              onClick={() =>
+                startChat.mutate(user.id, {
+                  onSuccess: (chatId) => navigate(`/chat/groups/${chatId}`),
+                })
+              }
+              loading={startChat.isPending}
+              className="w-full"
+            >
+              <MessageSquare size={17} strokeWidth={2} />
+              Написать
+            </Button>
+            {startChat.isError ? (
+              <p className="mt-2 text-sm text-lose">
+                {errorMessage(startChat.error, 'Не удалось открыть чат')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </Card>
 
       {isOwn ? <PlayerSearch /> : null}

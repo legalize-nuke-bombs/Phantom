@@ -163,7 +163,8 @@ export function bucketIds(bucket: Bucket): number[] {
 /**
  * Ids of chat-bucket notifications whose chat id is NOT in `validChatIds` — orphans left by a
  * chat that was deleted or that I left. They can never be cleared by opening the chat (it's
- * gone), so they'd badge forever; the resync marks them read directly. Global ('1') is valid.
+ * gone), so they'd badge forever; the resync marks them read directly. The global chat (the
+ * nil-UUID GLOBAL_CHAT_ID) is always valid.
  */
 export function orphanChatNotificationIds(validChatIds: ReadonlySet<string>): number[] {
   const out: number[] = [];

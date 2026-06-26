@@ -25,6 +25,7 @@ import { useAuth } from '@/shared/auth/AuthContext';
 import { api } from '@/shared/api/client';
 import { sfx } from '@/shared/lib/sound';
 import { mergeIncomingMessage, removeMessageFromCache } from '@/shared/chat/chatCache';
+import { GLOBAL_CHAT_ID } from '@/shared/chat/useChat';
 import { bucketFor, putNotifications, removeNotifications, orphanChatNotificationIds, allIds, ensureOwner, clearStore } from './store';
 import { isConsumedByActiveView } from './activeViews';
 import type { ChatMessage, NotificationEnvelope } from './types';
@@ -329,7 +330,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       // Clear notifications stuck in the bucket of a chat we can no longer read (deleted or
       // left) — opening that chat is the only other way they'd be marked read, and it's gone.
       // Valid chats = the global chat + every personal-chat/<id> topic we may read.
-      const validChats = new Set<string>(['1']);
+      const validChats = new Set<string>([GLOBAL_CHAT_ID]);
       for (const tid of topicIds) {
         const m = /^personal-chat\/(.+)$/.exec(tid);
         if (m) validChats.add(m[1]);

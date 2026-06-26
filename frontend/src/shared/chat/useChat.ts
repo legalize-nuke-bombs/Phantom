@@ -12,8 +12,8 @@ import { api, ApiError } from '@/shared/api/client';
 import type { ChatMessage } from '@/shared/realtime/types';
 import { chatMessagesKey, mergeIncomingMessage, removeMessageFromCache } from './chatCache';
 
-/** The global chat is a fixed backend entity (GlobalChatConstants.ID). */
-export const GLOBAL_CHAT_ID = '1';
+/** The global chat is a fixed backend entity (GlobalChatConstants.ID = new UUID(0,0)). */
+export const GLOBAL_CHAT_ID = '00000000-0000-0000-0000-000000000000';
 
 /** Max message length the backend accepts (MessageConstants.MAX_MESSAGE_CONTENT_LENGTH). */
 export const MAX_MESSAGE_LENGTH = 1000;
