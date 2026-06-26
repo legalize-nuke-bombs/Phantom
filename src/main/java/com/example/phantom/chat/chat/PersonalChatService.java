@@ -108,14 +108,16 @@ public class PersonalChatService {
         userIds.add(0, userId);
         List<TopicMember> chatMembers = new ArrayList<>();
         for (Long memberId : userIds) {
-            if (Objects.equals(userId, memberId)) {
+            try {
+                TopicMember chatMember = new TopicMember();
+                chatMember.setTimestamp(Instant.now().getEpochSecond());
+                chatMember.setTopic(topic);
+                chatMember.setUser(userRepository.findById(memberId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND)));
+                chatMembers.add(topicMemberRepository.save(chatMember));
+            }
+            catch (DataIntegrityViolationException e) {
                 throw new ApiException(ErrorCode.ALREADY_ADDED);
             }
-            TopicMember chatMember = new TopicMember();
-            chatMember.setTimestamp(Instant.now().getEpochSecond());
-            chatMember.setTopic(topic);
-            chatMember.setUser(userRepository.findById(memberId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND)));
-            chatMembers.add(topicMemberRepository.save(chatMember));
         }
 
         log.info("user {} created the chat", userId);
