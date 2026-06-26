@@ -17,6 +17,7 @@ import { reconcileChatBadges, useUnreadCount } from '@/shared/realtime/badges';
 import { GLOBAL_CHAT_ID } from '@/shared/chat/useChat';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
+import { participants } from '@/shared/lib/plural';
 import { useMyBan } from '@/shared/chat/ban';
 import Button from '@/shared/ui/Button';
 import RankBadge from '@/shared/ui/RankBadge';
@@ -59,7 +60,7 @@ function ChatRow({ chat, myId, level }: { chat: Chat; myId: number; level: Retur
 
   const subline =
     chat.type === 'GROUP'
-      ? `${chat.members.length} участников`
+      ? participants(chat.members.length)
       : chat.type === 'P2'
         ? 'Личный чат'
         : 'Сохранённые сообщения';

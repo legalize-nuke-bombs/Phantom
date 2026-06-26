@@ -10,23 +10,13 @@ import { ArrowUpRight, MessagesSquare, Send } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
+import { plural, ru } from '@/shared/lib/plural';
 import Card from '@/shared/ui/Card';
 import Spinner from '@/shared/ui/Spinner';
 
 interface PlatformChatStats {
   chats: number;
   messages: number;
-}
-
-const ru = (n: number): string => n.toLocaleString('ru-RU');
-
-/** Russian count agreement: forms = [one, few, many] (1 / 2-4 / 5-0, with the teens exception). */
-function plural(n: number, forms: [string, string, string]): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return forms[0];
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1];
-  return forms[2];
 }
 
 function ChatCardInner({ chats, messages }: PlatformChatStats) {

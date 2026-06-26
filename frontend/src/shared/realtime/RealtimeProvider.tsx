@@ -93,8 +93,8 @@ async function fetchWsToken(): Promise<string> {
   return token;
 }
 
-/** 'chat:1' — the global chat bucket; the one chat stream that never makes a sound. */
-const GLOBAL_CHAT_BUCKET = 'chat:1';
+/** The global chat bucket (nil-UUID) — the one chat stream that never makes a sound. */
+const GLOBAL_CHAT_BUCKET = `chat:${GLOBAL_CHAT_ID}`;
 
 /**
  * Does a freshly-STORED notification make a sound? Everything chimes EXCEPT the global chat
@@ -220,11 +220,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      await recordOrConsume(env); // gift / owner / misc / role → its bucket
+      await recordOrConsume(env); // gift / owner / misc / role / level → its bucket
       if (env.type === 'PRESENT_RECEIVED') {
         void queryClient.invalidateQueries({ queryKey: ['presents'] });
       } else if (env.type === 'ROLE_CLAIMED') {
         void runResync(); // our capabilities changed → re-subscribe + re-evaluate access
+      } else if (env.type === 'LEVEL_UP') {
+        // New rank → refetch experience so the level-feature gates (SEND_MESSAGE, presents,
+        // disk) re-evaluate and anything just unlocked goes live without a reload.
+        void queryClient.invalidateQueries({ queryKey: ['experience'] });
       }
     }
 
@@ -311,11 +315,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         void api.post('/notifications/read', { ids: staleDeletedIds });
       }
 
-      // A role change usually arrives while we were briefly disconnected (the access change
-      // kicks the socket), so it lands in this drain rather than live dispatch. Chime ONCE
-      // if a newly-seen ROLE_CLAIMED showed up, so the user still hears their role change.
-      if (items.some((n) => n.type === 'ROLE_CLAIMED' && !knownIds.has(n.id))) {
+      // Items newly seen in THIS drain arrived while we were away (a dropped socket, or a
+      // role change that kicked us). Treat them like live frames we missed: chime ONCE if any
+      // is audible — so a message/gift/role that landed during the gap still nudges the user —
+      // and refetch experience if a LEVEL_UP slipped in, so its feature unlocks re-evaluate.
+      // Known ids (already in the store from before this resync) are old and stay silent, so a
+      // plain reconnect with no new traffic makes no sound.
+      const freshDrained = items.filter((n) => !knownIds.has(n.id));
+      if (freshDrained.some(isAudible)) {
         sfx.notify();
+      }
+      if (freshDrained.some((n) => n.type === 'LEVEL_UP')) {
+        void queryClient.invalidateQueries({ queryKey: ['experience'] });
       }
 
       // Reconcile the store DOWN to the server truth. The drain is the full unread set, so

@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   X,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -23,6 +24,8 @@ import { formatUsd } from '@/shared/lib/money';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { useUnreadCount, usePersonalChatsUnread } from '@/shared/realtime/badges';
 import { useMyCapabilities } from '@/shared/lib/roles';
+import { useRealtimeStatus } from '@/shared/realtime/RealtimeProvider';
+import { GLOBAL_CHAT_ID } from '@/shared/chat/useChat';
 import type { Bucket } from '@/shared/realtime/store';
 
 interface NavItem {
@@ -46,7 +49,7 @@ const NAV: NavItem[] = [
   { to: '/profile', label: 'Профиль', icon: UserIcon },
   { to: '/wallet', label: 'Кошелёк', icon: WalletIcon, showBalance: true, badge: 'gift' },
   { to: '/games', label: 'Игры', icon: Gamepad2 },
-  { to: '/chat/global', label: 'Глобальный чат', icon: Globe, badge: 'chat:1' },
+  { to: '/chat/global', label: 'Глобальный чат', icon: Globe, badge: `chat:${GLOBAL_CHAT_ID}` },
   { to: '/chat/groups', label: 'Чаты', icon: MessagesSquare, aggregateChats: true },
   { to: '/disk', label: 'Облако', icon: HardDrive },
   { to: '/progress', label: 'Прогресс', icon: Trophy },
@@ -61,6 +64,26 @@ function Wordmark() {
       <span className="text-2xl leading-none">💎</span>
       <span className="text-lg font-semibold tracking-wide text-fg">Phantom</span>
     </div>
+  );
+}
+
+/**
+ * A spinning cue shown ONLY while the realtime socket is down (connecting / idle) and gone the
+ * moment it's connected — a quiet "reconnecting…" hint, not an alarm. The socket dropping is
+ * routine (eviction kicks, sleep/wake), and the resync re-drains everything on reconnect, so
+ * this is purely informational.
+ */
+function ConnectionIndicator() {
+  const status = useRealtimeStatus();
+  if (status === 'connected') return null;
+  return (
+    <span
+      title="Переподключение…"
+      aria-label="Переподключение"
+      className="inline-flex shrink-0 items-center text-muted"
+    >
+      <RefreshCw size={14} className="animate-spin" />
+    </span>
   );
 }
 
@@ -141,13 +164,14 @@ function Sidebar({
         open ? 'translate-x-0' : '-translate-x-full',
       )}
     >
-      <div className="flex h-14 items-center justify-between px-5">
+      <div className="flex h-14 items-center gap-2 px-5">
         <Wordmark />
+        <ConnectionIndicator />
         <button
           type="button"
           onClick={onClose}
           aria-label="Закрыть меню"
-          className="text-muted transition-colors hover:text-fg md:hidden"
+          className="ml-auto text-muted transition-colors hover:text-fg md:hidden"
         >
           <X size={20} />
         </button>

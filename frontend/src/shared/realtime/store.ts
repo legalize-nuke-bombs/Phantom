@@ -16,6 +16,7 @@
 // useSyncExternalStore; counts are primitives, so an unchanged count never re-renders.
 
 import { useSyncExternalStore } from 'react';
+import { GLOBAL_CHAT_ID } from '@/shared/chat/useChat';
 import type { ChatMessage, NotificationEnvelope } from './types';
 
 /** Which consumer a notification belongs to: 'gift' | 'chat:<chatId>' | 'misc'. */
@@ -186,8 +187,8 @@ function countBucket(bucket: Bucket): number {
   return n;
 }
 
-/** The global chat's bucket — the one personal-chat aggregates exclude. */
-const GLOBAL_CHAT_BUCKET: Bucket = 'chat:1';
+/** The global chat's bucket (nil-UUID) — the one personal-chat aggregates exclude. */
+const GLOBAL_CHAT_BUCKET: Bucket = `chat:${GLOBAL_CHAT_ID}`;
 
 /**
  * Unread rows across ALL personal/group chats: every `chat:<id>` bucket EXCEPT the
@@ -209,7 +210,7 @@ export function useUnreadCount(bucket: Bucket | null): number {
 
 /**
  * Live unread total across every personal/group chat (all `chat:<id>` buckets minus
- * the global chat:1) — for the "Чаты" nav item's aggregate badge. Reactive, returns a
+ * the nil-UUID global chat) — for the "Чаты" nav item's aggregate badge. Reactive, returns a
  * primitive so it doesn't churn renders.
  */
 export function usePersonalChatsUnread(): number {
