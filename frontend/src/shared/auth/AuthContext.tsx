@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (username: string, password: string) => {
       // Sets the httpOnly `token` cookie; we then hydrate the user via /users/me.
       const pow = await solveAuthPow();
-      await api.post<{ token: string }>('/auth/login', { username, password }, pow);
+      await api.post<{ token: string }>('/auth/login', { username, password, pow });
       // Wipe any previous user's cached data (profile, wallet, deposit address, presents,
       // …) before loading this one — same browser must not bleed one account into another.
       queryClient.clear();
@@ -104,13 +104,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // registered as a walk-in. Pass the whole args as the body; JSON.stringify omits the
     // undefined optionals, so a plain sign-up still sends just {username,displayName,password}.
     const pow = await solveAuthPow();
-    const res = await api.post<{ recoveryKey: string }>('/auth/register', args, pow);
+    const res = await api.post<{ recoveryKey: string }>('/auth/register', { ...args, pow });
     return res.recoveryKey;
   }, []);
 
   const recover = useCallback(async (args: RecoverArgs) => {
     const pow = await solveAuthPow();
-    await api.post<{ message: string }>('/auth/recover', args, pow);
+    await api.post<{ message: string }>('/auth/recover', { ...args, pow });
   }, []);
 
   const logout = useCallback(async () => {

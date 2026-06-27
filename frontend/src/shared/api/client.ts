@@ -21,13 +21,8 @@ export class ApiError extends Error {
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
-async function request<T>(
-  method: Method,
-  path: string,
-  body?: unknown,
-  extraHeaders?: Record<string, string>,
-): Promise<T> {
-  const headers: Record<string, string> = { ...extraHeaders };
+async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = {};
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
   }
@@ -86,8 +81,7 @@ async function request<T>(
 
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
-    request<T>('POST', path, body, headers),
+  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   del: <T>(path: string, body?: unknown) => request<T>('DELETE', path, body),
 };

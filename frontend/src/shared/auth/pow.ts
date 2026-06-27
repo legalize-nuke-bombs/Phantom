@@ -7,20 +7,22 @@ interface Challenge {
   difficulty: number;
 }
 
+export interface PowProof {
+  salt: string;
+  ts: number;
+  sig: string;
+  nonce: string;
+}
+
 /**
- * Fetch a single-use PoW challenge, solve it off-thread, and return the headers to
- * attach to the auth request. Every register/login/recover call gets a FRESH challenge
- * (the backend consumes the salt on verify), so a solved token can't be replayed.
+ * Fetch a single-use PoW challenge, solve it off-thread, and return the proof to put in
+ * the request body. Every register/login/recover call gets a FRESH challenge (the backend
+ * consumes the salt on verify), so a solved proof can't be replayed.
  */
-export async function solveAuthPow(): Promise<Record<string, string>> {
-  const ch = await api.get<Challenge>('/auth/challenge');
+export async function solveAuthPow(): Promise<PowProof> {
+  const ch = await api.get<Challenge>('/pow/challenge');
   const nonce = await solve(ch.salt, ch.difficulty);
-  return {
-    'X-Pow-Salt': ch.salt,
-    'X-Pow-Ts': String(ch.ts),
-    'X-Pow-Sig': ch.sig,
-    'X-Pow-Nonce': nonce,
-  };
+  return { salt: ch.salt, ts: ch.ts, sig: ch.sig, nonce };
 }
 
 function solve(salt: string, difficulty: number): Promise<string> {
