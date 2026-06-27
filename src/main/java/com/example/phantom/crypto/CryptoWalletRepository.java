@@ -13,7 +13,7 @@ public interface CryptoWalletRepository extends JpaRepository<CryptoWallet, Long
     Optional<CryptoWallet> findByUserIdAndCoin(Long userId, CoinType coin);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT w FROM CryptoWallet w WHERE s.user.id = ?1 AND w.coin = ?2")
+    @Query("SELECT w FROM CryptoWallet w WHERE w.user.id = ?1 AND w.coin = ?2")
     Optional<CryptoWallet> findByUserIdAndCoinForPessimisticWrite(Long userId, CoinType coin);
 
     @Query("SELECT w FROM CryptoWallet w WHERE w.coin = ?1")

@@ -157,12 +157,14 @@ public class SweepService {
 
         for (CryptoWallet wallet : wallets) {
             String address = wallet.getAddress();
+            Long userId = wallet.getUser() != null ? wallet.getUser().getId() : null;
 
             if (wallet.getActivated() == false) {
-                log.info("{} {} skipped: deactivated", coin, address);
+                log.info("{} user {} wallet {} skipped: deactivated", coin, userId, address);
+                continue;
             }
 
-            log.info("{} processing {} ...", coin, address);
+            log.info("{} processing user {} wallet {} ...", coin, userId, address);
 
             try { Thread.sleep(SweepConstants.INTERNAL_SWEEP_DELAY_MS); }
             catch (InterruptedException e) { continue; }
@@ -183,10 +185,10 @@ public class SweepService {
                 String hash = null;
                 try {
                     hash = provider.sendAll(wallet.getPrivateKey(), address, masterAddressValue);
-                    log.info("{} sent {} {}", coin, address, hash);
+                    log.info("{} sent user {} wallet {} hash {}", coin, userId, address, hash);
                 }
                 catch (CryptoException e) {
-                    log.warn("{} sending failed {}: {}", coin, address, e.getMessage());
+                    log.warn("{} sending failed user {} wallet {}: {}", coin, userId, address, e.getMessage());
                 }
 
                 SweepLog sweepLog = new SweepLog();
@@ -201,11 +203,11 @@ public class SweepService {
                 notificationPublishService.createTopicNotification(ownersTopic, NotificationType.NEW_SWEEP, new SweepLogRepresentation(sweepLog));
             }
             else {
-                log.info("{} sending skipped {}", coin, address);
+                log.info("{} sending skipped user {} wallet {}", coin, userId, address);
 
                 User user = wallet.getUser();
                 if (user == null) {
-                    log.info("{} wallet is empty and was abandoned, will be marked deactivated {}", coin, address);
+                    log.info("{} user {} wallet {} is empty and was abandoned, will be marked deactivated", coin, userId, address);
                     wallet.setActivated(false);
                     cryptoWalletRepository.save(wallet);
                 }
