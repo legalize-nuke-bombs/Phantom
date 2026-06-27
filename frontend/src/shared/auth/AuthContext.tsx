@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/shared/api/client';
+import { solveAuthPow } from '@/shared/auth/pow';
 import type { Role, User } from '@/shared/types';
 
 export interface RegisterArgs {
@@ -86,7 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (username: string, password: string) => {
       // Sets the httpOnly `token` cookie; we then hydrate the user via /users/me.
-      await api.post<{ token: string }>('/auth/login', { username, password });
+      const pow = await solveAuthPow();
+      await api.post<{ token: string }>('/auth/login', { username, password }, pow);
       // Wipe any previous user's cached data (profile, wallet, deposit address, presents,
       // …) before loading this one — same browser must not bleed one account into another.
       queryClient.clear();
@@ -101,12 +103,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // dropped every referral: Spring had nowhere to bind the query param, so the invite
     // registered as a walk-in. Pass the whole args as the body; JSON.stringify omits the
     // undefined optionals, so a plain sign-up still sends just {username,displayName,password}.
-    const res = await api.post<{ recoveryKey: string }>('/auth/register', args);
+    const pow = await solveAuthPow();
+    const res = await api.post<{ recoveryKey: string }>('/auth/register', args, pow);
     return res.recoveryKey;
   }, []);
 
   const recover = useCallback(async (args: RecoverArgs) => {
-    await api.post<{ message: string }>('/auth/recover', args);
+    const pow = await solveAuthPow();
+    await api.post<{ message: string }>('/auth/recover', args, pow);
   }, []);
 
   const logout = useCallback(async () => {
