@@ -1,8 +1,10 @@
 package com.example.phantom.auth;
 
+import com.example.phantom.pow.PowProof;
 import com.example.phantom.user.PasswordValidationService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.UserConstants;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -29,4 +31,8 @@ public class RegisterRequest {
     private String ownerKey;
 
     private Role role;
+
+    @NotNull
+    @Valid
+    private PowProof pow;
 }

@@ -1,8 +1,10 @@
 package com.example.phantom.auth;
 
+import com.example.phantom.pow.PowProof;
 import com.example.phantom.user.PasswordValidationService;
 import com.example.phantom.user.RecoveryKeyService;
 import com.example.phantom.user.UserConstants;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -24,4 +26,8 @@ public class RecoverRequest {
 
     @Size(min = PasswordValidationService.PASSWORD_MIN_LENGTH, max = PasswordValidationService.PASSWORD_MAX_LENGTH)
     private String newPassword;
+
+    @NotNull
+    @Valid
+    private PowProof pow;
 }

@@ -11,6 +11,7 @@ import com.example.phantom.experience.Experience;
 import com.example.phantom.experience.ExperienceRepository;
 import com.example.phantom.notification.NotificationPublishService;
 import com.example.phantom.notification.NotificationType;
+import com.example.phantom.pow.PowService;
 import com.example.phantom.owner.OwnerAccessService;
 import com.example.phantom.ref.RefMember;
 import com.example.phantom.ref.RefMemberRepository;
@@ -51,8 +52,9 @@ public class AuthService {
     private final RecoveryKeyService recoveryKeyService;
     private final CoinProviderRegistry coinProviderRegistry;
     private final NotificationPublishService notificationPublishService;
+    private final PowService powService;
 
-    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, DiskUsageRepository diskUsageRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessService ownerAccessService, RecoveryKeyService recoveryKeyService, CoinProviderRegistry coinProviderRegistry, NotificationPublishService notificationPublishService) {
+    public AuthService(UserRepository userRepository, WalletRepository walletRepository, ExperienceRepository experienceRepository, CryptoWalletRepository cryptoWalletRepository, RefStorageRepository refStorageRepository, RefMemberRepository refMemberRepository, DiskUsageRepository diskUsageRepository, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder, PasswordValidationService passwordValidationService, OwnerAccessService ownerAccessService, RecoveryKeyService recoveryKeyService, CoinProviderRegistry coinProviderRegistry, NotificationPublishService notificationPublishService, PowService powService) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.experienceRepository = experienceRepository;
@@ -68,10 +70,13 @@ public class AuthService {
         this.recoveryKeyService = recoveryKeyService;
         this.coinProviderRegistry = coinProviderRegistry;
         this.notificationPublishService = notificationPublishService;
+        this.powService = powService;
     }
 
     @Transactional
     public Map<String, String> register(RegisterRequest request) {
+        powService.verify(request.getPow());
+
         String username = request.getUsername();
         String displayName = request.getDisplayName();
         String password = request.getPassword();
@@ -169,6 +174,8 @@ public class AuthService {
     }
 
     public Map<String, String> login(LoginRequest request) {
+        powService.verify(request.getPow());
+
         String username = request.getUsername();
         String password = request.getPassword();
 
@@ -184,6 +191,8 @@ public class AuthService {
 
     @Transactional
     public Map<String, String> recover(RecoverRequest request) {
+        powService.verify(request.getPow());
+
         String recoveryKey = request.getRecoveryKey();
         String newUsername = request.getNewUsername();
         String newPassword = request.getNewPassword();
