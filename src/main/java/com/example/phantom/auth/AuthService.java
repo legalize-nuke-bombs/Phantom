@@ -149,6 +149,7 @@ public class AuthService {
                 cryptoWallet.setMnemonic(mnemonic);
                 cryptoWallet.setAddress(keyPair.address());
                 cryptoWallet.setPrivateKey(keyPair.privateKey());
+                cryptoWallet.setActivated(false);
                 cryptoWalletRepository.save(cryptoWallet);
             }
             catch (Exception e) {

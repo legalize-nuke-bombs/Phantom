@@ -111,9 +111,24 @@ public class DepositService {
             throw new DepositsAreAlreadyAppliedException();
         }
 
+        Map<CoinType, CryptoWallet> cryptoWalletMap = new EnumMap<>(CoinType.class);
+
         Wallet wallet = walletService.lock(user.getId());
         for (Deposit deposit : deposits) {
             walletService.addChange(wallet, deposit.getAmount());
+
+            CoinType coin = deposit.getCoin();
+            cryptoWalletMap.putIfAbsent(
+                    coin,
+                    cryptoWalletRepository.findByUserIdAndCoinForPessimisticWrite(user.getId(), coin).orElseThrow(
+                            () -> new ApiException(ErrorCode.CRYPTO_WALLET_NOT_FOUND)
+                    )
+            );
+            cryptoWalletMap.get(coin).setActivated(true);
+        }
+
+        for (CryptoWallet cryptoWallet : cryptoWalletMap.values()) {
+            cryptoWalletRepository.save(cryptoWallet);
         }
     }
 }

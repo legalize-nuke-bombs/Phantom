@@ -156,11 +156,16 @@ public class SweepService {
         List<CryptoWallet> wallets = cryptoWalletRepository.findByCoin(provider.coin());
 
         for (CryptoWallet wallet : wallets) {
+            String address = wallet.getAddress();
+
+            if (wallet.getActivated() == false) {
+                log.info("{} {} skipped: deactivated", coin, address);
+            }
+
+            log.info("{} processing {} ...", coin, address);
+
             try { Thread.sleep(SweepConstants.INTERNAL_SWEEP_DELAY_MS); }
             catch (InterruptedException e) { continue; }
-
-            String address = wallet.getAddress();
-            log.info("{} processing {} ...", coin, address);
 
             BigDecimal amount;
             try {
@@ -200,8 +205,9 @@ public class SweepService {
 
                 User user = wallet.getUser();
                 if (user == null) {
-                    log.info("{} wallet is empty and was abandoned, will be deleted {}", coin, address);
-                    cryptoWalletRepository.delete(wallet);
+                    log.info("{} wallet is empty and was abandoned, will be marked deactivated {}", coin, address);
+                    wallet.setActivated(false);
+                    cryptoWalletRepository.save(wallet);
                 }
             }
         }

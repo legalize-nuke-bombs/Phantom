@@ -10,7 +10,8 @@ import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Table(name = "crypto_wallets", indexes = {
-        @Index(name = "idx_crypto_wallets_user_id", columnList = "user_id")
+        @Index(name = "idx_crypto_wallets_user_id", columnList = "user_id"),
+        @Index(name = "idx_crypto_wallets_activated", columnList = "activated")
 })
 @Getter
 @Setter
@@ -37,4 +38,7 @@ public class CryptoWallet {
 
     @Column(nullable = false, length = 128)
     private String privateKey;
+
+    @Column(nullable = false)
+    private Boolean activated;
 }
