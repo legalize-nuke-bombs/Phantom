@@ -4,7 +4,6 @@ import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.experience.LevelFeature;
 import com.example.phantom.experience.LevelFeatureService;
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,43 +29,43 @@ public class RateLimitService {
 
     public RateLimitService(LevelFeatureService levelFeatureService,
 
-                            @Value("${rate.pagination.tokens}") @NotNull Long paginationTokens,
-                            @Value("${rate.pagination.seconds}") @NotNull Long paginationSeconds,
+                            @Value("${rate.pagination.tokens}") Long paginationTokens,
+                            @Value("${rate.pagination.seconds}") Long paginationSeconds,
 
-                            @Value("${rate.crypto.tokens}") @NotNull Long cryptoTokens,
-                            @Value("${rate.crypto.seconds}") @NotNull Long cryptoSeconds,
+                            @Value("${rate.crypto.tokens}") Long cryptoTokens,
+                            @Value("${rate.crypto.seconds}") Long cryptoSeconds,
 
-                            @Value("${rate.lottery.tokens}") @NotNull Long lotteryTokens,
-                            @Value("${rate.lottery.seconds}") @NotNull Long lotterySeconds,
+                            @Value("${rate.lottery.tokens}") Long lotteryTokens,
+                            @Value("${rate.lottery.seconds}") Long lotterySeconds,
 
-                            @Value("${rate.send-message.tokens}") @NotNull Long sendMessageTokens,
-                            @Value("${rate.send-message.seconds}") @NotNull Long sendMessageSeconds,
+                            @Value("${rate.send-message.tokens}") Long sendMessageTokens,
+                            @Value("${rate.send-message.seconds}") Long sendMessageSeconds,
 
-                            @Value("${rate.create-chat.tokens}") @NotNull Long createChatTokens,
-                            @Value("${rate.create-chat.seconds}") @NotNull Long createChatSeconds,
+                            @Value("${rate.create-chat.tokens}") Long createChatTokens,
+                            @Value("${rate.create-chat.seconds}") Long createChatSeconds,
 
-                            @Value("${rate.invite-to-chat.tokens}") @NotNull Long inviteToChatTokens,
-                            @Value("${rate.invite-to-chat.seconds}") @NotNull Long inviteToChatSeconds,
+                            @Value("${rate.invite-to-chat.tokens}") Long inviteToChatTokens,
+                            @Value("${rate.invite-to-chat.seconds}") Long inviteToChatSeconds,
 
-                            @Value("${rate.send-present.tokens}") @NotNull Long sendPresentTokens,
-                            @Value("${rate.send-present.seconds}") @NotNull Long sendPresentSeconds,
+                            @Value("${rate.send-present.tokens}") Long sendPresentTokens,
+                            @Value("${rate.send-present.seconds}") Long sendPresentSeconds,
 
-                            @Value("${rate.download.null.tokens}") @NotNull Long downloadNullTokens,
-                            @Value("${rate.download.null.seconds}") @NotNull Long downloadNullSeconds,
+                            @Value("${rate.download.null.tokens}") Long downloadNullTokens,
+                            @Value("${rate.download.null.seconds}") Long downloadNullSeconds,
 
-                            @Value("${rate.upload.disk-base.tokens}") @NotNull Long uploadDiskBaseTokens,
-                            @Value("${rate.upload.disk-base.seconds}") @NotNull Long uploadDiskBaseSeconds,
-                            @Value("${rate.download.disk-base.tokens}") @NotNull Long downloadDiskBaseTokens,
-                            @Value("${rate.download.disk-base.seconds}") @NotNull Long downloadDiskBaseSeconds,
-                            @Value("${rate.image-compress.disk-base.tokens}") @NotNull Long imageCompressDiskBaseTokens,
-                            @Value("${rate.image-compress.disk-base.seconds}") @NotNull Long imageCompressDiskBaseSeconds,
+                            @Value("${rate.upload.disk-base.tokens}") Long uploadDiskBaseTokens,
+                            @Value("${rate.upload.disk-base.seconds}") Long uploadDiskBaseSeconds,
+                            @Value("${rate.download.disk-base.tokens}") Long downloadDiskBaseTokens,
+                            @Value("${rate.download.disk-base.seconds}") Long downloadDiskBaseSeconds,
+                            @Value("${rate.image-compress.disk-base.tokens}") Long imageCompressDiskBaseTokens,
+                            @Value("${rate.image-compress.disk-base.seconds}") Long imageCompressDiskBaseSeconds,
 
-                            @Value("${rate.upload.disk-plus.tokens}") @NotNull Long uploadDiskPlusTokens,
-                            @Value("${rate.upload.disk-plus.seconds}") @NotNull Long uploadDiskPlusSeconds,
-                            @Value("${rate.download.disk-plus.tokens}") @NotNull Long downloadDiskPlusTokens,
-                            @Value("${rate.download.disk-plus.seconds}") @NotNull Long downloadDiskPlusSeconds,
-                            @Value("${rate.image-compress.disk-plus.tokens}") @NotNull Long imageCompressDiskPlusTokens,
-                            @Value("${rate.image-compress.disk-plus.seconds}") @NotNull Long imageCompressDiskPlusSeconds
+                            @Value("${rate.upload.disk-plus.tokens}") Long uploadDiskPlusTokens,
+                            @Value("${rate.upload.disk-plus.seconds}") Long uploadDiskPlusSeconds,
+                            @Value("${rate.download.disk-plus.tokens}") Long downloadDiskPlusTokens,
+                            @Value("${rate.download.disk-plus.seconds}") Long downloadDiskPlusSeconds,
+                            @Value("${rate.image-compress.disk-plus.tokens}") Long imageCompressDiskPlusTokens,
+                            @Value("${rate.image-compress.disk-plus.seconds}") Long imageCompressDiskPlusSeconds
 
                             ) {
         log.info("initialization...");

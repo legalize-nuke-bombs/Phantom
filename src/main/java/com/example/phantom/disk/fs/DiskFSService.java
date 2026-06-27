@@ -1,6 +1,5 @@
 package com.example.phantom.disk.fs;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
@@ -19,7 +18,7 @@ public class DiskFSService {
 
     private final String root;
 
-    public DiskFSService(@Value("${disk.root}") @NotNull String root) {
+    public DiskFSService(@Value("${disk.root}") String root) {
         this.root = root;
         log.info("initialization, disk root {}", this.root);
     }

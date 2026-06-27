@@ -1,7 +1,6 @@
 package com.example.phantom.lottery;
 
 import com.example.phantom.provablyfair.ProvablyFairService;
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,10 +22,10 @@ public class LotteryCreatorService {
     private final Long timestampNotificationEnding;
 
     public LotteryCreatorService(LotteryRepository lotteryRepository, ProvablyFairService provablyFairService,
-                                 @Value("${lottery.ticket-cost}") @NotNull BigDecimal ticketCost,
-                                 @Value("${lottery.timestamp-end}") @NotNull Long timestampEnd,
-                                 @Value("${lottery.timestamp-block}") @NotNull Long timestampBlock,
-                                 @Value("${lottery.timestamp-notification-ending}") @NotNull Long timestampNotificationEnding) {
+                                 @Value("${lottery.ticket-cost}") BigDecimal ticketCost,
+                                 @Value("${lottery.timestamp-end}") Long timestampEnd,
+                                 @Value("${lottery.timestamp-block}") Long timestampBlock,
+                                 @Value("${lottery.timestamp-notification-ending}") Long timestampNotificationEnding) {
 
         if (ticketCost.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("malformed ticket cost");

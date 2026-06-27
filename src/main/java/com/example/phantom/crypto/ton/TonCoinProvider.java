@@ -7,7 +7,6 @@ import com.example.phantom.finance.FinanceConstants;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iwebpp.crypto.TweetNaclFast;
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -56,12 +55,12 @@ public class TonCoinProvider implements CoinProvider {
     private final CryptoExchangeRateService exchangeRateService;
 
     public TonCoinProvider(
-            @Value("${ton.api.key}") @NotNull String apiKey,
-            @Value("${ton.testnet}") @NotNull boolean testnet,
-            @Value("${ton.withdrawal-min-amount}") @NotNull BigDecimal withdrawalMinAmount,
-            @Value("${ton.withdrawal-user-edge}") @NotNull BigDecimal withdrawalUserEdge,
-            @Value("${ton.min-sweep-amount}") @NotNull BigDecimal minSweepAmount,
-            @Value("${ton.validation-duration-s}") @NotNull Long validationDurationS,
+            @Value("${ton.api.key}") String apiKey,
+            @Value("${ton.testnet}") boolean testnet,
+            @Value("${ton.withdrawal-min-amount}") BigDecimal withdrawalMinAmount,
+            @Value("${ton.withdrawal-user-edge}") BigDecimal withdrawalUserEdge,
+            @Value("${ton.min-sweep-amount}") BigDecimal minSweepAmount,
+            @Value("${ton.validation-duration-s}") Long validationDurationS,
             CryptoExchangeRateService exchangeRateService) {
 
         if (withdrawalMinAmount.compareTo(new BigDecimal("0.01")) < 0) {

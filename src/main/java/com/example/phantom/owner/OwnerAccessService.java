@@ -2,7 +2,6 @@ package com.example.phantom.owner;
 
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,7 +13,7 @@ import java.util.Base64;
 public class OwnerAccessService {
     private final byte[] ownerKeyRaw;
 
-    public OwnerAccessService(@Value("${owner.key}") @NotNull String ownerKey) {
+    public OwnerAccessService(@Value("${owner.key}") String ownerKey) {
         log.info("initialization, owner key length {}", ownerKey.length());
         try { this.ownerKeyRaw = Base64.getDecoder().decode(ownerKey); }
         catch (Exception e) { throw new IllegalArgumentException("owner key must be encoded in base64"); }

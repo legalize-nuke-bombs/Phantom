@@ -1,6 +1,5 @@
 package com.example.phantom.notification;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -19,7 +18,7 @@ public class NotificationCleanerService {
     private final Long maxHistory;
     private final Long maxDurationD;
 
-    public NotificationCleanerService(NotificationRepository notificationRepository, @Value("${notifications.max-history}") @NotNull Long maxHistory, @Value("${notifications.max-duration-d}") @NotNull Long maxDurationD) {
+    public NotificationCleanerService(NotificationRepository notificationRepository, @Value("${notifications.max-history}") Long maxHistory, @Value("${notifications.max-duration-d}") Long maxDurationD) {
         this.notificationRepository = notificationRepository;
         this.maxHistory = maxHistory;
         this.maxDurationD = maxDurationD;
