@@ -73,29 +73,56 @@ function ProtectedRoute() {
   return <AppShell />;
 }
 
+/** Inverse of ProtectedRoute: an already-authenticated user has no business on the auth
+ *  pages — bounce them home. Matters when a logged-in user opens a deep link or a
+ *  referral /register link. */
+function GuestRoute({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="grid min-h-screen place-items-center">
+        <Spinner size={32} />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 export const router = createBrowserRouter([
   {
     path: '/login',
     element: (
-      <PageSuspense>
-        <LoginPage />
-      </PageSuspense>
+      <GuestRoute>
+        <PageSuspense>
+          <LoginPage />
+        </PageSuspense>
+      </GuestRoute>
     ),
   },
   {
     path: '/register',
     element: (
-      <PageSuspense>
-        <RegisterPage />
-      </PageSuspense>
+      <GuestRoute>
+        <PageSuspense>
+          <RegisterPage />
+        </PageSuspense>
+      </GuestRoute>
     ),
   },
   {
     path: '/recover',
     element: (
-      <PageSuspense>
-        <RecoverPage />
-      </PageSuspense>
+      <GuestRoute>
+        <PageSuspense>
+          <RecoverPage />
+        </PageSuspense>
+      </GuestRoute>
     ),
   },
   {

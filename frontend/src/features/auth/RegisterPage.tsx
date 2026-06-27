@@ -1,17 +1,21 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Check, Copy, Gift } from 'lucide-react';
 import { useAuth } from '@/shared/auth/AuthContext';
+import type { Role } from '@/shared/types';
 import { errorMessage } from '@/shared/api/errors';
 import Card from '@/shared/ui/Card';
 import Input from '@/shared/ui/Input';
 import Button from '@/shared/ui/Button';
 
-function BrandMark() {
+function BrandMark({ onLogoTap }: { onLogoTap?: () => void }) {
   return (
     <div className="mb-6 flex flex-col items-center gap-2 text-center">
-      <span className="grid size-12 place-items-center rounded-xl border border-edge bg-panel-2 text-2xl leading-none">
+      <span
+        onClick={onLogoTap}
+        className="grid size-12 select-none place-items-center rounded-xl border border-edge bg-panel-2 text-2xl leading-none"
+      >
         💎
       </span>
       <h1 className="text-2xl font-semibold tracking-tight text-fg">Phantom</h1>
@@ -44,6 +48,17 @@ export default function RegisterPage() {
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Hidden owner sign-up: tapping the logo 5x reveals the owner-key + role fields.
+  // No cursor/affordance, so normal users never discover it — the form is unchanged for them.
+  const [ownerMode, setOwnerMode] = useState(false);
+  const [ownerKey, setOwnerKey] = useState('');
+  const [role, setRole] = useState<Role>('CHAT_MODERATOR');
+  const logoTaps = useRef(0);
+  function handleLogoTap() {
+    logoTaps.current += 1;
+    if (logoTaps.current >= 5) setOwnerMode(true);
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending) return;
@@ -60,6 +75,7 @@ export default function RegisterPage() {
         displayName: displayName.trim(),
         password,
         ...(refId != null ? { refId } : {}),
+        ...(ownerMode && ownerKey.trim() ? { ownerKey: ownerKey.trim(), role } : {}),
       });
       setRecoveryKey(key);
     } catch (err) {
@@ -156,7 +172,7 @@ export default function RegisterPage() {
   return (
     <div className="grid min-h-screen place-items-center bg-ink px-4 py-10">
       <Card className="w-full max-w-sm p-6 sm:p-8">
-        <BrandMark />
+        <BrandMark onLogoTap={handleLogoTap} />
         <p className="-mt-4 mb-6 text-center text-sm text-muted">Создайте аккаунт</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
@@ -209,6 +225,33 @@ export default function RegisterPage() {
             disabled={pending}
             error={passwordMismatch ? 'Пароли не совпадают' : undefined}
           />
+
+          {ownerMode && (
+            <>
+              <Input
+                label="Ключ владельца"
+                value={ownerKey}
+                onChange={(e) => setOwnerKey(e.target.value)}
+                placeholder="Ключ владельца"
+                autoComplete="off"
+                spellCheck={false}
+                disabled={pending}
+              />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm text-muted">Роль</label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as Role)}
+                  disabled={pending}
+                  className="h-11 w-full rounded-xl border border-edge bg-panel-2 px-3 text-sm text-fg focus:border-ton focus:outline-none focus:ring-2 focus:ring-ton"
+                >
+                  <option value="USER">USER</option>
+                  <option value="CHAT_MODERATOR">CHAT_MODERATOR</option>
+                  <option value="OWNER">OWNER</option>
+                </select>
+              </div>
+            </>
+          )}
 
           {refId != null && (
             <div className="flex items-center gap-2.5 rounded-xl border border-ton/30 bg-ton/5 px-3 py-2.5 text-sm text-fg">
