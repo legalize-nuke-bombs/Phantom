@@ -75,8 +75,6 @@ public class AuthService {
 
     @Transactional
     public Map<String, String> register(RegisterRequest request) {
-        powService.verify(request.getPow());
-
         String username = request.getUsername();
         String displayName = request.getDisplayName();
         String password = request.getPassword();
@@ -85,6 +83,8 @@ public class AuthService {
         Role role = request.getRole();
 
         passwordValidationService.validate(password);
+
+        powService.verify(request.getPow());
 
         boolean isOwner = ownerAccessService.isOwner(ownerKey);
 
