@@ -307,11 +307,15 @@ public class PersonalChatService {
 
     private void validateMembership(Long userId, String topicId) {
         if (!topicMemberRepository.existsByTopicIdUserId(topicId, userId)) {
-            throw new ApiException(ErrorCode.NO_PERMISSION);
+            // Important
+            // We SHOULD NOT return NO_PERMISSION here because it will
+            // compromise whether a chat exists between two specific users.
+            throw new ApiException(ErrorCode.CHAT_NOT_FOUND);
         }
     }
 
     private void validateEldership(Long userId, String topicId) {
+        validateMembership(userId, topicId);
         List<TopicMember> eldest = topicMemberRepository.findEldest(topicId, PageRequest.of(0, 1));
         if (eldest.isEmpty() || !Objects.equals(eldest.get(0).getUser().getId(), userId)) {
             log.info("access rejected: user {} is not the eldest member", userId);
