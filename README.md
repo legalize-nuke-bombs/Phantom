@@ -47,7 +47,7 @@ Telegram @toncenter
 ```
 
 ## Getting started
-1. Register an `OWNER` account with an `OWNER_KEY`
+1. Register an `OWNER` account with an `OWNER_KEY` (click on the diamond at registration page 5 times to unlock the advanced mode)
 2. Login
 3. Set master wallets
 
