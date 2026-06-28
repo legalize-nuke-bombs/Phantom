@@ -48,7 +48,7 @@ public class SecurityConfig {
                                 "/levels/**", "/symbols/**",
                                 "/{path:[^\\.]*}", "/{path:[^\\.]*}/{subpath:[^\\.]*}"
                         ).permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(jwtAuthEntryPoint)
