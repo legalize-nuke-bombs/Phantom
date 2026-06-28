@@ -1,6 +1,6 @@
 package com.example.phantom.auth;
 
-import com.example.phantom.pow.PowProof;
+import com.example.phantom.captcha.CaptchaProof;
 import com.example.phantom.user.PasswordValidationService;
 import com.example.phantom.user.Role;
 import com.example.phantom.user.UserConstants;
@@ -34,5 +34,5 @@ public class RegisterRequest {
 
     @NotNull
     @Valid
-    private PowProof pow;
+    private CaptchaProof captcha;
 }

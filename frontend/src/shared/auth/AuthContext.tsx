@@ -10,7 +10,7 @@ import {
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/shared/api/client';
-import { solveAuthPow } from '@/shared/auth/pow';
+import type { CaptchaProof } from '@/shared/auth/captcha';
 import type { Role, User } from '@/shared/types';
 
 export interface RegisterArgs {
@@ -33,17 +33,17 @@ export interface RecoverArgs {
 interface AuthState {
   user: User | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string, captcha: CaptchaProof) => Promise<void>;
   /**
    * Creates the account and returns the ONE-TIME recovery key the backend mints.
    * Does NOT start a session — surface the key, then call login().
    */
-  register: (args: RegisterArgs) => Promise<string>;
+  register: (args: RegisterArgs, captcha: CaptchaProof) => Promise<string>;
   /**
    * Recover access with a recovery key (rotating username and/or password).
    * Does NOT start a session — send the user to login afterwards.
    */
-  recover: (args: RecoverArgs) => Promise<void>;
+  recover: (args: RecoverArgs, captcha: CaptchaProof) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -85,10 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const login = useCallback(
-    async (username: string, password: string) => {
+    async (username: string, password: string, captcha: CaptchaProof) => {
       // Sets the httpOnly `token` cookie; we then hydrate the user via /users/me.
-      const pow = await solveAuthPow();
-      await api.post<{ token: string }>('/auth/login', { username, password, pow });
+      await api.post<{ token: string }>('/auth/login', { username, password, captcha });
       // Wipe any previous user's cached data (profile, wallet, deposit address, presents,
       // …) before loading this one — same browser must not bleed one account into another.
       queryClient.clear();
@@ -97,20 +96,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [refresh, queryClient],
   );
 
-  const register = useCallback(async (args: RegisterArgs): Promise<string> => {
+  const register = useCallback(async (args: RegisterArgs, captcha: CaptchaProof): Promise<string> => {
     // refId/ownerKey/role are BODY fields of RegisterRequest — the backend binds them
     // from the JSON body, there is no @RequestParam. Sending refId as ?refId= silently
     // dropped every referral: Spring had nowhere to bind the query param, so the invite
     // registered as a walk-in. Pass the whole args as the body; JSON.stringify omits the
     // undefined optionals, so a plain sign-up still sends just {username,displayName,password}.
-    const pow = await solveAuthPow();
-    const res = await api.post<{ recoveryKey: string }>('/auth/register', { ...args, pow });
+    const res = await api.post<{ recoveryKey: string }>('/auth/register', { ...args, captcha });
     return res.recoveryKey;
   }, []);
 
-  const recover = useCallback(async (args: RecoverArgs) => {
-    const pow = await solveAuthPow();
-    await api.post<{ message: string }>('/auth/recover', { ...args, pow });
+  const recover = useCallback(async (args: RecoverArgs, captcha: CaptchaProof) => {
+    await api.post<{ message: string }>('/auth/recover', { ...args, captcha });
   }, []);
 
   const logout = useCallback(async () => {

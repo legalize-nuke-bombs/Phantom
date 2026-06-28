@@ -1,6 +1,6 @@
 package com.example.phantom.auth;
 
-import com.example.phantom.pow.PowProof;
+import com.example.phantom.captcha.CaptchaProof;
 import com.example.phantom.user.PasswordValidationService;
 import com.example.phantom.user.RecoveryKeyService;
 import com.example.phantom.user.UserConstants;
@@ -29,5 +29,5 @@ public class RecoverRequest {
 
     @NotNull
     @Valid
-    private PowProof pow;
+    private CaptchaProof captcha;
 }
