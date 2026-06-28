@@ -22,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @Slf4j
@@ -35,6 +37,7 @@ public class WithdrawalService {
     private final NotificationPublishService notificationPublishService;
     private final GlobalTopicService globalTopicService;
     private final RateLimitService rateLimitService;
+    private final ConcurrentHashMap<CoinType, ReentrantLock> masterLocks = new ConcurrentHashMap<>();
 
     public WithdrawalService(
             WalletService walletService,
@@ -56,8 +59,11 @@ public class WithdrawalService {
         this.rateLimitService = rateLimitService;
     }
 
-    @Transactional
-    public Withdrawal reserveFinances(User user, CoinType coin, String receiver, BigDecimal amount) {
+    public ReentrantLock masterLock(CoinType coin) {
+        return masterLocks.computeIfAbsent(coin, k -> new ReentrantLock());
+    }
+
+    public Withdrawal prepareWithdrawal(User user, CoinType coin, String receiver, BigDecimal amount) {
         CoinProvider provider = coinProviderRegistry.get(coin);
         provider.validateAddress(receiver);
 
@@ -65,28 +71,8 @@ public class WithdrawalService {
             throw new ApiException(ErrorCode.INSUFFICIENT_WITHDRAWAL);
         }
 
-        Wallet wallet = walletService.lock(user.getId());
-
-        if (wallet.getBalanceCached().compareTo(amount) < 0) {
-            throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
-        }
-
-        walletService.addChange(wallet, amount.negate());
-
-        Withdrawal withdrawal = new Withdrawal();
-        withdrawal.setUser(user);
-        withdrawal.setCoin(coin);
-        withdrawal.setTimestamp(Instant.now().getEpochSecond());
-        withdrawal.setReceiver(receiver);
-        withdrawal.setAmount(amount);
-        withdrawal.setStatus(TransferStatus.PENDING);
-        return withdrawalRepository.save(withdrawal);
-    }
-
-    public Withdrawal send(Withdrawal withdrawal) {
-        CoinProvider provider = coinProviderRegistry.get(withdrawal.getCoin());
-
-        MasterWalletSetting masterWalletSetting = masterWalletSettingRepository.findByCoinType(withdrawal.getCoin()).orElseThrow(() -> new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE));
+        MasterWalletSetting masterWalletSetting = masterWalletSettingRepository.findByCoinType(coin)
+                .orElseThrow(() -> new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE));
         String masterAddress = masterWalletSetting.getAddress();
         String masterPrivateKey = masterWalletSetting.getPrivateKey();
         if (masterAddress == null || masterPrivateKey == null) {
@@ -94,52 +80,74 @@ public class WithdrawalService {
             throw new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE);
         }
 
-        BigDecimal toSend = withdrawal.getAmount().multiply(provider.getWithdrawalUserEdge());
+        BigDecimal toSend = amount.multiply(provider.getWithdrawalUserEdge());
 
         try {
             if (provider.getBalanceUsd(masterAddress).compareTo(toSend) < 0) {
                 log.info("withdrawal rejected: master wallet insufficient balance");
                 throw new ApiException(ErrorCode.MASTER_WALLET_DRAINED);
             }
+            CoinProvider.PreparedTransfer prepared = provider.prepare(masterPrivateKey, masterAddress, receiver, toSend);
 
-            String hash = provider.send(
-                    masterPrivateKey,
-                    masterAddress,
-                    withdrawal.getReceiver(),
-                    toSend);
-            withdrawal.setHash(hash);
+            Withdrawal withdrawal = new Withdrawal();
+            withdrawal.setUser(user);
+            withdrawal.setCoin(coin);
+            withdrawal.setTimestamp(Instant.now().getEpochSecond());
+            withdrawal.setReceiver(receiver);
+            withdrawal.setAmount(amount);
+            withdrawal.setStatus(TransferStatus.SENDING);
+            withdrawal.setHash(prepared.msgHash());
+            withdrawal.setBoc(prepared.boc());
+            return withdrawal;
         }
         catch (CryptoException e) {
-            log.warn("withdrawal failed", e);
+            log.warn("withdrawal prepare failed", e);
             throw new ApiException(ErrorCode.WITHDRAWAL_UNAVAILABLE);
         }
+    }
 
+    @Transactional
+    public Withdrawal reserve(Withdrawal withdrawal) {
+        Wallet wallet = walletService.lock(withdrawal.getUser().getId());
+
+        if (wallet.getBalanceCached().compareTo(withdrawal.getAmount()) < 0) {
+            throw new ApiException(ErrorCode.INSUFFICIENT_BALANCE);
+        }
+
+        walletService.addChange(wallet, withdrawal.getAmount().negate());
         return withdrawalRepository.save(withdrawal);
     }
 
-    public List<Withdrawal> checkPendingStatuses(Long userId, CoinType coin) {
-        List<Withdrawal> pending = withdrawalRepository.findByUserIdAndCoinAndStatus(userId, coin, TransferStatus.PENDING);
-
-        for (Withdrawal withdrawal : pending) {
-            if (withdrawal.getHash() == null) {
-                withdrawal.setStatus(TransferStatus.REJECTED);
-                continue;
+    public void submit(Withdrawal withdrawal) {
+        CoinProvider provider = coinProviderRegistry.get(withdrawal.getCoin());
+        try {
+            String serverHash = provider.submit(withdrawal.getBoc());
+            if (!serverHash.equals(withdrawal.getHash())) {
+                log.warn("withdrawal {}: local msgHash {} != toncenter hash {} - verify hash encoding", withdrawal.getId(), withdrawal.getHash(), serverHash);
             }
+        }
+        catch (CryptoException e) {
+            log.warn("withdrawal {} submit failed, will reconcile on status check", withdrawal.getId(), e);
+        }
+    }
 
+    public List<Withdrawal> checkPendingStatuses(Long userId, CoinType coin) {
+        List<Withdrawal> sending = withdrawalRepository.findByUserIdAndCoinAndStatus(userId, coin, TransferStatus.SENDING);
+
+        for (Withdrawal withdrawal : sending) {
             CoinProvider provider = coinProviderRegistry.get(withdrawal.getCoin());
             try {
-                TransferStatus status = provider.checkTransferStatus(
-                        withdrawal.getHash(),
-                        withdrawal.getTimestamp()
-                );
-                withdrawal.setStatus(status);
+                TransferStatus status = provider.checkTransferStatus(withdrawal.getHash(), withdrawal.getTimestamp());
+                if (status != TransferStatus.PENDING) {
+                    withdrawal.setStatus(status);
+                }
             }
             catch (CryptoException e) {
-                log.warn("failed to check status for withdrawal {}, leaving as PENDING", withdrawal.getId());
+                log.warn("failed to check status for withdrawal {}, leaving as SENDING", withdrawal.getId());
             }
         }
 
-        return pending;
+        return sending;
     }
 
     public List<Withdrawal> getWithdrawals(Long userId, CoinType coin, Long before, Integer limit) {

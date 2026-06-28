@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @Slf4j
@@ -88,8 +89,17 @@ public class CryptoService {
         User user = getUser(userId);
         rateLimit(user);
 
-        Withdrawal withdrawal = withdrawalService.reserveFinances(user, coin, address, amount);
-        withdrawal = withdrawalService.send(withdrawal);
+        ReentrantLock masterLock = withdrawalService.masterLock(coin);
+        masterLock.lock();
+        Withdrawal withdrawal;
+        try {
+            withdrawal = withdrawalService.prepareWithdrawal(user, coin, address, amount);
+            withdrawal = withdrawalService.reserve(withdrawal);
+            withdrawalService.submit(withdrawal);
+        }
+        finally {
+            masterLock.unlock();
+        }
 
         WithdrawalRepresentation representation = new WithdrawalRepresentation(withdrawal);
         log.info("withdrawal request created {}, {}, {}, {}", amount, coin, address, user.getId());

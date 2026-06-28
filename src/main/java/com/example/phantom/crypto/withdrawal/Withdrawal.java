@@ -49,6 +49,9 @@ public class Withdrawal {
     @Column(nullable = false, length = 10)
     private TransferStatus status;
 
-    @Column(unique = true, length = 128)
+    @Column(unique = true, nullable = false, length = 128)
     private String hash;
+
+    @Column(nullable = false, length = 2048)
+    private String boc;
 }

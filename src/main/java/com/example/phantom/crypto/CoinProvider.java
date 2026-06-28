@@ -10,9 +10,10 @@ public interface CoinProvider {
 
     BigDecimal getBalanceUsd(String address) throws CryptoException;
     List<IncomingTransfer> getIncomingTransfers(String address, int limit) throws CryptoException;
-    String send(String privateKey, String fromAddress, String toAddress, BigDecimal amountUsd) throws CryptoException;
+    PreparedTransfer prepare(String privateKey, String fromAddress, String toAddress, BigDecimal amountUsd) throws CryptoException;
+    String submit(String boc) throws CryptoException;
     String sendAll(String privateKey, String fromAddress, String toAddress) throws CryptoException;
-    TransferStatus checkTransferStatus(String hash, long sendTimestamp) throws CryptoException;
+    TransferStatus checkTransferStatus(String msgHash, long sendTimestamp) throws CryptoException;
 
     String generateMnemonic() throws CryptoException;
     KeyPair deriveKeyPair(String mnemonic) throws CryptoException;
@@ -23,4 +24,5 @@ public interface CoinProvider {
 
     record IncomingTransfer(String txHash, BigDecimal amountUsd) {}
     record KeyPair(String address, String privateKey) {}
+    record PreparedTransfer(String boc, String msgHash) {}
 }

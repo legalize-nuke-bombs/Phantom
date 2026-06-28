@@ -17,6 +17,7 @@ public class WithdrawalRepresentation {
     private final BigDecimal amount;
     private final TransferStatus status;
     private final String hash;
+    private final String boc;
 
     public WithdrawalRepresentation(Withdrawal withdrawal) {
         this.id = withdrawal.getId();
@@ -27,5 +28,6 @@ public class WithdrawalRepresentation {
         this.amount = withdrawal.getAmount();
         this.status = withdrawal.getStatus();
         this.hash = withdrawal.getHash();
+        this.boc = withdrawal.getBoc();
     }
 }

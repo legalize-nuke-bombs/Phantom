@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.ton.ton4j.address.Address;
+import org.ton.ton4j.cell.Cell;
 import org.ton.ton4j.mnemonic.Mnemonic;
 import org.ton.ton4j.mnemonic.Pair;
 import org.ton.ton4j.smartcontract.types.Destination;
@@ -29,6 +30,7 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -150,7 +152,7 @@ public class TonCoinProvider implements CoinProvider {
     }
 
     @Override
-    public String send(String privateKey, String fromAddress, String toAddress, BigDecimal amountUsd) throws CryptoException {
+    public PreparedTransfer prepare(String privateKey, String fromAddress, String toAddress, BigDecimal amountUsd) throws CryptoException {
         validateAddress(fromAddress);
         validateAddress(toAddress);
 
@@ -158,15 +160,22 @@ public class TonCoinProvider implements CoinProvider {
         BigDecimal amountTon = amountUsd.divide(rate, FinanceConstants.SCALE, RoundingMode.DOWN);
         BigDecimal amountNanoton = amountTon.multiply(NANOTON);
 
-        log.info("sending {} nanoton from {} to {}...", amountNanoton, fromAddress, toAddress);
-
         Destination dest = Destination.builder()
                 .address(toAddress)
                 .amount(amountNanoton.toBigInteger())
                 .bounce(false)
                 .build();
 
-        return signAndSend(privateKey, fromAddress, dest);
+        long seqno = getSeqno(fromAddress);
+        Cell cell = buildBoc(privateKey, seqno, dest);
+        String msgHash = Base64.getEncoder().encodeToString(cell.getHash());
+        log.info("prepared transfer of {} nanoton to {}, msgHash {}", amountNanoton, toAddress, msgHash);
+        return new PreparedTransfer(cell.toBase64(), msgHash);
+    }
+
+    @Override
+    public String submit(String boc) throws CryptoException {
+        return sendBoc(boc);
     }
 
     @Override
@@ -334,8 +343,8 @@ public class TonCoinProvider implements CoinProvider {
 
     private String signAndSend(String privateKeyHex, String fromAddress, Destination destination) throws CryptoException {
         long seqno = getSeqno(fromAddress);
-        String boc = buildBoc(privateKeyHex, seqno, destination);
-        return sendBoc(boc);
+        Cell cell = buildBoc(privateKeyHex, seqno, destination);
+        return sendBoc(cell.toBase64());
     }
 
     private long getSeqno(String address) throws CryptoException {
@@ -385,7 +394,7 @@ public class TonCoinProvider implements CoinProvider {
         }
     }
 
-    private String buildBoc(String privateKeyHex, long seqno, Destination destination) throws CryptoException {
+    private Cell buildBoc(String privateKeyHex, long seqno, Destination destination) throws CryptoException {
         try {
             TweetNaclFast.Signature.KeyPair keyPair = TweetNaclFast.Signature.keyPair_fromSeed(
                     HexFormat.of().parseHex(privateKeyHex)
@@ -405,7 +414,7 @@ public class TonCoinProvider implements CoinProvider {
                     .build();
 
             Message message = wallet.prepareExternalMsg(config);
-            return message.toCell().toBase64();
+            return message.toCell();
         }
         catch (Throwable e) {
             throw new CryptoException("failed to build boc: " + e.getMessage());
