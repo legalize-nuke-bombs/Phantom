@@ -31,7 +31,7 @@ import RankBadge from '@/shared/ui/RankBadge';
 import AttachmentView from './AttachmentView';
 import MessageActionsMenu, { type MenuAnchor } from './MessageActionsMenu';
 import { AnimatedEmoji, emojiOnlyCount, splitEmojis } from './AnimatedEmoji';
-import { linkify } from './linkify';
+import MessageMarkdown from './Markdown';
 
 const AVATAR = 32; // RankBadge diameter; also the gutter reserved for grouped rows.
 
@@ -199,9 +199,9 @@ export default function MessageBubble({
                     own ? 'bg-ton-deep/15 text-fg' : 'bg-panel-2 text-fg',
                   )}
                 >
-                  {/* linkify keeps content as escaped React children — URLs become <a>,
-                      @mentions become profile <Link>s, the rest stays plain text. */}
-                  <p className="whitespace-pre-wrap break-words text-sm">{linkify(message.content)}</p>
+                  {/* Markdown render (GFM + single-newline breaks + @mention links). XSS-safe:
+                      no raw HTML, so user text can't inject nodes. See Markdown.tsx. */}
+                  <MessageMarkdown content={message.content} />
                   <span className="mt-0.5 block text-[10px] leading-none text-muted">
                     {formatTime(message.timestamp, 'time')}
                   </span>

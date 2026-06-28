@@ -1,6 +1,7 @@
 package com.example.phantom.auth;
 
 import com.example.phantom.jwt.JwtAuthFilter;
+import com.example.phantom.pow.PowService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -19,16 +20,19 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final PowService powService;
     private final long expirationMs;
 
-    public AuthController(AuthService authService, @Value("${jwt.expiration-ms}") long expirationMs) {
+    public AuthController(AuthService authService, PowService powService, @Value("${jwt.expiration-ms}") long expirationMs) {
         this.authService = authService;
+        this.powService = powService;
         this.expirationMs = expirationMs;
     }
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(
             @Valid @RequestBody RegisterRequest request) {
+        powService.verify(request.getPow());
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
@@ -37,6 +41,7 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse response) {
+        powService.verify(request.getPow());
         Map<String, String> result = authService.login(request);
         setTokenCookie(result.get("token"), httpRequest, response);
         return ResponseEntity.ok(result);
@@ -44,6 +49,7 @@ public class AuthController {
 
     @PostMapping("/recover")
     public ResponseEntity<Map<String, String>> recover(@Valid @RequestBody RecoverRequest request) {
+        powService.verify(request.getPow());
         return ResponseEntity.ok(authService.recover(request));
     }
 

@@ -16,7 +16,7 @@ import { chatMessagesKey, mergeIncomingMessage, removeMessageFromCache } from '.
 export const GLOBAL_CHAT_ID = '00000000-0000-0000-0000-000000000000';
 
 /** Max message length the backend accepts (MessageConstants.MAX_MESSAGE_CONTENT_LENGTH). */
-export const MAX_MESSAGE_LENGTH = 1000;
+export const MAX_MESSAGE_LENGTH = 20000;
 
 const PAGE_SIZE = 100;
 
