@@ -61,6 +61,10 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             }
             log.info("subscribe successful: user {} destination {}", userId, destination);
         }
+        else if (StompCommand.SEND.equals(accessor.getCommand())) {
+            log.info("rejected client SEND: user {} -> {}", currentUserId(accessor), accessor.getDestination());
+            return null;
+        }
 
         return message;
     }
