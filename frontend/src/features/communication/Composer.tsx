@@ -127,6 +127,42 @@ function UploadProgressPanel({
   );
 }
 
+/** A tiny "M↓" affordance that opens a compact Markdown cheatsheet — so the formatting isn't a
+ *  hidden feature. Click/tap (not hover) so it works on touch too. */
+function MarkdownHint() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Подсказка по Markdown"
+        title="Поддерживается Markdown"
+        className="grid size-11 place-items-center rounded-xl border border-edge bg-panel-2 font-mono text-xs font-bold text-muted transition-colors hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ton"
+      >
+        M↓
+      </button>
+      {open ? (
+        <>
+          <div className="fixed inset-0 z-10" aria-hidden onClick={() => setOpen(false)} />
+          <div className="absolute bottom-12 left-0 z-20 w-56 rounded-xl border border-edge bg-panel p-3 text-xs shadow-xl">
+            <p className="mb-1.5 font-medium text-fg">Поддерживается Markdown</p>
+            <ul className="space-y-1 text-muted">
+              <li><code className="text-fg">**жирный**</code></li>
+              <li><code className="text-fg">*курсив*</code></li>
+              <li><code className="text-fg">`моноширинный`</code></li>
+              <li><code className="text-fg">~~зачёркнутый~~</code></li>
+              <li><code className="text-fg">- список</code></li>
+              <li><code className="text-fg">&gt; цитата</code></li>
+              <li><code className="text-fg">[текст](ссылка)</code></li>
+            </ul>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export default function Composer({ send, locked }: { send: SendMutation; locked: boolean }) {
   const [draft, setDraft] = useState('');
   // The pending attachments — files (uploaded from computer OR picked from disk) that will
@@ -372,6 +408,7 @@ export default function Composer({ send, locked }: { send: SendMutation; locked:
       />
 
       <div className="flex items-end gap-2">
+        <MarkdownHint />
         {/* Attach affordance: a paperclip that toggles a tiny two-source menu. */}
         <div className="relative shrink-0">
           <button

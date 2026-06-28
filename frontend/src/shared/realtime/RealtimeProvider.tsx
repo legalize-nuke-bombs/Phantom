@@ -305,7 +305,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
       // Drain the authoritative unread set → buckets (putNotifications routes gift/chat/owner/misc).
       const { items, complete } = await drainUnread();
-      putNotifications(items);
+
+      // Our own messages echo back as MESSAGE_RECEIVED to every chat member, sender included. The
+      // live path retires that echo on arrival; on a drain (message sent from another device, or
+      // while we were away) it must do the same — otherwise our own message badges its chat. Retire
+      // them server-side and keep them out of the store, mirroring the live path exactly.
+      const ownMessageIds = items
+        .filter((n) => n.type === 'MESSAGE_RECEIVED' && (n.payload as ChatMessage).user.id === userId)
+        .map((n) => n.id);
+      if (ownMessageIds.length > 0 && !cancelled) {
+        void api.post('/notifications/read', { ids: ownMessageIds });
+      }
+      const ownSet = new Set(ownMessageIds);
+      putNotifications(items.filter((n) => !ownSet.has(n.id)));
 
       // MESSAGE_DELETED is a transient cache-remove signal, never bucketed — so any that piled up
       // while we were away would otherwise stay unread and re-drain on every reconnect. Retire them
