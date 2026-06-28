@@ -3,9 +3,13 @@ package com.example.phantom.captcha;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.imageio.ImageIO;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -16,9 +20,9 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -26,19 +30,33 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class CaptchaService {
 
-    private final SecureRandom random = new SecureRandom();
-    private final Map<String, Entry> challenges = new ConcurrentHashMap<>();
+    private static final int GCM_TAG_BITS = 128;
+    private static final int IV_LENGTH = 12;
 
-    private record Entry(String code, long expiry) {
+    private final SecureRandom random = new SecureRandom();
+    private final SecretKeySpec key;
+    private final Map<String, Long> consumed = new ConcurrentHashMap<>();
+
+    public CaptchaService(@Value("${captcha.secret}") String secret) {
+        byte[] k;
+        try {
+            k = Base64.getDecoder().decode(secret);
+        }
+        catch (IllegalArgumentException e) {
+            throw new IllegalStateException("captcha.secret must be Base64-encoded");
+        }
+        if (k.length != 16 && k.length != 24 && k.length != 32) {
+            throw new IllegalStateException("captcha.secret must decode to 16, 24 or 32 bytes");
+        }
+        this.key = new SecretKeySpec(k, "AES");
+        log.info("initialization, key length {} bytes", k.length);
     }
 
     public Captcha issue() {
-        String id = randomId();
         String code = randomCode();
-        challenges.put(id, new Entry(code, System.currentTimeMillis() + CaptchaConstants.TTL_MS));
-        Captcha captcha = new Captcha(id, render(code));
-        log.info("new captcha issued: id {}", id);
-        return captcha;
+        long expiry = System.currentTimeMillis() + CaptchaConstants.TTL_MS;
+        log.info("new captcha issued");
+        return new Captcha(encrypt(code + ":" + expiry), render(code));
     }
 
     public void verify(CaptchaProof proof) {
@@ -46,26 +64,80 @@ public class CaptchaService {
             log.info("captcha rejected: null fields");
             throw new ApiException(ErrorCode.CAPTCHA_REQUIRED);
         }
-        Entry entry = challenges.remove(proof.id());
-        if (entry == null
-                || System.currentTimeMillis() > entry.expiry()
-                || !entry.code().equalsIgnoreCase(proof.answer().trim())) {
-            log.info("captcha rejected");
+
+        String plain;
+        try {
+            plain = decrypt(proof.id());
+        }
+        catch (Exception e) {
+            log.info("captcha rejected: bad token");
             throw new ApiException(ErrorCode.CAPTCHA_INVALID);
+        }
+
+        int sep = plain.lastIndexOf(':');
+        if (sep < 0) {
+            log.info("captcha rejected: bad payload");
+            throw new ApiException(ErrorCode.CAPTCHA_INVALID);
+        }
+        String code = plain.substring(0, sep);
+        long expiry;
+        try {
+            expiry = Long.parseLong(plain.substring(sep + 1));
+        }
+        catch (NumberFormatException e) {
+            log.info("captcha rejected: bad payload");
+            throw new ApiException(ErrorCode.CAPTCHA_INVALID);
+        }
+
+        if (System.currentTimeMillis() > expiry) {
+            log.info("captcha rejected: expired");
+            throw new ApiException(ErrorCode.CAPTCHA_EXPIRED);
+        }
+        if (consumed.putIfAbsent(proof.id(), expiry) != null) {
+            log.info("captcha rejected: already used");
+            throw new ApiException(ErrorCode.CAPTCHA_INVALID);
+        }
+        if (!code.equalsIgnoreCase(proof.answer().trim())) {
+            log.info("captcha rejected: incorrect");
+            throw new ApiException(ErrorCode.CAPTCHA_INCORRECT);
         }
     }
 
     @Scheduled(fixedDelay = 60L * 1000)
     void cleanExpired() {
-        log.info("cleaning expired captcha (current size {})...", challenges.size());
         long now = System.currentTimeMillis();
-        challenges.values().removeIf(e -> now > e.expiry());
+        consumed.values().removeIf(expiry -> now > expiry);
     }
 
-    private String randomId() {
-        byte[] b = new byte[16];
-        random.nextBytes(b);
-        return HexFormat.of().formatHex(b);
+    private String encrypt(String plain) {
+        try {
+            byte[] iv = new byte[IV_LENGTH];
+            random.nextBytes(iv);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
+            byte[] ct = cipher.doFinal(plain.getBytes(StandardCharsets.UTF_8));
+            byte[] out = new byte[IV_LENGTH + ct.length];
+            System.arraycopy(iv, 0, out, 0, IV_LENGTH);
+            System.arraycopy(ct, 0, out, IV_LENGTH, ct.length);
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(out);
+        }
+        catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private String decrypt(String token) throws Exception {
+        byte[] in = Base64.getUrlDecoder().decode(token);
+        if (in.length <= IV_LENGTH) {
+            throw new IllegalArgumentException("token too short");
+        }
+        byte[] iv = new byte[IV_LENGTH];
+        System.arraycopy(in, 0, iv, 0, IV_LENGTH);
+        byte[] ct = new byte[in.length - IV_LENGTH];
+        System.arraycopy(in, IV_LENGTH, ct, 0, ct.length);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
+        return new String(cipher.doFinal(ct), StandardCharsets.UTF_8);
     }
 
     private String randomCode() {
