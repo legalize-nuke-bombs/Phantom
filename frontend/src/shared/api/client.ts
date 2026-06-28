@@ -39,16 +39,6 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
     throw new ApiError(0, 'Нет соединения с сервером');
   }
 
-  // The edge (Caddy ALTCHA gate) 302-redirects un-verified requests to the /captcha
-  // interstitial. fetch follows that silently and hands back the captcha HTML, so an
-  // expired PoW cookie would otherwise surface as a JSON parse error mid-session.
-  // Detect the redirect and send the whole tab through the challenge, returning here.
-  if (res.redirected && new URL(res.url).pathname.startsWith('/captcha')) {
-    const back = location.pathname + location.search;
-    location.href = '/captcha?return=' + encodeURIComponent(back);
-    return new Promise<T>(() => {}); // navigation is taking over; this never resolves
-  }
-
   // 204 / empty body: nothing to parse.
   if (res.status === 204) {
     return undefined as T;

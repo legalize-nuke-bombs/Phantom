@@ -6,6 +6,8 @@ import { errorMessage } from '@/shared/api/errors';
 import Card from '@/shared/ui/Card';
 import Input from '@/shared/ui/Input';
 import Button from '@/shared/ui/Button';
+import { useCaptcha, CaptchaField } from '@/shared/auth/captcha';
+import { AuthScreen } from '@/shared/auth/AuthScreen';
 
 function Wordmark() {
   return (
@@ -29,8 +31,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const cap = useCaptcha();
 
-  const canSubmit = username.trim().length > 0 && password.length > 0 && !pending;
+  const canSubmit =
+    username.trim().length > 0 && password.length > 0 && cap.proof != null && !pending;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,16 +43,17 @@ export default function LoginPage() {
     setError(null);
     setPending(true);
     try {
-      await login(username.trim(), password);
+      await login(username.trim(), password, cap.proof!);
       navigate('/');
     } catch (err) {
       setError(errorMessage(err, 'Не удалось войти. Попробуйте ещё раз'));
       setPending(false);
+      void cap.reload();
     }
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-10">
+    <AuthScreen>
       <div className="w-full max-w-sm">
         <Wordmark />
 
@@ -77,6 +82,14 @@ export default function LoginPage() {
               disabled={pending}
             />
 
+            <CaptchaField
+              challenge={cap.challenge}
+              answer={cap.answer}
+              onAnswer={cap.setAnswer}
+              onReload={cap.reload}
+              disabled={pending}
+            />
+
             {error && (
               <p role="alert" className="text-sm text-lose">
                 {error}
@@ -102,6 +115,6 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
-    </main>
+    </AuthScreen>
   );
 }

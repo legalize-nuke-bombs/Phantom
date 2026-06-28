@@ -7,6 +7,8 @@ import { errorMessage } from '@/shared/api/errors';
 import Card from '@/shared/ui/Card';
 import Input from '@/shared/ui/Input';
 import Button from '@/shared/ui/Button';
+import { useCaptcha, CaptchaField } from '@/shared/auth/captcha';
+import { AuthScreen } from '@/shared/auth/AuthScreen';
 
 function BrandMark() {
   return (
@@ -31,13 +33,14 @@ export default function RecoverPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
+  const cap = useCaptcha();
 
   // Mirror the backend: a recovery key plus at least one field to change.
   const hasKey = recoveryKey.trim().length > 0;
   const hasChange = newUsername.trim().length > 0 || newPassword.length > 0;
   // The confirm field only matters when a new password is actually being set.
   const passwordMismatch = newPassword.length > 0 && confirmPassword !== newPassword;
-  const canSubmit = hasKey && hasChange && !passwordMismatch && !pending;
+  const canSubmit = hasKey && hasChange && !passwordMismatch && cap.proof != null && !pending;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -55,22 +58,26 @@ export default function RecoverPage() {
     setError(null);
     setPending(true);
     try {
-      await recover({
-        recoveryKey: recoveryKey.trim(),
-        ...(newUsername.trim() ? { newUsername: newUsername.trim() } : {}),
-        ...(newPassword ? { newPassword } : {}),
-      });
+      await recover(
+        {
+          recoveryKey: recoveryKey.trim(),
+          ...(newUsername.trim() ? { newUsername: newUsername.trim() } : {}),
+          ...(newPassword ? { newPassword } : {}),
+        },
+        cap.proof!,
+      );
       // Recovery does not start a session — send the user to login.
       setDone(true);
     } catch (err) {
       setError(errorMessage(err, 'Не удалось восстановить доступ'));
       setPending(false);
+      void cap.reload();
     }
   }
 
   if (done) {
     return (
-      <div className="grid min-h-screen place-items-center bg-ink px-4 py-10">
+      <AuthScreen>
         <Card className="w-full max-w-sm p-6 text-center sm:p-8">
           <span className="mx-auto grid size-12 place-items-center rounded-xl border border-win/40 bg-win/10 text-win">
             <CheckCircle2 size={26} />
@@ -88,12 +95,12 @@ export default function RecoverPage() {
             Перейти ко входу
           </Button>
         </Card>
-      </div>
+      </AuthScreen>
     );
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-ink px-4 py-10">
+    <AuthScreen>
       <Card className="w-full max-w-sm p-6 sm:p-8">
         <BrandMark />
         <p className="-mt-4 mb-2 text-center text-sm text-muted">
@@ -152,6 +159,14 @@ export default function RecoverPage() {
             error={passwordMismatch ? 'Пароли не совпадают' : undefined}
           />
 
+          <CaptchaField
+            challenge={cap.challenge}
+            answer={cap.answer}
+            onAnswer={cap.setAnswer}
+            onReload={cap.reload}
+            disabled={pending}
+          />
+
           {error && (
             <p className="text-sm text-lose" role="alert">
               {error}
@@ -176,6 +191,6 @@ export default function RecoverPage() {
           </Link>
         </p>
       </Card>
-    </div>
+    </AuthScreen>
   );
 }

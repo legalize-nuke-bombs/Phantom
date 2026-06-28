@@ -8,6 +8,8 @@ import { errorMessage } from '@/shared/api/errors';
 import Card from '@/shared/ui/Card';
 import Input from '@/shared/ui/Input';
 import Button from '@/shared/ui/Button';
+import { useCaptcha, CaptchaField } from '@/shared/auth/captcha';
+import { AuthScreen } from '@/shared/auth/AuthScreen';
 
 function BrandMark({ onLogoTap }: { onLogoTap?: () => void }) {
   return (
@@ -40,6 +42,7 @@ export default function RegisterPage() {
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const cap = useCaptcha();
 
   // Catch typos: the confirm field must match before we let the form submit.
   const passwordMismatch = confirmPassword.length > 0 && confirmPassword !== password;
@@ -70,16 +73,21 @@ export default function RegisterPage() {
     setError(null);
     setPending(true);
     try {
-      const key = await register({
-        username: username.trim(),
-        displayName: displayName.trim(),
-        password,
-        ...(refId != null ? { refId } : {}),
-        ...(ownerMode && ownerKey.trim() ? { ownerKey: ownerKey.trim(), role } : {}),
-      });
+      const key = await register(
+        {
+          username: username.trim(),
+          displayName: displayName.trim(),
+          password,
+          ...(refId != null ? { refId } : {}),
+          ...(ownerMode && ownerKey.trim() ? { ownerKey: ownerKey.trim(), role } : {}),
+        },
+        cap.proof!,
+      );
       setRecoveryKey(key);
+      void cap.reload();
     } catch (err) {
       setError(errorMessage(err, 'Не удалось создать аккаунт'));
+      void cap.reload();
     } finally {
       setPending(false);
     }
@@ -102,17 +110,18 @@ export default function RegisterPage() {
     setPending(true);
     try {
       // Registration does not start a session — sign in to land on home.
-      await login(username.trim(), password);
+      await login(username.trim(), password, cap.proof!);
       navigate('/');
     } catch (err) {
       setError(errorMessage(err, 'Не удалось войти. Попробуйте позже'));
       setPending(false);
+      void cap.reload();
     }
   }
 
   if (recoveryKey) {
     return (
-      <div className="grid min-h-screen place-items-center bg-ink px-4 py-10">
+      <AuthScreen>
         <Card className="w-full max-w-sm p-6 sm:p-8">
           <BrandMark />
 
@@ -149,6 +158,16 @@ export default function RegisterPage() {
             </button>
           </div>
 
+          <div className="mt-5">
+            <CaptchaField
+              challenge={cap.challenge}
+              answer={cap.answer}
+              onAnswer={cap.setAnswer}
+              onReload={cap.reload}
+              disabled={pending}
+            />
+          </div>
+
           {error && (
             <p className="mt-4 text-sm text-lose" role="alert">
               {error}
@@ -159,18 +178,19 @@ export default function RegisterPage() {
             type="button"
             size="lg"
             loading={pending}
+            disabled={cap.proof == null}
             onClick={handleContinue}
             className="mt-5 w-full"
           >
             Я сохранил — продолжить
           </Button>
         </Card>
-      </div>
+      </AuthScreen>
     );
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-ink px-4 py-10">
+    <AuthScreen>
       <Card className="w-full max-w-sm p-6 sm:p-8">
         <BrandMark onLogoTap={handleLogoTap} />
         <p className="-mt-4 mb-6 text-center text-sm text-muted">Создайте аккаунт</p>
@@ -260,6 +280,14 @@ export default function RegisterPage() {
             </div>
           )}
 
+          <CaptchaField
+            challenge={cap.challenge}
+            answer={cap.answer}
+            onAnswer={cap.setAnswer}
+            onReload={cap.reload}
+            disabled={pending}
+          />
+
           {error && (
             <p className="text-sm text-lose" role="alert">
               {error}
@@ -270,7 +298,7 @@ export default function RegisterPage() {
             type="submit"
             size="lg"
             loading={pending}
-            disabled={passwordMismatch}
+            disabled={passwordMismatch || cap.proof == null}
             className="mt-1 w-full"
           >
             {pending ? 'Создаём аккаунт…' : 'Зарегистрироваться'}
@@ -284,6 +312,6 @@ export default function RegisterPage() {
           </Link>
         </p>
       </Card>
-    </div>
+    </AuthScreen>
   );
 }

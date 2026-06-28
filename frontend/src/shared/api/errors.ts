@@ -16,6 +16,12 @@ export const ERROR_MESSAGES: Record<string, string> = {
   NO_PERMISSION: 'Недостаточно прав',
   INFO_HIDDEN: 'Пользователь скрыл эту информацию',
 
+  // captcha
+  CAPTCHA_REQUIRED: 'Введите код с картинки',
+  CAPTCHA_EXPIRED: 'Код устарел — обновите картинку и введите заново',
+  CAPTCHA_INCORRECT: 'Неверный код с картинки',
+  CAPTCHA_INVALID: 'Код недействителен — обновите картинку',
+
   // wallet / finance
   INSUFFICIENT_BALANCE: 'Недостаточно средств',
   INVALID_AMOUNT: 'Некорректная сумма',
