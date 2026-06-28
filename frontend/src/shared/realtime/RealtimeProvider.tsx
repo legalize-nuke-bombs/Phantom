@@ -32,10 +32,16 @@ import type { ChatMessage, NotificationEnvelope } from './types';
 
 type RealtimeStatus = 'idle' | 'connecting' | 'connected';
 
-const RealtimeContext = createContext<RealtimeStatus>('idle');
+/** Live socket state for the UI cue: the status plus, while reconnecting, the epoch-ms time the
+ *  next attempt is scheduled — so the indicator can count down to it. */
+export interface RealtimeConnection {
+  status: RealtimeStatus;
+  nextRetryAt: number | null;
+}
 
-/** Connection status, for an optional "reconnecting…" cue in the UI. */
-export function useRealtimeStatus(): RealtimeStatus {
+const RealtimeContext = createContext<RealtimeConnection>({ status: 'idle', nextRetryAt: null });
+
+export function useRealtimeConnection(): RealtimeConnection {
   return useContext(RealtimeContext);
 }
 
@@ -111,7 +117,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const userId = user?.id ?? null;
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<RealtimeStatus>('idle');
+  const [conn, setConn] = useState<RealtimeConnection>({ status: 'idle', nextRetryAt: null });
 
   useEffect(() => {
     // While auth is still resolving (user momentarily null on every reload), do nothing —
@@ -119,7 +125,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     // act once we actually know: connected user, or logged out.
     if (loading) return;
     if (userId == null) {
-      setStatus('idle');
+      setConn({ status: 'idle', nextRetryAt: null });
       clearStore(); // genuinely logged out
       return;
     }
@@ -127,6 +133,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const subs = new Map<string, StompSubscription>();
     const resyncState = { running: false, rerun: false };
     let cancelled = false;
+    // Mirror stompjs' EXPONENTIAL backoff (100ms → ×2 → cap 10s) so the indicator can show a
+    // countdown to the next attempt — the library doesn't expose "time until next reconnect".
+    let reconnectAttempt = 0;
 
     const brokerURL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 
@@ -139,8 +148,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       reconnectDelay: 100,
       maxReconnectDelay: 10000,
       reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
-      heartbeatIncoming: 10000,
-      heartbeatOutgoing: 10000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
       beforeConnect: async () => {
         try {
           const token = await fetchWsToken();
@@ -153,7 +162,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         }
       },
       onConnect: () => {
-        setStatus('connected');
+        reconnectAttempt = 0;
+        setConn({ status: 'connected', nextRetryAt: null });
         void runResync();
       },
       onWebSocketClose: () => {
@@ -162,7 +172,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         // seeing a "full" subs map and assuming it's still subscribed (which silently
         // dropped all live messages after a server-side kick until a full reload).
         subs.clear();
-        if (!cancelled) setStatus('connecting');
+        if (!cancelled) {
+          const delay = Math.min(100 * 2 ** reconnectAttempt, 10000);
+          reconnectAttempt += 1;
+          setConn({ status: 'connecting', nextRetryAt: Date.now() + delay });
+        }
       },
       onStompError: (frame) =>
         console.warn('[realtime] STOMP error:', frame.headers['message'], frame.body),
@@ -369,7 +383,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    setStatus('connecting');
+    setConn({ status: 'connecting', nextRetryAt: null });
     ensureOwner(userId);
     client.activate();
 
@@ -387,5 +401,5 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     };
   }, [userId, loading, queryClient]);
 
-  return <RealtimeContext.Provider value={status}>{children}</RealtimeContext.Provider>;
+  return <RealtimeContext.Provider value={conn}>{children}</RealtimeContext.Provider>;
 }

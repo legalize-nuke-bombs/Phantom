@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Home as HomeIcon,
@@ -24,7 +24,7 @@ import { formatUsd } from '@/shared/lib/money';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { useUnreadCount, usePersonalChatsUnread } from '@/shared/realtime/badges';
 import { useMyCapabilities } from '@/shared/lib/roles';
-import { useRealtimeStatus } from '@/shared/realtime/RealtimeProvider';
+import { useRealtimeConnection } from '@/shared/realtime/RealtimeProvider';
 import { GLOBAL_CHAT_ID } from '@/shared/chat/useChat';
 import type { Bucket } from '@/shared/realtime/store';
 
@@ -74,15 +74,29 @@ function Wordmark() {
  * this is purely informational.
  */
 function ConnectionIndicator() {
-  const status = useRealtimeStatus();
-  if (status === 'connected') return null;
+  const { status, nextRetryAt } = useRealtimeConnection();
+  // Tick while not connected so the countdown to the next reconnect attempt stays live.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (status === 'connected') return;
+    const id = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, [status]);
+
+  // Connected → a calm green dot, no chrome.
+  if (status === 'connected') {
+    return (
+      <span title="В сети" aria-label="Соединение активно" className="inline-flex shrink-0 items-center">
+        <span className="size-2 rounded-full bg-win" />
+      </span>
+    );
+  }
+  // Reconnecting → a quiet amber spinner with a tiny countdown to the next attempt.
+  const secs = nextRetryAt ? Math.max(0, Math.ceil((nextRetryAt - now) / 1000)) : 0;
   return (
-    <span
-      title="Переподключение…"
-      aria-label="Переподключение"
-      className="inline-flex shrink-0 items-center text-muted"
-    >
-      <RefreshCw size={14} className="animate-spin" />
+    <span title="Переподключение…" aria-label="Переподключение" className="inline-flex shrink-0 items-center gap-1 text-warn">
+      <RefreshCw size={12} className="animate-spin" />
+      {secs > 0 ? <span className="text-[10px] leading-none tabular-nums">{secs}с</span> : null}
     </span>
   );
 }
