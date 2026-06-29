@@ -196,7 +196,9 @@ function CurrentRound({ lottery }: { lottery: CurrentLottery }) {
 
   const countdown = drawn
     ? 'Розыгрыш…'
-    : formatCountdown(secondsToDraw);
+    : salesClosed
+      ? formatCountdown(secondsToDraw)
+      : formatCountdown(secondsToClose);
 
   return (
     <Card className="overflow-hidden">
