@@ -2,6 +2,7 @@ package com.example.phantom.disk;
 
 import com.example.phantom.disk.fs.DiskFSService;
 import com.example.phantom.disk.image.ImageCompressionService;
+import com.example.phantom.disk.ref.DiskRefCounterService;
 import com.example.phantom.disk.registry.DiskRegistryService;
 import com.example.phantom.disk.usage.DiskUsageService;
 import com.example.phantom.exception.ApiException;
@@ -28,15 +29,17 @@ public class DiskService {
     private final DiskFSService diskFilesystemService;
     private final DiskUsageService diskUsageService;
     private final DiskSettings diskSettings;
+    private final DiskRefCounterService diskRefCounterService;
     private final LevelFeatureService levelFeatureService;
     private final RateLimitService rateLimitService;
     private final ImageCompressionService imageCompressionService;
 
-    public DiskService(DiskRegistryService diskRegistryService, DiskFSService diskFilesystemService, DiskUsageService diskUsageService, DiskSettings diskSettings, LevelFeatureService levelFeatureService, RateLimitService rateLimitService, ImageCompressionService imageCompressionService) {
+    public DiskService(DiskRegistryService diskRegistryService, DiskFSService diskFilesystemService, DiskUsageService diskUsageService, DiskSettings diskSettings, DiskRefCounterService diskRefCounterService, LevelFeatureService levelFeatureService, RateLimitService rateLimitService, ImageCompressionService imageCompressionService) {
         this.diskRegistryService = diskRegistryService;
         this.diskFilesystemService = diskFilesystemService;
         this.diskUsageService = diskUsageService;
         this.diskSettings = diskSettings;
+        this.diskRefCounterService = diskRefCounterService;
         this.levelFeatureService = levelFeatureService;
         this.rateLimitService = rateLimitService;
         this.imageCompressionService = imageCompressionService;
@@ -46,9 +49,11 @@ public class DiskService {
         return diskSettings;
     }
 
-    public List<FileRepresentation> getFiles(Long userId, Long before, Integer limit) {
+    public List<AdvancedFileRepresentation> getFiles(Long userId, Long before, Integer limit) {
         rateLimitService.startAction(userId, RateLimitAction.PAGINATION, limit);
-        return diskRegistryService.getFiles(userId, before, limit);
+        return diskRefCounterService.count(
+                diskRegistryService.getFiles(userId, before, limit)
+        );
     }
 
     public FileRepresentation upload(Long userId, MultipartFile multipart, Boolean useImageCompression) {

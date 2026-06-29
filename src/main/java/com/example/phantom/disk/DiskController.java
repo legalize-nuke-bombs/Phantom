@@ -42,7 +42,7 @@ public class DiskController {
     }
 
     @GetMapping("/files")
-    public List<FileRepresentation> getFiles(
+    public List<AdvancedFileRepresentation> getFiles(
             @AuthenticationPrincipal Long userId,
             @RequestParam(required = false) Long before,
             @RequestParam(defaultValue = "20") @Min(1) Integer limit
