@@ -56,7 +56,7 @@ import { coinName, coinTicker } from '@/shared/lib/coin';
 import type { CoinType } from '@/shared/lib/coin';
 import { levelFor, useExperienceBatch } from '@/shared/lib/experience';
 import { FeatureLock, useFeatureGate } from '@/shared/lib/levelFeatures';
-import { formatUsd } from '@/shared/lib/money';
+import { formatUsd, normalizeAmountInput } from '@/shared/lib/money';
 import { formatTime } from '@/shared/lib/time';
 import { useRefreshBalance, useWallet } from '@/shared/lib/wallet';
 import { markBucketRead, markPresentRead, useUnreadCount } from '@/shared/realtime/badges';
@@ -552,13 +552,14 @@ function WithdrawSection() {
         />
         <Input
           label="Сумма (USD)"
-          type="number"
+          type="text"
           inputMode="decimal"
-          min="0"
-          step="any"
           placeholder="0.00"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => {
+            const next = normalizeAmountInput(e.target.value);
+            if (next !== null) setAmount(next);
+          }}
           autoComplete="off"
           {...SUPPRESS_AUTOFILL}
           disabled={withdraw.isPending}
@@ -832,13 +833,14 @@ function SendPresentCard() {
 
           <Input
             label="Сумма (USD)"
-            type="number"
+            type="text"
             inputMode="decimal"
-            min="1"
-            step="any"
             placeholder="1.00"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => {
+              const next = normalizeAmountInput(e.target.value);
+              if (next !== null) setAmount(next);
+            }}
             autoComplete="off"
             {...SUPPRESS_AUTOFILL}
             disabled={send.isPending}

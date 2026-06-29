@@ -31,3 +31,16 @@ export function formatUsd(
     })
   );
 }
+
+/**
+ * Normalize a money amount string as the user types it. Folds a comma to a dot so the
+ * comma works as a decimal separator (mobile numeric keypads often have only a comma,
+ * no dot), and accepts only a valid partial decimal — digits with at most one dot.
+ * Returns the cleaned, dot-canonical string, or null when the keystroke isn't a valid
+ * (partial) amount so the caller can ignore it and leave the field unchanged.
+ */
+export function normalizeAmountInput(raw: string): string | null {
+  const dotted = raw.replace(/,/g, '.');
+  if (dotted === '' || /^\d*\.?\d*$/.test(dotted)) return dotted;
+  return null;
+}

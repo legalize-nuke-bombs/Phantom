@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import clsx from 'clsx';
-import { formatUsd } from '@/shared/lib/money';
+import { formatUsd, normalizeAmountInput } from '@/shared/lib/money';
 import { useWallet } from '@/shared/lib/wallet';
 import { SUPPRESS_AUTOFILL } from '@/shared/ui/Input';
 
@@ -93,10 +93,10 @@ export default function BetInput({
           // ours to control (no locale/spinner surprises).
           value={value}
           onChange={(e) => {
-            const next = e.target.value;
-            // Allow only digits and a single dot — reject stray characters so the
-            // controlled string never holds garbage.
-            if (next === '' || /^\d*\.?\d*$/.test(next)) onChange(next);
+            // Accept a comma as the decimal separator (mobile numeric keypads often
+            // have only a comma) and keep the controlled string a clean partial decimal.
+            const next = normalizeAmountInput(e.target.value);
+            if (next !== null) onChange(next);
           }}
           disabled={disabled}
           aria-label="Ставка"
