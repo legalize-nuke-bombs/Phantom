@@ -142,10 +142,11 @@ function FileList() {
           </p>
         )}
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {items.map((file) => (
+          {items.map(({ file, refs }) => (
             <FileCard
               key={file.id}
               file={file}
+              refs={refs}
               onDownload={() => download.mutate(file)}
               onDelete={() => del.mutate(file)}
               downloading={download.isPending && download.variables?.id === file.id}

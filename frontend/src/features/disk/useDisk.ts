@@ -49,6 +49,16 @@ export interface DiskSettings {
 /** A stored file — the backend FileRepresentation (re-exported from the realtime types). */
 export type DiskFile = FileRef;
 
+/**
+ * AdvancedFileRepresentation — a stored file plus how many chat messages reference it.
+ * The paginated disk-files endpoint returns these (not bare files) so the UI can warn,
+ * on delete, that the file will also vanish from `refs` messages.
+ */
+export interface DiskFileEntry {
+  file: DiskFile;
+  refs: number;
+}
+
 /* ── keys ──────────────────────────────────────────────────────────────────── */
 
 export const DISK_KEYS = {
@@ -119,7 +129,7 @@ export function usePlatformUsage() {
 
 /* ── file list (cursor-paginated by `timestamp`, epoch seconds) ──────────────
  * The page is full when it returns exactly `limit` items; the next cursor is the
- * last item's timestamp. Two files can share a timestamp (second resolution), but
+ * last item's file timestamp. Two files can share a timestamp (second resolution), but
  * the backend orders by (timestamp desc) and the realistic page sizes make a
  * dropped-on-the-boundary duplicate a non-issue for this UI. */
 export function useDiskFiles() {
@@ -128,11 +138,11 @@ export function useDiskFiles() {
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams({ limit: String(PAGE_LIMIT) });
       if (pageParam !== undefined) params.set('before', String(pageParam));
-      return api.get<DiskFile[]>(`/disk/files?${params}`);
+      return api.get<DiskFileEntry[]>(`/disk/files?${params}`);
     },
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) =>
-      last.length < PAGE_LIMIT ? undefined : last[last.length - 1].timestamp,
+      last.length < PAGE_LIMIT ? undefined : last[last.length - 1].file.timestamp,
   });
 }
 
@@ -488,9 +498,9 @@ export function useDeleteFile() {
       // delete fired a GET /disk/files per file; batch-deleting then tripped the backend's
       // pagination rate limit (429) after ~100 files. Decrement usage in place too, so the
       // quota meter updates without a GET /disk/usage/personal per delete either.
-      qc.setQueryData<InfiniteData<DiskFile[], number | undefined>>(DISK_KEYS.files, (old) =>
+      qc.setQueryData<InfiniteData<DiskFileEntry[], number | undefined>>(DISK_KEYS.files, (old) =>
         old
-          ? { ...old, pages: old.pages.map((page) => page.filter((f) => f.id !== file.id)) }
+          ? { ...old, pages: old.pages.map((page) => page.filter((e) => e.file.id !== file.id)) }
           : old,
       );
       qc.setQueryData<DiskQuota>(DISK_KEYS.usage, (old) =>
