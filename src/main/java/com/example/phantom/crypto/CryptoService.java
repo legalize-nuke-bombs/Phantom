@@ -17,10 +17,14 @@ import com.example.phantom.ratelimit.RateLimitService;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Service
@@ -34,6 +38,9 @@ public class CryptoService {
     private final RateLimitService rateLimitService;
     private final NotificationPublishService notificationPublishService;
     private final GlobalTopicService globalTopicService;
+
+    private final Map<String, Long> cacheMap;
+    private static final int CACHE_DURATION = 3;
 
     public CryptoService(
             UserRepository userRepository,
@@ -51,6 +58,7 @@ public class CryptoService {
         this.rateLimitService = rateLimitService;
         this.notificationPublishService = notificationPublishService;
         this.globalTopicService = globalTopicService;
+        this.cacheMap = new ConcurrentHashMap<>();
     }
 
     public CryptoWalletRepresentation getWallet(Long userId, CoinType coin) {
@@ -59,6 +67,10 @@ public class CryptoService {
     }
 
     public List<DepositRepresentation> checkDeposits(Long userId, CoinType coin) {
+        if (cacheMap.putIfAbsent(userId + ":checkDeposits:" + coin.name(), Instant.now().getEpochSecond()) != null) {
+            return List.of();
+        }
+
         log.info("checking {} deposits for user {} ...", coin, userId);
 
         User user = getUser(userId);
@@ -108,6 +120,10 @@ public class CryptoService {
     }
 
     public List<WithdrawalRepresentation> checkPendingWithdrawals(Long userId, CoinType coin) {
+        if (cacheMap.putIfAbsent(userId + ":checkPendingWithdrawals:" + coin.name(), Instant.now().getEpochSecond()) == null) {
+            return List.of();
+        }
+
         log.info("checking {} pending withdrawals for {} ...", coin, userId);
 
         User user = getUser(userId);
@@ -122,6 +138,11 @@ public class CryptoService {
 
     public List<WithdrawalRepresentation> getWithdrawals(Long userId, CoinType coin, Long before, Integer limit) {
         return withdrawalService.getWithdrawals(userId, coin, before, limit).stream().map(WithdrawalRepresentation::new).toList();
+    }
+
+    @Scheduled(fixedDelay = 1 * 1000)
+    public void clearExpiredCache() {
+        cacheMap.entrySet().removeIf(t -> (Instant.now().getEpochSecond() - t.getValue() > CACHE_DURATION));
     }
 
     private User getUser(Long userId) {
