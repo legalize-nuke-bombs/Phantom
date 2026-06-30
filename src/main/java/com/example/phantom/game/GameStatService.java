@@ -7,11 +7,15 @@ import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -45,6 +49,18 @@ public class GameStatService {
 
     public PlatformGameStatRepresentation getPlatformStats() {
         return platformCache;
+    }
+
+    public GameAnalyticsRepresentation getAnalytics(@AuthenticationPrincipal Long userId, Long since, Long before) {
+        log.info("user {} requested analytics {} - {}", userId, since, before);
+        List<Object[]> raw = gameRepository.findGroupedByGameTypeCountAndBetsAndResults(since, before);
+
+        Map<GameType, GameTypeAnalyticsRepresentation> map = new EnumMap<>(GameType.class);
+        for (Object[] row : raw) {
+            map.put((GameType) row[0], new GameTypeAnalyticsRepresentation((Long) row[1], (BigDecimal) row[2], (BigDecimal) row[3]));
+        }
+
+        return new GameAnalyticsRepresentation(map);
     }
 
     @Scheduled(fixedDelay = 60 * 1000)

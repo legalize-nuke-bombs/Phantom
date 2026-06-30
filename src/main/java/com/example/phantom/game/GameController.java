@@ -104,4 +104,13 @@ public class GameController {
     public ResponseEntity<PlatformGameStatRepresentation> platformStats() {
         return ResponseEntity.ok(gameStatService.getPlatformStats());
     }
+
+    @GetMapping("/analytics")
+    public ResponseEntity<GameAnalyticsRepresentation> analytics(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) Long since,
+            @RequestParam(required = false) Long before
+    ) {
+        return ResponseEntity.ok(gameStatService.getAnalytics(userId, since, before));
+    }
 }
