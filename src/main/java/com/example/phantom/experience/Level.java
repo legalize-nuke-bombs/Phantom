@@ -13,7 +13,7 @@ public enum Level {
     Spectre(10000L),
     Phantom(25000L, Set.of(LevelFeature.DISK_PLUS)),
     Revenant(50000L),
-    Reaper(10000L)
+    Reaper(100000L)
     ;
 
     private final Long amount;
