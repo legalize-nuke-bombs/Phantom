@@ -101,11 +101,12 @@ export function bucketFor(env: NotificationEnvelope): Bucket | null {
     case 'MESSAGE_DELETED':
       return null;
     case 'CHAT_DELETED':
-      // Like MESSAGE_DELETED — a pure cache-eviction signal (the chat is gone). Don't badge
-      // it: the chat row vanishes from the list on its own, there's nothing to "go read".
+    case 'YOU_HAVE_BEEN_BLOCKED':
+    case 'YOU_HAVE_BEEN_UNBLOCKED':
+      // Pure state-sync signals (the chat is gone / a block toggled): no badge, no "События"
+      // row, no sound. The open view updates itself (chat list / composer banner) and
+      // dispatchLive marks them read immediately — there's nothing for the user to go read.
       return null;
-    // NB: YOU_HAVE_BEEN_BLOCKED / YOU_HAVE_BEEN_UNBLOCKED intentionally fall through to the
-    // default → 'misc' (the "События" inbox), like BANNED/UNBANNED — they're informational.
     // Owner-only FINANCIAL events: a quiet "Владелец" stream, never the misc inbox. Config
     // changes (master wallet / sweep schedule) are NOT here — they go to the misc inbox
     // with sound like any other notable account event.

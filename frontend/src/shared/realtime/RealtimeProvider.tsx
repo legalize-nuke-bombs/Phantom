@@ -136,6 +136,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const subs = new Map<string, StompSubscription>();
     const resyncState = { running: false, rerun: false };
     let cancelled = false;
+    // First onConnect = fresh load / F5 (every query just fetched, caches are current) vs a
+    // RECONNECT after a drop (content may have gone stale during the gap). Flip it on the first
+    // connect so only reconnects trigger the content refetch below — not every page load.
+    let firstConnect = true;
     // Mirror stompjs' EXPONENTIAL backoff (100ms → ×2 → cap 10s) so the indicator can show a
     // countdown to the next attempt — the library doesn't expose "time until next reconnect".
     let reconnectAttempt = 0;
@@ -167,7 +171,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       onConnect: () => {
         reconnectAttempt = 0;
         setConn({ status: 'connected', nextRetryAt: null });
-        void runResync();
+        // Decide reconnect-vs-first BEFORE clearing the flag, then hand it to resync so it can
+        // refetch stale content only after a real reconnect.
+        const reconnected = !firstConnect;
+        firstConnect = false;
+        void runResync(reconnected);
       },
       onWebSocketClose: () => {
         // The socket — and every STOMP subscription on it — is dead. Drop the handles
@@ -253,17 +261,22 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (env.type === 'YOU_HAVE_BEEN_BLOCKED' || env.type === 'YOU_HAVE_BEEN_UNBLOCKED') {
+        // Another user (un)blocked me — a quiet state change, not news: no badge, no sound, no
+        // "События" row (bucketFor → null). Just resync the two REST surfaces it flips — who's
+        // blocked me (blacklist) and whether I may write our P2 (chats) — then retire it
+        // server-side right away so it doesn't sit unread and re-drain on every resync. The open
+        // profile / composer re-renders off the invalidation. Literal ['blacklist'] prefix on
+        // purpose: we nudge that feature, never import it. All idempotent, fire-and-forget.
+        void queryClient.invalidateQueries({ queryKey: ['blacklist'] });
+        void queryClient.invalidateQueries({ queryKey: ['chats'] });
+        void api.post('/notifications/read', { ids: [env.id] });
+        return;
+      }
+
       await recordOrConsume(env); // gift / owner / misc / role / level → its bucket
       if (env.type === 'PRESENT_RECEIVED') {
         void queryClient.invalidateQueries({ queryKey: ['presents'] });
-      } else if (env.type === 'YOU_HAVE_BEEN_BLOCKED' || env.type === 'YOU_HAVE_BEEN_UNBLOCKED') {
-        // Another user (un)blocked me. It's an informational misc event (recorded above), but it
-        // also changes truth two REST surfaces own: who's blocked me (the blacklist) and whether
-        // I may write our P2 (the chats list). Invalidate both by broad prefix so any cached
-        // query under them refetches. We use the literal ['blacklist'] prefix on purpose — the
-        // blacklist feature is authored elsewhere; we only nudge it, never import it.
-        void queryClient.invalidateQueries({ queryKey: ['blacklist'] });
-        void queryClient.invalidateQueries({ queryKey: ['chats'] });
       } else if (env.type === 'ROLE_CLAIMED') {
         void runResync(); // our capabilities changed → re-subscribe + re-evaluate access
       } else if (env.type === 'LEVEL_UP') {
@@ -294,7 +307,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       if (isAudible(env)) sfx.notify();
     }
 
-    async function runResync() {
+    // `reconnected` is true ONLY for the onConnect after a real drop (not the first connect, and
+    // not the dispatchLive callers on NEW_CHAT / ROLE_CLAIMED — those pass false). When set, after
+    // resync has re-subscribed + drained the unread backlog (badges/store already current), refetch
+    // stale CONTENT: react-query caches (open chat, chats list, wallet…) weren't touched by the
+    // drain, so messages that arrived during the gap — and a CHAT_DELETED — wouldn't otherwise show.
+    // No key = refetch everything; refetchType defaults to 'active', so only MOUNTED queries
+    // actually hit the network (what you're looking at gets fresh), the rest just go stale.
+    async function runResync(reconnected = false) {
       if (resyncState.running) {
         resyncState.rerun = true;
         return;
@@ -305,6 +325,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           resyncState.rerun = false;
           await resyncOnce();
         } while (resyncState.rerun && !cancelled);
+        if (reconnected && !cancelled) {
+          void queryClient.invalidateQueries();
+        }
       } catch (e) {
         console.warn('[realtime] resync failed', e);
       } finally {
