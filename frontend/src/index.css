@@ -26,6 +26,10 @@
   --color-lose: #e06673;
   --color-warn: #d9b15e;
 
+  /* attachment accent — warm orange, distinct from the golden warn; drives the disk
+     "referenced in N messages" paperclip badge (text-attach / ring-attach). */
+  --color-attach: #e8843c;
+
   /* finance tiers — amount-size colouring (see shared/lib/financeColors.ts).
      Drives text-tier-grey … text-tier-gold for coloured money via <Amount>.
      Deliberately restrained (lower saturation) so amounts read as tints, not neon. */

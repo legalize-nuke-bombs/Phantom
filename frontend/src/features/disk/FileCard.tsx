@@ -41,9 +41,23 @@ export default function FileCard({
 
   return (
     <li className="group flex flex-col overflow-hidden rounded-xl border border-edge bg-panel">
-      {/* preview — fixed square; ImagePreview shows the thumbnail or a type glyph */}
-      <div className="aspect-square w-full border-b border-edge">
+      {/* preview — fixed square; ImagePreview shows the thumbnail or a type glyph.
+          relative so the attachment-count paperclip can pin to the top-right corner. */}
+      <div className="relative aspect-square w-full border-b border-edge">
         <ImagePreview file={{ id: file.id, name: file.name, size: file.size }} glyphSize={34} />
+        {/* attachment-count badge — a tiny orange paperclip + count in the corner instead of a
+            full text line under the name: with hundreds of files a repeated "в N сообщениях" on
+            every card is noise. The full phrasing moves to the title tooltip; the delete-confirm
+            below still spells out the consequence in words. */}
+        {refs != null && refs > 0 && (
+          <span
+            title={`Файл в ${refs} ${refs === 1 ? 'сообщении' : 'сообщениях'}`}
+            className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-ink/70 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-attach ring-1 ring-attach/30 backdrop-blur-sm"
+          >
+            <Paperclip size={11} strokeWidth={2.5} className="shrink-0" />
+            {refs}
+          </span>
+        )}
       </div>
 
       {/* meta */}
@@ -56,12 +70,6 @@ export default function FileCard({
           <span className="px-1.5">·</span>
           {formatTime(file.timestamp, 'short')}
         </p>
-        {refs != null && refs > 0 && (
-          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted">
-            <Paperclip size={11} strokeWidth={2} className="shrink-0" />в {refs}{' '}
-            {refs === 1 ? 'сообщении' : 'сообщениях'}
-          </p>
-        )}
       </div>
 
       {/* actions */}
