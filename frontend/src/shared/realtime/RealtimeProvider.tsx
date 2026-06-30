@@ -391,6 +391,22 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         void api.post('/notifications/read', { ids: staleDeletedIds });
       }
 
+      // CHAT_DELETED that landed in the drain instead of live dispatch. A KICK revokes our access,
+      // which kills the socket — so the frame often arrives only here, on reconnect (a plain chat
+      // delete reaches us live, socket intact). It's bucketless, so the drain above didn't act on
+      // it; mirror the live handler now — evict the chat's detail cache, refresh the list so the row
+      // disappears, and retire it server-side (else it re-drains on every reconnect).
+      const drainedChatDeletes = items.filter((n) => n.type === 'CHAT_DELETED');
+      if (drainedChatDeletes.length > 0 && !cancelled) {
+        for (const n of drainedChatDeletes) {
+          const id = (n.payload as Chat).id;
+          queryClient.removeQueries({ queryKey: chatDetailKey(id) });
+          void markBucketRead(`chat:${id}`);
+        }
+        void queryClient.invalidateQueries({ queryKey: chatsListKey });
+        void api.post('/notifications/read', { ids: drainedChatDeletes.map((n) => n.id) });
+      }
+
       // A role change usually arrives while we were briefly disconnected (the access change
       // kicks the socket), so it lands in this drain rather than live dispatch. Chime ONCE for
       // a newly-seen ROLE_CLAIMED so the user still hears it. Everything else stays SILENT on a
