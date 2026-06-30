@@ -215,6 +215,12 @@ public class PersonalChatService {
             }
         }
 
+        List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
+        ChatRepresentation chatRepresentation = new ChatRepresentation(chat, chatMembers.stream().map(TopicMemberRepresentation::new).toList());
+        for (TopicMember chatMember : chatMembers) { // We shouldn't post to deleted topic
+            notificationPublishService.createUserNotification(chatMember.getUser(), NotificationType.CHAT_DELETED, chatRepresentation);
+        }
+
         topicRepository.delete(chat.getTopic());
         log.info("user {} deleted the chat", userId);
     }
@@ -222,6 +228,7 @@ public class PersonalChatService {
     @Transactional
     public ChatRepresentation kick(Long userId, UUID chatId, Long targetId) {
         Chat chat = lockChat(chatId);
+        User target = userRepository.findById(targetId).orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
         if (Objects.equals(userId, targetId)) {
             throw new ApiException(ErrorCode.CANT_SELF_KICK);
@@ -236,6 +243,7 @@ public class PersonalChatService {
             }
         }
 
+        notificationPublishService.createUserNotification(target, NotificationType.CHAT_DELETED, new ChatRepresentation(chat, topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId()).stream().map(TopicMemberRepresentation::new).toList()));
         topicMemberRepository.deleteByTopic_IdAndUser_Id(chat.getTopic().getId(), targetId);
 
         log.info("user {} kicked another user", userId);
