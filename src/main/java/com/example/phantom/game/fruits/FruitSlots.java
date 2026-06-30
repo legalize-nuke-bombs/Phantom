@@ -1,7 +1,7 @@
 package com.example.phantom.game.fruits;
 
 import com.example.phantom.game.util.slot.*;
-import com.example.phantom.game.util.slot.phantomslots.SimpleSlots;
+import com.example.phantom.game.util.slot.simpleslots.SimpleSlots;
 import lombok.Getter;
 import org.springframework.stereotype.Component;
 

@@ -1,4 +1,4 @@
-package com.example.phantom.game.util.slot.phantomslots;
+package com.example.phantom.game.util.slot.simpleslots;
 
 import com.example.phantom.finance.FinanceConstants;
 import com.example.phantom.game.util.slot.*;
