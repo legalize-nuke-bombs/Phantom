@@ -136,10 +136,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const subs = new Map<string, StompSubscription>();
     const resyncState = { running: false, rerun: false };
     let cancelled = false;
-    // First onConnect = fresh load / F5 (every query just fetched, caches are current) vs a
-    // RECONNECT after a drop (content may have gone stale during the gap). Flip it on the first
-    // connect so only reconnects trigger the content refetch below — not every page load.
-    let firstConnect = true;
     // Mirror stompjs' EXPONENTIAL backoff (100ms → ×2 → cap 10s) so the indicator can show a
     // countdown to the next attempt — the library doesn't expose "time until next reconnect".
     let reconnectAttempt = 0;
@@ -171,11 +167,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       onConnect: () => {
         reconnectAttempt = 0;
         setConn({ status: 'connected', nextRetryAt: null });
-        // Decide reconnect-vs-first BEFORE clearing the flag, then hand it to resync so it can
-        // refetch stale content only after a real reconnect.
-        const reconnected = !firstConnect;
-        firstConnect = false;
-        void runResync(reconnected);
+        // Every connect — first load or reconnect after a drop — runs the SAME resync. The drain
+        // re-subscribes wholesale and replays each unread event through applyEffects, so an open
+        // chat catches up and a CHAT_DELETED lands regardless of why the socket dropped. No
+        // special reconnect path: the cause of the gap (kick vs. blip) must not change the effects.
+        void runResync();
       },
       onWebSocketClose: () => {
         // The socket — and every STOMP subscription on it — is dead. Drop the handles
@@ -204,86 +200,86 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       void dispatchLive(env);
     };
 
-    // A LIVE frame. Three decisions, in order:
-    //   1. side effects that must run no matter what (merge a message into its chat cache so it
-    //      shows live; resync + refresh the list on a topology change),
-    //   2. consume-vs-store (recordOrConsume): if a mounted view is showing the surface that
-    //      reads this exact event, retire it server-side NOW and don't store it (no badge, no
-    //      flicker); otherwise store it,
-    //   3. sound: decided inside recordOrConsume — chime only for a STORED event in an audible
-    //      stream (everything except the global chat and the silent owner feed).
-    // Drained-backlog notifications skip all this — they only populate the store.
-    async function dispatchLive(env: NotificationEnvelope) {
-      if (env.type === 'MESSAGE_DELETED') {
-        removeMessageFromCache(queryClient, env.payload as ChatMessage);
-        // A pure cache-remove signal with no lasting value, never bucketed. Retire it
-        // server-side at once — otherwise it sits unread forever (until the backend's
-        // retention sweep) and every resync re-drains the whole growing pile. Fire-and-forget.
-        void api.post('/notifications/read', { ids: [env.id] });
-        return;
-      }
-
-      if (env.type === 'CHAT_DELETED') {
-        // The chat was deleted, or I was kicked — payload is the now-gone Chat (id = UUID
-        // string; NEVER Number() it). Mirror NEW_CHAT's eviction in reverse: drop this chat's
-        // detail cache and invalidate the list so the row disappears. An open
-        // ChatConversationPage refetches the (now-404) detail and shows "чат не найден" on its
-        // own — no navigation here. markBucketRead kills any lingering unread badge for it (the
-        // chat can never be opened again to clear it). Pure signal → retire it server-side now
-        // so it doesn't sit unread and re-drain every resync. Fire-and-forget; all idempotent.
-        const chatId = (env.payload as Chat).id;
-        queryClient.removeQueries({ queryKey: chatDetailKey(chatId) });
-        void queryClient.invalidateQueries({ queryKey: chatsListKey });
-        void markBucketRead(`chat:${chatId}`);
-        void api.post('/notifications/read', { ids: [env.id] });
-        return;
-      }
-
-      if (env.type === 'MESSAGE_RECEIVED') {
-        const msg = env.payload as ChatMessage;
-        mergeIncomingMessage(queryClient, msg); // show it live regardless of author / where we are
-        // Our OWN message, echoed because we're connected on another device too: never badge or
-        // chime it — retire it server-side and don't store it.
-        if (msg.user.id === userId) {
-          void api.post('/notifications/read', { ids: [env.id] });
-          return;
+    // The IDEMPOTENT cache effects of an event — the ONE place that reconciles react-query caches
+    // to a notification, run for BOTH a live frame and a drained-backlog item. Cause-blind by
+    // design: a CHAT_DELETED must evict the chat whether it arrived live or was pulled in on the
+    // reconnect a kick caused. No sound, no store, no resync here (those differ live vs. drain and
+    // live in dispatchLive). Safe to call twice on the same event: merge dedups by message id,
+    // invalidate/removeQueries are no-ops on a repeat, markBucketRead just re-clears an empty bucket.
+    function applyEffects(env: NotificationEnvelope): void {
+      switch (env.type) {
+        case 'MESSAGE_RECEIVED':
+          // Merge into its chat cache so it shows live regardless of author / where we are.
+          mergeIncomingMessage(queryClient, env.payload as ChatMessage);
+          break;
+        case 'MESSAGE_DELETED':
+          removeMessageFromCache(queryClient, env.payload as ChatMessage);
+          break;
+        case 'CHAT_DELETED': {
+          // The chat was deleted, or I was kicked — payload is the now-gone Chat (id = UUID
+          // string; NEVER Number() it). Mirror NEW_CHAT's eviction in reverse: drop this chat's
+          // detail cache and invalidate the list so the row disappears. An open
+          // ChatConversationPage refetches the (now-404) detail and shows "чат не найден" on its
+          // own — no navigation here. markBucketRead kills any lingering unread badge for it (the
+          // chat can never be opened again to clear it).
+          const chatId = (env.payload as Chat).id;
+          queryClient.removeQueries({ queryKey: chatDetailKey(chatId) });
+          void queryClient.invalidateQueries({ queryKey: chatsListKey });
+          void markBucketRead(`chat:${chatId}`);
+          break;
         }
-        await recordOrConsume(env);
-        return;
+        case 'YOU_HAVE_BEEN_BLOCKED':
+        case 'YOU_HAVE_BEEN_UNBLOCKED':
+          // Another user (un)blocked me — resync the two REST surfaces it flips: who's blocked me
+          // (blacklist) and whether I may write our P2 (chats). Literal ['blacklist'] prefix on
+          // purpose — we nudge that feature, never import it. The open profile / composer re-renders
+          // off the invalidation.
+          void queryClient.invalidateQueries({ queryKey: ['blacklist'] });
+          void queryClient.invalidateQueries({ queryKey: ['chats'] });
+          break;
+        case 'NEW_CHAT':
+          // Refresh the (uncached) chats list so the new row appears. The (re)subscribe to its
+          // topic is the LIVE topology trigger in dispatchLive, not a cache effect.
+          void queryClient.invalidateQueries({ queryKey: ['chats'] });
+          break;
+        case 'PRESENT_RECEIVED':
+          void queryClient.invalidateQueries({ queryKey: ['presents'] });
+          break;
+        case 'LEVEL_UP':
+          // New rank → refetch experience so the level-feature gates (SEND_MESSAGE, presents,
+          // disk) re-evaluate and anything just unlocked goes live without a reload.
+          void queryClient.invalidateQueries({ queryKey: ['experience'] });
+          break;
+        // Everything else (ROLE_CLAIMED, owner financial, misc, welcome, lottery…) has no cache
+        // effect — it's a pure store/badge signal, handled by dispatchLive / the drain.
       }
+    }
 
-      if (env.type === 'NEW_CHAT') {
-        // A topology change: record-or-consume it (the chats LIST consumes NEW_CHAT — see
-        // ChatsPage), then (re)subscribe to the new topic and refresh the (uncached) list.
-        await recordOrConsume(env);
+    // A LIVE frame. Three steps, in order:
+    //   1. applyEffects — the cache reconciliation, identical to the drain path,
+    //   2. topology trigger — ONLY live: a new chat or a role change altered the subscription set,
+    //      so re-subscribe + re-evaluate access. The drain re-subscribes wholesale already, so it
+    //      needs no such trigger,
+    //   3. store + sound (recordOrConsume): unless this event is bucketless or our own echo, in
+    //      which case retire it server-side and never store/chime it.
+    async function dispatchLive(env: NotificationEnvelope) {
+      applyEffects(env);
+
+      if (env.type === 'NEW_CHAT' || env.type === 'ROLE_CLAIMED') {
         void runResync();
-        void queryClient.invalidateQueries({ queryKey: ['chats'] });
-        return;
       }
 
-      if (env.type === 'YOU_HAVE_BEEN_BLOCKED' || env.type === 'YOU_HAVE_BEEN_UNBLOCKED') {
-        // Another user (un)blocked me — a quiet state change, not news: no badge, no sound, no
-        // "События" row (bucketFor → null). Just resync the two REST surfaces it flips — who's
-        // blocked me (blacklist) and whether I may write our P2 (chats) — then retire it
-        // server-side right away so it doesn't sit unread and re-drain on every resync. The open
-        // profile / composer re-renders off the invalidation. Literal ['blacklist'] prefix on
-        // purpose: we nudge that feature, never import it. All idempotent, fire-and-forget.
-        void queryClient.invalidateQueries({ queryKey: ['blacklist'] });
-        void queryClient.invalidateQueries({ queryKey: ['chats'] });
+      const own =
+        env.type === 'MESSAGE_RECEIVED' && (env.payload as ChatMessage).user.id === userId;
+      if (own || bucketFor(env) == null) {
+        // Our OWN message echoed from another device, or a bucketless pure-signal event
+        // (MESSAGE_DELETED / CHAT_DELETED / (un)blocked): never badge or chime — its cache effect
+        // already ran above. Retire it server-side now so it doesn't sit unread and re-drain on
+        // every resync. Fire-and-forget; all idempotent.
         void api.post('/notifications/read', { ids: [env.id] });
         return;
       }
-
-      await recordOrConsume(env); // gift / owner / misc / role / level → its bucket
-      if (env.type === 'PRESENT_RECEIVED') {
-        void queryClient.invalidateQueries({ queryKey: ['presents'] });
-      } else if (env.type === 'ROLE_CLAIMED') {
-        void runResync(); // our capabilities changed → re-subscribe + re-evaluate access
-      } else if (env.type === 'LEVEL_UP') {
-        // New rank → refetch experience so the level-feature gates (SEND_MESSAGE, presents,
-        // disk) re-evaluate and anything just unlocked goes live without a reload.
-        void queryClient.invalidateQueries({ queryKey: ['experience'] });
-      }
+      await recordOrConsume(env);
     }
 
     // Store the envelope and maybe chime — UNLESS a mounted view is already showing the surface
@@ -307,14 +303,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       if (isAudible(env)) sfx.notify();
     }
 
-    // `reconnected` is true ONLY for the onConnect after a real drop (not the first connect, and
-    // not the dispatchLive callers on NEW_CHAT / ROLE_CLAIMED — those pass false). When set, after
-    // resync has re-subscribed + drained the unread backlog (badges/store already current), refetch
-    // stale CONTENT: react-query caches (open chat, chats list, wallet…) weren't touched by the
-    // drain, so messages that arrived during the gap — and a CHAT_DELETED — wouldn't otherwise show.
-    // No key = refetch everything; refetchType defaults to 'active', so only MOUNTED queries
-    // actually hit the network (what you're looking at gets fresh), the rest just go stale.
-    async function runResync(reconnected = false) {
+    // Re-subscribe + drain, with running/rerun dedup so overlapping triggers (onConnect plus a
+    // live NEW_CHAT/ROLE_CLAIMED) collapse into at most one in-flight pass and one queued rerun.
+    // No reconnect-only content refetch any more: the drain replays every unread event through
+    // applyEffects, so an open chat catches up and a CHAT_DELETED lands on its own — the same way
+    // the live path does, no blanket invalidate needed.
+    async function runResync() {
       if (resyncState.running) {
         resyncState.rerun = true;
         return;
@@ -325,9 +319,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           resyncState.rerun = false;
           await resyncOnce();
         } while (resyncState.rerun && !cancelled);
-        if (reconnected && !cancelled) {
-          void queryClient.invalidateQueries();
-        }
       } catch (e) {
         console.warn('[realtime] resync failed', e);
       } finally {
@@ -367,44 +358,29 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Drain the authoritative unread set → buckets (putNotifications routes gift/chat/owner/misc).
+      // Drain the authoritative unread set.
       const { items, complete } = await drainUnread();
 
-      // Our own messages echo back as MESSAGE_RECEIVED to every chat member, sender included. The
-      // live path retires that echo on arrival; on a drain (message sent from another device, or
-      // while we were away) it must do the same — otherwise our own message badges its chat. Retire
-      // them server-side and keep them out of the store, mirroring the live path exactly.
-      const ownMessageIds = items
-        .filter((n) => n.type === 'MESSAGE_RECEIVED' && (n.payload as ChatMessage).user.id === userId)
-        .map((n) => n.id);
-      if (ownMessageIds.length > 0 && !cancelled) {
-        void api.post('/notifications/read', { ids: ownMessageIds });
-      }
-      const ownSet = new Set(ownMessageIds);
-      putNotifications(items.filter((n) => !ownSet.has(n.id)));
+      // EXACTLY the live path's cache reconciliation, replayed over the backlog: every event runs
+      // through applyEffects, so a message that arrived during the gap merges into its open chat and
+      // a CHAT_DELETED (which a kick usually delivers only here, on reconnect) evicts the chat — no
+      // per-type drain hack any more. Idempotent, so an event also seen live is harmless to re-apply.
+      for (const n of items) applyEffects(n);
 
-      // MESSAGE_DELETED is a transient cache-remove signal, never bucketed — so any that piled up
-      // while we were away would otherwise stay unread and re-drain on every reconnect. Retire them
-      // server-side now (the live path does the same on arrival); each drain shrinks the backlog.
-      const staleDeletedIds = items.filter((n) => n.type === 'MESSAGE_DELETED').map((n) => n.id);
-      if (staleDeletedIds.length > 0 && !cancelled) {
-        void api.post('/notifications/read', { ids: staleDeletedIds });
+      // Store + retire, SILENTLY (no recordOrConsume → no chime on a drain). Split exactly as the
+      // live path does: our own echoed messages and bucketless pure-signals never get stored — collect
+      // their ids for one batched mark-read so they don't sit unread and re-drain every reconnect.
+      // Everything else goes to the store (putNotifications dedups by id and skips non-bucketed types).
+      const retireIds: number[] = [];
+      const toStore: NotificationEnvelope[] = [];
+      for (const n of items) {
+        const own = n.type === 'MESSAGE_RECEIVED' && (n.payload as ChatMessage).user.id === userId;
+        if (own || bucketFor(n) == null) retireIds.push(n.id);
+        else toStore.push(n);
       }
-
-      // CHAT_DELETED that landed in the drain instead of live dispatch. A KICK revokes our access,
-      // which kills the socket — so the frame often arrives only here, on reconnect (a plain chat
-      // delete reaches us live, socket intact). It's bucketless, so the drain above didn't act on
-      // it; mirror the live handler now — evict the chat's detail cache, refresh the list so the row
-      // disappears, and retire it server-side (else it re-drains on every reconnect).
-      const drainedChatDeletes = items.filter((n) => n.type === 'CHAT_DELETED');
-      if (drainedChatDeletes.length > 0 && !cancelled) {
-        for (const n of drainedChatDeletes) {
-          const id = (n.payload as Chat).id;
-          queryClient.removeQueries({ queryKey: chatDetailKey(id) });
-          void markBucketRead(`chat:${id}`);
-        }
-        void queryClient.invalidateQueries({ queryKey: chatsListKey });
-        void api.post('/notifications/read', { ids: drainedChatDeletes.map((n) => n.id) });
+      putNotifications(toStore);
+      if (retireIds.length > 0 && !cancelled) {
+        void api.post('/notifications/read', { ids: retireIds });
       }
 
       // A role change usually arrives while we were briefly disconnected (the access change
@@ -412,13 +388,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       // a newly-seen ROLE_CLAIMED so the user still hears it. Everything else stays SILENT on a
       // drain: chiming for every message/gift pulled in on each reconnect made leaving a chat
       // (or any brief socket drop) spam the sound — and the badges already reflect those.
-      // A LEVEL_UP slipped in during the gap still refetches experience so feature gates re-eval.
       const freshDrained = items.filter((n) => !knownIds.has(n.id));
       if (freshDrained.some((n) => n.type === 'ROLE_CLAIMED')) {
         sfx.notify();
-      }
-      if (freshDrained.some((n) => n.type === 'LEVEL_UP')) {
-        void queryClient.invalidateQueries({ queryKey: ['experience'] });
       }
 
       // Reconcile the store DOWN to the server truth. The drain is the full unread set, so
