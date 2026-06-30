@@ -39,7 +39,7 @@ public class GameStatService {
 
         privacySettingService.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
 
-        Object[] raw = gameRepository.findCountAndMaxResult(null, user.getId()).stream().findFirst().orElseThrow(RuntimeException::new);
+        Object[] raw = gameRepository.findCountAndMaxResult(null, target.getId()).stream().findFirst().orElseThrow(RuntimeException::new);
 
         return new UserGameStatRepresentation(
                 (Long) raw [0],

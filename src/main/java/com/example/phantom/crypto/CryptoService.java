@@ -120,7 +120,7 @@ public class CryptoService {
     }
 
     public List<WithdrawalRepresentation> checkPendingWithdrawals(Long userId, CoinType coin) {
-        if (cacheMap.putIfAbsent(userId + ":checkPendingWithdrawals:" + coin.name(), Instant.now().getEpochSecond()) == null) {
+        if (cacheMap.putIfAbsent(userId + ":checkPendingWithdrawals:" + coin.name(), Instant.now().getEpochSecond()) != null) {
             return List.of();
         }
 

@@ -45,6 +45,7 @@ g.clientSeed IS NOT NULL AND
 SELECT g.gameType, COUNT(g), SUM(g.bet), SUM(g.result)
 FROM Game g
 WHERE
+g.clientSeed IS NOT NULL AND
 (?1 IS NULL OR g.timestamp >= ?1) AND
 (?2 IS NULL OR g.timestamp < ?2)
 GROUP BY g.gameType
