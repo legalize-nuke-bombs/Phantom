@@ -26,6 +26,9 @@ import { api } from '@/shared/api/client';
 import { sfx } from '@/shared/lib/sound';
 import { mergeIncomingMessage, removeMessageFromCache } from '@/shared/chat/chatCache';
 import { GLOBAL_CHAT_ID } from '@/shared/chat/useChat';
+import { chatsListKey, chatDetailKey } from '@/shared/chat/chats';
+import { markBucketRead } from '@/shared/realtime/badges';
+import type { Chat } from '@/shared/chat/chats';
 import { bucketFor, putNotifications, removeNotifications, orphanChatNotificationIds, allIds, ensureOwner, clearStore } from './store';
 import { isConsumedByActiveView } from './activeViews';
 import type { ChatMessage, NotificationEnvelope } from './types';
@@ -212,6 +215,22 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (env.type === 'CHAT_DELETED') {
+        // The chat was deleted, or I was kicked — payload is the now-gone Chat (id = UUID
+        // string; NEVER Number() it). Mirror NEW_CHAT's eviction in reverse: drop this chat's
+        // detail cache and invalidate the list so the row disappears. An open
+        // ChatConversationPage refetches the (now-404) detail and shows "чат не найден" on its
+        // own — no navigation here. markBucketRead kills any lingering unread badge for it (the
+        // chat can never be opened again to clear it). Pure signal → retire it server-side now
+        // so it doesn't sit unread and re-drain every resync. Fire-and-forget; all idempotent.
+        const chatId = (env.payload as Chat).id;
+        queryClient.removeQueries({ queryKey: chatDetailKey(chatId) });
+        void queryClient.invalidateQueries({ queryKey: chatsListKey });
+        void markBucketRead(`chat:${chatId}`);
+        void api.post('/notifications/read', { ids: [env.id] });
+        return;
+      }
+
       if (env.type === 'MESSAGE_RECEIVED') {
         const msg = env.payload as ChatMessage;
         mergeIncomingMessage(queryClient, msg); // show it live regardless of author / where we are
@@ -237,6 +256,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       await recordOrConsume(env); // gift / owner / misc / role / level → its bucket
       if (env.type === 'PRESENT_RECEIVED') {
         void queryClient.invalidateQueries({ queryKey: ['presents'] });
+      } else if (env.type === 'YOU_HAVE_BEEN_BLOCKED' || env.type === 'YOU_HAVE_BEEN_UNBLOCKED') {
+        // Another user (un)blocked me. It's an informational misc event (recorded above), but it
+        // also changes truth two REST surfaces own: who's blocked me (the blacklist) and whether
+        // I may write our P2 (the chats list). Invalidate both by broad prefix so any cached
+        // query under them refetches. We use the literal ['blacklist'] prefix on purpose — the
+        // blacklist feature is authored elsewhere; we only nudge it, never import it.
+        void queryClient.invalidateQueries({ queryKey: ['blacklist'] });
+        void queryClient.invalidateQueries({ queryKey: ['chats'] });
       } else if (env.type === 'ROLE_CLAIMED') {
         void runResync(); // our capabilities changed → re-subscribe + re-evaluate access
       } else if (env.type === 'LEVEL_UP') {

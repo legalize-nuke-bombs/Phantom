@@ -15,9 +15,18 @@ export type NotificationType =
   | 'MESSAGE_RECEIVED'
   | 'MESSAGE_DELETED'
   | 'NEW_CHAT'
+  // The chat I'm in was deleted, or I was kicked out of it — payload is the gone Chat.
+  // A pure cache-eviction signal (like MESSAGE_DELETED): drop the chat's cache, refresh
+  // the list, never bucket it.
+  | 'CHAT_DELETED'
   | 'ROLE_CLAIMED'
   | 'WELCOME'
   | 'LEVEL_UP'
+  // Another USER blocked / unblocked ME (NOT a chat ban — that's BANNED/UNBANNED). Payload
+  // is the BlackRepresentation of the relationship (author = them, target = me). Informational
+  // (→ misc inbox) but also flips my write-rights, so the handler reinvalidates blacklist+chats.
+  | 'YOU_HAVE_BEEN_BLOCKED'
+  | 'YOU_HAVE_BEEN_UNBLOCKED'
   | 'BROADCAST'
   | 'LOTTERY_IS_ENDING'
   | 'LOTTERY_ENDED'
@@ -83,4 +92,17 @@ export interface RoleClaimedPayload {
 export interface BroadcastPayload {
   user: ShortUser;
   content: string;
+}
+
+/**
+ * BlackRepresentation — payload of YOU_HAVE_BEEN_BLOCKED / YOU_HAVE_BEEN_UNBLOCKED: one
+ * block relationship. `author` is who (un)blocked me, `target` is me. Declared INDEPENDENTLY
+ * here (not imported from shared/chat/blacklist.ts) so the realtime layer owns its own wire
+ * contract and doesn't take a dependency on the blacklist feature — minimal by design.
+ */
+export interface BlackRepresentation {
+  id: number;
+  author: ShortUser;
+  target: ShortUser;
+  timestamp: number; // epoch seconds
 }

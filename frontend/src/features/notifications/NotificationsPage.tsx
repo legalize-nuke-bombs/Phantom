@@ -21,7 +21,10 @@ import {
   ArrowUpCircle,
   Megaphone,
   UserPlus,
+  UserX,
+  UserCheck,
   MessageSquareX,
+  Trash2,
   ShieldAlert,
   ShieldCheck,
   Ticket,
@@ -50,8 +53,14 @@ import Spinner from '@/shared/ui/Spinner';
 type NotificationType =
   | 'BANNED'
   | 'UNBANNED'
+  // A USER (un)blocked me — distinct from BANNED/UNBANNED (a chat ban). Informational.
+  | 'YOU_HAVE_BEEN_BLOCKED'
+  | 'YOU_HAVE_BEEN_UNBLOCKED'
   | 'YOUR_MESSAGE_DELETED'
   | 'NEW_CHAT'
+  // CHAT_DELETED is a pure cache-eviction signal (bucketFor → null), so it never reaches this
+  // misc inbox; listed here only to keep the registry total and the type exhaustive.
+  | 'CHAT_DELETED'
   | 'ROLE_CLAIMED'
   | 'WELCOME'
   | 'LEVEL_UP'
@@ -199,6 +208,16 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
       return from ? `${from} начал с вами чат` : undefined;
     },
   },
+  CHAT_DELETED: {
+    icon: Trash2,
+    label: 'Чат удалён',
+    // Payload is the gone ChatRepresentation. We can't title a P2 here (that needs my id to
+    // pick the other member), so show the GROUP's name when there is one, else stay generic.
+    describe: (p) => {
+      const name = str(p, 'name');
+      return name ? `Чат «${name}» удалён` : 'Чат удалён';
+    },
+  },
   YOUR_MESSAGE_DELETED: {
     icon: MessageSquareX,
     label: 'Ваше сообщение удалено',
@@ -220,6 +239,25 @@ const REGISTRY: Record<NotificationType, NotificationKind> = {
     label: 'Разблокировка',
     tone: 'text-win',
     describe: () => 'Вы снова можете писать в чат',
+  },
+  YOU_HAVE_BEEN_BLOCKED: {
+    icon: UserX,
+    label: 'Вас заблокировали',
+    tone: 'text-lose',
+    // BlackRepresentation: `author` (un)blocked me, `target` is me — link to the author.
+    describe: (p) => {
+      const who = userLink(p, 'author');
+      return who ? <>{who} заблокировал вас</> : 'Вас заблокировал пользователь';
+    },
+  },
+  YOU_HAVE_BEEN_UNBLOCKED: {
+    icon: UserCheck,
+    label: 'Вас разблокировали',
+    tone: 'text-win',
+    describe: (p) => {
+      const who = userLink(p, 'author');
+      return who ? <>{who} разблокировал вас</> : 'Вас разблокировал пользователь';
+    },
   },
   MASTER_WALLET_SET: {
     icon: WalletIcon,
