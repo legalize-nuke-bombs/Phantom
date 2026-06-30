@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -34,9 +35,12 @@ public class GameStatService {
 
         privacySettingService.validate(user.getId(), target.getId(), target.getGameStatsPrivacySetting());
 
+        Object[] raw = gameRepository.findCountAndMaxResult(null, user.getId()).stream().findFirst().orElseThrow(RuntimeException::new);
+
         return new UserGameStatRepresentation(
-                gameRepository.countCompletedByUserId(target.getId()),
-                gameRepository.maxResultByUserId(target.getId()));
+                (Long) raw [0],
+                (BigDecimal) raw[1]
+        );
     }
 
     public PlatformGameStatRepresentation getPlatformStats() {
@@ -47,11 +51,15 @@ public class GameStatService {
     public void updatePlatformCache() {
         log.debug("updating game stat platform cache...");
         long since24h = Instant.now().minus(Duration.ofHours(24)).getEpochSecond();
+
+        Object[] rawAllTime = gameRepository.findCountAndMaxResult(null, null).stream().findFirst().orElseThrow(RuntimeException::new);
+        Object[] rawSince24h = gameRepository.findCountAndMaxResult(since24h, null).stream().findFirst().orElseThrow(RuntimeException::new);
+
         platformCache = new PlatformGameStatRepresentation(
-                gameRepository.countCompleted(),
-                gameRepository.countCompletedSince(since24h),
-                gameRepository.maxResult(),
-                gameRepository.maxResultSince(since24h)
+                (Long) rawAllTime[0],
+                (Long) rawSince24h[0],
+                (BigDecimal) rawAllTime[1],
+                (BigDecimal) rawSince24h[1]
         );
     }
 

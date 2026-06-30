@@ -31,22 +31,13 @@ public interface GameRepository extends JpaRepository<Game, Long> {
     @Query("SELECT g FROM Game g WHERE g.user.id = ?1 AND g.clientSeed IS NOT NULL AND (?2 IS NULL OR g.id < ?2) ORDER BY g.id DESC")
     List<Game> findHistoryByUser(Long userId, Long before, Pageable pageable);
 
-    @Query("SELECT COUNT(g) FROM Game g WHERE g.clientSeed IS NOT NULL")
-    long countCompleted();
-
-    @Query("SELECT COUNT(g) FROM Game g WHERE g.clientSeed IS NOT NULL AND g.timestamp >= ?1")
-    long countCompletedSince(Long timestamp);
-
-    @Query("SELECT COUNT(g) FROM Game g WHERE g.user.id = ?1 AND g.clientSeed IS NOT NULL")
-    long countCompletedByUserId(Long userId);
-
-    @Query("SELECT MAX(g.result) FROM Game g WHERE g.clientSeed IS NOT NULL")
-    BigDecimal maxResult();
-
-    @Query("SELECT MAX(g.result) FROM Game g WHERE g.clientSeed IS NOT NULL AND g.timestamp >= ?1")
-    BigDecimal maxResultSince(Long timestamp);
-
-    @Query("SELECT MAX(g.result) FROM Game g WHERE g.user.id = ?1 AND g.clientSeed IS NOT NULL")
-    BigDecimal maxResultByUserId(Long userId);
-
+    @Query("""
+SELECT COUNT(g), MAX(g.result)
+FROM Game g
+WHERE
+g.clientSeed IS NOT NULL AND
+(?1 IS NULL OR g.timestamp >= ?1) AND
+(?2 IS NULL OR g.user.id = ?2)
+""")
+    List<Object[]> findCountAndMaxResult(Long timestamp, Long userId);
 }
