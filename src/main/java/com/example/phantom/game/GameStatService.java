@@ -52,7 +52,9 @@ public class GameStatService {
     }
 
     public GameAnalyticsRepresentation getAnalytics(@AuthenticationPrincipal Long userId, Long since, Long before) {
-        log.info("user {} requested analytics {} - {}", userId, since, before);
+        User user = requireChatModerator(userId);
+
+        log.info("user {} requested analytics {} - {}", user.getId(), since, before);
         List<Object[]> raw = gameRepository.findGroupedByGameTypeCountAndBetsAndResults(since, before);
 
         Map<GameType, GameTypeAnalyticsRepresentation> map = new EnumMap<>(GameType.class);
@@ -81,6 +83,14 @@ public class GameStatService {
 
     private User requireAuthenticated(Long userId) {
         return userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
+    }
+
+    private User requireChatModerator(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.NOT_AUTHENTICATED));
+        if (!user.getRole().getChatModeratorAccess()) {
+            throw new ApiException(ErrorCode.NO_PERMISSION);
+        }
+        return user;
     }
 
     private User getUser(Long userId) {
