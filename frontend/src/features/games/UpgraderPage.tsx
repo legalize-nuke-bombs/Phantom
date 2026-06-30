@@ -426,9 +426,26 @@ export default function UpgraderPage() {
   // the verdict and play the matching cue, kept in lockstep with the landing.
   const onSettled = useCallback(() => {
     setRevealed(true);
+    // Cursor has landed — refresh the balance now, in step with the reveal, rather
+    // than when /run resolved (which would update the header before the cursor stops).
+    round.settle();
     outcomeCue.current?.();
     outcomeCue.current = null;
+    // round.settle is stable across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // If the player leaves while the cursor is still travelling, settle the wallet on
+  // unmount (idempotent — a no-op if onSettled already ran) so the balance is never
+  // left stale.
+  useEffect(
+    () => () => {
+      round.settle();
+    },
+    // settle is stable; run this cleanup only on unmount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   /* ── states ── */
   if (settingsQuery.isLoading) {

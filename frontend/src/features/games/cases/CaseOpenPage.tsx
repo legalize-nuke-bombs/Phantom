@@ -34,12 +34,17 @@ function OpenInner({ caseView }: { caseView: CaseView }) {
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const spinSound = useRef<SpinHandle | null>(null);
 
-  // Stop the start sound if we leave mid-spin.
+  // Stop the start sound if we leave mid-spin, and settle the wallet then too: if the
+  // player navigates away before the reel lands, refresh the balance now (idempotent —
+  // a no-op if onSettled already ran) so they never see a stale balance.
   useEffect(
     () => () => {
       spinSound.current?.stop();
       spinSound.current = null;
+      round.settle();
     },
+    // settle is stable; we intentionally run this cleanup only on unmount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -66,11 +71,16 @@ function OpenInner({ caseView }: { caseView: CaseView }) {
     spinSound.current?.stop();
     spinSound.current = null;
     setPhase('revealed');
+    // The reel has landed — refresh the balance now (in step with the reveal), not
+    // when /run resolved, so the header never spoils the prize mid-spin.
+    round.settle();
     // Outcome sound: a win sting, or the lose cue when nothing came back.
     const wonValue = round.result ? Number(round.result.result) : 0;
     const cost = Number(caseView.cost);
     if (wonValue <= 0) sfx.lose();
     else sfx.win(cost > 0 ? wonValue / cost : undefined);
+    // round.settle is stable across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round.result, caseView.cost]);
 
   const result = round.result;

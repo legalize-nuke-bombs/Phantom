@@ -233,6 +233,10 @@ export default function SlotsPage() {
   const rafRef = useRef<number | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  // round.settle refreshes the wallet and is a stable callback, so we can depend on it
+  // directly (rather than the whole round object) wherever the reels finish.
+  const settle = round.settle;
+
   const clearAll = useCallback(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
@@ -242,6 +246,16 @@ export default function SlotsPage() {
     timers.current = [];
   }, []);
   useEffect(() => clearAll, [clearAll]);
+
+  // If the player leaves while the reels are still spinning, refresh the balance on
+  // unmount (idempotent — a no-op if the reels already landed and settled) so it's
+  // never left stale.
+  useEffect(
+    () => () => {
+      settle();
+    },
+    [settle],
+  );
 
   /** Boolean mask for a pattern name (from the API), or null if unknown. */
   const maskOf = useCallback((name: string): boolean[][] | null => {
@@ -363,6 +377,9 @@ export default function SlotsPage() {
           applyOffsets(rests);
           const parsed = readSpin(result);
           setPhase('done');
+          // Reels have landed — refresh the balance now, in step with the reveal, not
+          // when round.play() resolved (which would move the header while still spinning).
+          settle();
           walkOutcome(
             parsed ? parsed.matches : [],
             betAmount,
@@ -372,7 +389,7 @@ export default function SlotsPage() {
       };
       rafRef.current = requestAnimationFrame(tick);
     },
-    [restOffset, walkOutcome, applyOffsets],
+    [restOffset, walkOutcome, applyOffsets, settle],
   );
 
   const spin = useCallback(async () => {

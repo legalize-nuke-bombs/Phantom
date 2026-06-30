@@ -258,12 +258,17 @@ export default function CoinflipPage() {
     [betNum, multiplier],
   );
 
-  // Tear down any in-flight animation / sound on unmount.
+  // Tear down any in-flight animation / sound on unmount, and settle the wallet then
+  // too: leaving mid-flip refreshes the balance now (idempotent — a no-op if the flip
+  // already settled) so it's never left stale.
   useEffect(
     () => () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
       spinRef.current?.stop();
+      round.settle();
     },
+    // settle is stable; run this cleanup only on unmount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -359,6 +364,9 @@ export default function CoinflipPage() {
         won: isWin,
         payout: isWin ? result.result : null,
       });
+      // The coin has stopped — refresh the balance now, in step with the reveal, not
+      // when round.play() resolved (which would move the header mid-flip, a spoiler).
+      round.settle();
       if (isWin) sfx.win();
       else sfx.lose();
     } catch {

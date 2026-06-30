@@ -35,3 +35,28 @@ export function useRefreshBalance(): () => Promise<void> {
     [queryClient],
   );
 }
+
+/**
+ * Returns a stable function that marks the wallet stale WITHOUT refetching it
+ * (refetchType: 'none'). The on-screen balance is left untouched, but the cache is
+ * flagged so the next refetch trigger picks up the new value.
+ *
+ * Used by the games: the bet moves the balance the instant /run resolves, yet the
+ * outcome animation is still playing — refetching now would show the win/loss on the
+ * header balance BEFORE the animation reveals it (a spoiler). So we mark stale on
+ * resolve and do the actual refetch when the animation finishes (useRefreshBalance).
+ * Marking stale also guarantees eventual correctness: if the player leaves mid-
+ * animation, the always-mounted header observer refetches the stale wallet on its
+ * next cycle even if the finish callback never fires.
+ */
+export function useMarkBalanceStale(): () => Promise<void> {
+  const queryClient = useQueryClient();
+  return useCallback(
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: WALLET_QUERY_KEY,
+        refetchType: 'none',
+      }),
+    [queryClient],
+  );
+}

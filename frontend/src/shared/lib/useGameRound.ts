@@ -10,18 +10,29 @@
 //   • commit(data)  → POST /init, store the committed serverHash         (→ ready)
 //   • reveal()      → POST /run with a fresh clientSeed, verify the hash  (→ done)
 //   • play(data)    → commit then reveal in one shot; returns the result
+//   • settle()      → refresh the wallet (call when the outcome animation ENDS)
 //
 // Games that reveal instantly (cases, coinflip, fruits) just call play(data).
 // Games that want to show the serverHash first (e.g. an upgrader "armed" state)
 // call commit(data), let the user see round.serverHash, then call reveal().
 //
-// On a result we re-derive the serverSeed's hash (verifyServerHash) into `verified`
-// and refresh the wallet, since the balance moved.
+// On a result we re-derive the serverSeed's hash (verifyServerHash) into `verified`.
+//
+// Balance, and why it's a TWO-STEP refresh: the bet moves the balance the instant
+// /run resolves, but every game then plays an outcome animation (the coin settles,
+// the reels decelerate, the cursor lands). Refreshing the wallet on resolve would
+// flash the win/loss on the header balance BEFORE the animation reveals it — a
+// spoiler. So reveal() only MARKS the wallet stale (no refetch, balance unchanged),
+// and the game calls settle() when its animation finishes to do the actual refetch,
+// keeping the balance in lockstep with the reveal. settle() is idempotent (guarded),
+// so a game can also call it from unmount cleanup: if the player leaves mid-
+// animation it fires immediately; and even if it never fires, the stale mark means
+// the always-mounted header refetches the wallet on its next cycle anyway.
 
 import { useCallback, useRef, useState } from 'react';
 import { ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
-import { useRefreshBalance } from '@/shared/lib/wallet';
+import { useMarkBalanceStale, useRefreshBalance } from '@/shared/lib/wallet';
 import { generateClientSeed, verifyServerHash } from '@/shared/lib/provablyFair';
 import { initRound, runRound } from '@/shared/lib/gameApi';
 import type { GameResult } from '@/shared/lib/gameApi';
@@ -61,6 +72,14 @@ export interface UseGameRound extends GameRound {
   reveal: () => Promise<GameResult>;
   /** commit + reveal in one shot. The simplest path for instant-result games. */
   play: (data: Record<string, string>) => Promise<GameResult>;
+  /**
+   * Refresh the wallet now — call the MOMENT the outcome animation finishes (e.g. in
+   * an onSettled callback or after the settle timer), NOT on play()/reveal(), so the
+   * balance updates in lockstep with the reveal instead of spoiling it. Idempotent
+   * per round (safe to also call from unmount cleanup); a no-op once already settled
+   * or before any round has resolved.
+   */
+  settle: () => void;
   /** Back to idle, clearing the previous round. */
   reset: () => void;
   /** true during committing/revealing — wire to your play button's loading. */
@@ -79,15 +98,30 @@ const INITIAL: GameRound = {
 export function useGameRound(game: GameType): UseGameRound {
   const [round, setRound] = useState<GameRound>(INITIAL);
   const refreshBalance = useRefreshBalance();
+  const markBalanceStale = useMarkBalanceStale();
 
   // The committed serverHash, held in a ref so reveal() can verify against it
   // without depending on a state value (avoids a stale-closure read).
   const serverHashRef = useRef<string | null>(null);
 
+  // Has settle() already refreshed the wallet for the current round? Guards against
+  // a double refetch when a game calls settle() both on animation-end and on unmount.
+  // Armed by reveal() (a fresh round is pending a settle), disarmed once settled.
+  const pendingSettleRef = useRef(false);
+
   const reset = useCallback(() => {
     serverHashRef.current = null;
+    pendingSettleRef.current = false;
     setRound(INITIAL);
   }, []);
+
+  // Refresh the wallet, once per resolved round. Called by the game when its outcome
+  // animation finishes, so the balance updates in step with the reveal — never before.
+  const settle = useCallback(() => {
+    if (!pendingSettleRef.current) return;
+    pendingSettleRef.current = false;
+    refreshBalance().catch(() => {});
+  }, [refreshBalance]);
 
   const fail = useCallback((e: unknown): never => {
     setRound((r) => ({ ...r, status: 'error', error: errorMessage(e) }));
@@ -145,11 +179,15 @@ export function useGameRound(game: GameType): UseGameRound {
 
     setRound((r) => ({ ...r, status: 'done', result, verified, error: null }));
 
-    // Balance moved — refresh consumers, but don't block or fail the result on it.
-    refreshBalance().catch(() => {});
+    // The bet moved the balance, but the outcome animation hasn't played yet. Mark the
+    // wallet stale WITHOUT refetching (so the shown balance doesn't reveal the result
+    // early) and arm settle(): the game refreshes for real when the animation ends. The
+    // stale mark also backstops the unmount case — the header refetches it regardless.
+    pendingSettleRef.current = true;
+    markBalanceStale().catch(() => {});
 
     return result;
-  }, [game, refreshBalance, fail]);
+  }, [game, markBalanceStale, fail]);
 
   const play = useCallback(
     async (data: Record<string, string>): Promise<GameResult> => {
@@ -161,5 +199,5 @@ export function useGameRound(game: GameType): UseGameRound {
 
   const busy = round.status === 'committing' || round.status === 'revealing';
 
-  return { ...round, commit, reveal, play, reset, busy };
+  return { ...round, commit, reveal, play, settle, reset, busy };
 }
