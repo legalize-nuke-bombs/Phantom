@@ -9,6 +9,7 @@ import {
   MessagesSquare,
   HardDrive,
   Megaphone,
+  BarChart3,
   ShieldCheck,
   Trophy,
   Bell,
@@ -55,6 +56,7 @@ const NAV: NavItem[] = [
   { to: '/progress', label: 'Прогресс', icon: Trophy },
   { to: '/notifications', label: 'События', icon: Bell, badge: 'misc' },
   { to: '/moderation', label: 'Модерация', icon: Megaphone, modOnly: true },
+  { to: '/analytics', label: 'Аналитика игр', icon: BarChart3, modOnly: true },
   { to: '/owner', label: 'Владелец', icon: ShieldCheck, ownerOnly: true, badge: 'owner' },
 ];
 

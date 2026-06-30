@@ -39,6 +39,8 @@ const ReferralPage = lazy(() => import('@/features/referral/ReferralPage'));
 const OwnerPage = lazy(() => import('@/features/owner/OwnerPage'));
 const DiskPage = lazy(() => import('@/features/disk/DiskPage'));
 const ModerationPage = lazy(() => import('@/features/moderation/ModerationPage'));
+const GamesAnalyticsPage = lazy(() => import('@/features/games/GamesAnalyticsPage'));
+const BlacklistPage = lazy(() => import('@/features/profile/BlacklistPage'));
 
 function PageSuspense({ children }: { children: ReactNode }) {
   return (
@@ -157,6 +159,14 @@ export const router = createBrowserRouter([
         element: (
           <PageSuspense>
             <ReferralPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'profile/blacklist',
+        element: (
+          <PageSuspense>
+            <BlacklistPage />
           </PageSuspense>
         ),
       },
@@ -303,6 +313,14 @@ export const router = createBrowserRouter([
         element: (
           <PageSuspense>
             <ModerationPage />
+          </PageSuspense>
+        ),
+      },
+      {
+        path: 'analytics',
+        element: (
+          <PageSuspense>
+            <GamesAnalyticsPage />
           </PageSuspense>
         ),
       },
