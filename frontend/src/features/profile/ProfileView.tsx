@@ -536,10 +536,6 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
   const iBlocked = useIsBlocked(blockTargetId).data != null;
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
-  // Blocking is a quiet but real "cut them off" — confirm it inline (two-step) like the other
-  // destructive footer actions. Unblocking is harmless, so it fires straight away.
-  const [confirmBlock, setConfirmBlock] = useState(false);
-
   // Experience: useMyExperience swallows 403 → null (hidden). Keyed on the RESOLVED numeric
   // id (the param may be a username), and skipped when the privacy flag hides it.
   const experienceVisible = isOwn || user == null || user.experiencePrivacySetting === 'EVERYONE';
@@ -600,14 +596,11 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
                 <MessageSquare size={17} strokeWidth={2} />
                 Написать
               </Button>
-              {/* iBlocked ⇒ already blocked, so the icon is lit and a tap lifts it straight
-                  away (harmless). Otherwise it's neutral and a tap opens the two-step confirm
-                  below — same destructive idiom as the chat members panel. */}
+              {/* Blocking is reversible and ~1% rare, so it's a single quiet icon tap — no
+                  confirm (that made the whole row jump on every toggle). Lit red when active. */}
               <button
                 type="button"
-                onClick={() =>
-                  iBlocked ? unblockUser.mutate(user.id) : setConfirmBlock((v) => !v)
-                }
+                onClick={() => (iBlocked ? unblockUser.mutate(user.id) : blockUser.mutate(user.id))}
                 disabled={blockUser.isPending || unblockUser.isPending}
                 title={iBlocked ? 'Разблокировать' : 'Заблокировать'}
                 aria-label={iBlocked ? 'Разблокировать' : 'Заблокировать'}
@@ -638,47 +631,15 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
                 {errorMessage(startChat.error, 'Не удалось открыть чат')}
               </p>
             ) : null}
+            {blockUser.isError ? (
+              <p className="mt-2 text-xs text-lose">
+                {errorMessage(blockUser.error, 'Не удалось заблокировать')}
+              </p>
+            ) : null}
             {unblockUser.isError ? (
               <p className="mt-2 text-xs text-lose">
                 {errorMessage(unblockUser.error, 'Не удалось разблокировать')}
               </p>
-            ) : null}
-
-            {/* Two-step block confirm — unfolds UNDER the row from the icon, only while not
-                already blocked. */}
-            {confirmBlock && !iBlocked ? (
-              <div className="mt-2 flex flex-col gap-2 rounded-xl border border-lose/40 bg-lose/5 p-2">
-                <p className="px-1 text-xs text-muted">
-                  Заблокировать пользователя? Вы больше не сможете переписываться.
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      blockUser.mutate(user.id, { onSuccess: () => setConfirmBlock(false) })
-                    }
-                    loading={blockUser.isPending}
-                    className="flex-1 border-lose/40 text-lose hover:bg-lose/10"
-                  >
-                    Заблокировать
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setConfirmBlock(false)}
-                    disabled={blockUser.isPending}
-                    className="flex-1"
-                  >
-                    Отмена
-                  </Button>
-                </div>
-                {blockUser.isError ? (
-                  <p className="px-1 text-xs text-lose">
-                    {errorMessage(blockUser.error, 'Не удалось заблокировать')}
-                  </p>
-                ) : null}
-              </div>
             ) : null}
           </div>
         ) : null}
