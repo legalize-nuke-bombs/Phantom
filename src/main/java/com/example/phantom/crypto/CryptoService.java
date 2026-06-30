@@ -40,7 +40,7 @@ public class CryptoService {
     private final GlobalTopicService globalTopicService;
 
     private final Map<String, Long> cacheMap;
-    private static final int CACHE_DURATION = 3;
+    private static final int CACHE_DURATION = 5;
 
     public CryptoService(
             UserRepository userRepository,
