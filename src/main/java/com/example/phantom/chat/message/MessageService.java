@@ -1,8 +1,11 @@
 package com.example.phantom.chat.message;
 
 import com.example.phantom.chat.banlist.BanlistService;
+import com.example.phantom.chat.blacklist.BlacklistService;
 import com.example.phantom.chat.chat.Chat;
 import com.example.phantom.chat.chat.ChatRepository;
+import com.example.phantom.chat.chat.ChatRepresentation;
+import com.example.phantom.chat.chat.ChatType;
 import com.example.phantom.disk.File;
 import com.example.phantom.disk.FileRepository;
 import com.example.phantom.exception.ApiException;
@@ -12,6 +15,8 @@ import com.example.phantom.notification.NotificationType;
 import com.example.phantom.topic.TopicAccessService;
 import com.example.phantom.ratelimit.RateLimitAction;
 import com.example.phantom.ratelimit.RateLimitService;
+import com.example.phantom.topic.TopicMember;
+import com.example.phantom.topic.TopicMemberRepository;
 import com.example.phantom.user.User;
 import com.example.phantom.user.UserRepository;
 import com.example.phantom.user.UserShortRepresentation;
@@ -31,18 +36,22 @@ public class MessageService {
     private final UserRepository userRepository;
     private final ChatRepository chatRepository;
     private final TopicAccessService topicAccessService;
+    private final TopicMemberRepository topicMemberRepository;
     private final MessageRepository messageRepository;
     private final BanlistService banlistService;
+    private final BlacklistService blacklistService;
     private final FileRepository fileRepository;
     private final RateLimitService rateLimitService;
     private final NotificationPublishService notificationPublishService;
 
-    public MessageService(UserRepository userRepository, ChatRepository chatRepository, TopicAccessService topicAccessService, MessageRepository messageRepository, BanlistService banlistService, RateLimitService rateLimitService, FileRepository fileRepository, NotificationPublishService notificationPublishService) {
+    public MessageService(UserRepository userRepository, ChatRepository chatRepository, TopicAccessService topicAccessService, TopicMemberRepository topicMemberRepository, MessageRepository messageRepository, BanlistService banlistService, BlacklistService blacklistService, RateLimitService rateLimitService, FileRepository fileRepository, NotificationPublishService notificationPublishService) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
         this.topicAccessService = topicAccessService;
+        this.topicMemberRepository = topicMemberRepository;
         this.messageRepository = messageRepository;
         this.banlistService = banlistService;
+        this.blacklistService = blacklistService;
         this.fileRepository = fileRepository;
         this.rateLimitService = rateLimitService;
         this.notificationPublishService = notificationPublishService;
@@ -65,6 +74,11 @@ public class MessageService {
     public MessageRepresentation sendMessage(Long userId, SendMessageRequest request) {
         User user = getUser(userId);
         Chat chat = getChat(request.getChatId(), user);
+        if (chat.getType() == ChatType.P2) {
+            List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
+            chatMembers.removeIf(tm -> Objects.equals(tm.getUser().getId(), user.getId()));
+            blacklistService.validate(user.getId(), chatMembers.get(0).getUser().getId());
+        }
 
         banlistService.validateChatPermission(userId);
 

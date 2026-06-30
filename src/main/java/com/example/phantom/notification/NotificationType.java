@@ -11,6 +11,9 @@ public enum NotificationType {
     NEW_CHAT,
     CHAT_DELETED,
 
+    YOU_HAVE_BEEN_BLOCKED,
+    YOU_HAVE_BEEN_UNBLOCKED,
+
     ROLE_CLAIMED,
 
     WELCOME,

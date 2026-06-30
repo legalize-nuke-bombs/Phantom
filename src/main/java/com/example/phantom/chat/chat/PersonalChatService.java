@@ -1,6 +1,7 @@
 package com.example.phantom.chat.chat;
 
 import com.example.phantom.chat.banlist.BanlistService;
+import com.example.phantom.chat.blacklist.BlacklistService;
 import com.example.phantom.exception.ApiException;
 import com.example.phantom.exception.ErrorCode;
 import com.example.phantom.notification.NotificationPublishService;
@@ -33,10 +34,11 @@ public class PersonalChatService {
     private final TopicBuilderService topicBuilderService;
     private final RateLimitService rateLimitService;
     private final BanlistService banlistService;
+    private final BlacklistService blacklistService;
     private final NotificationPublishService notificationPublishService;
     private final Long maxMembers;
 
-    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, BanlistService banlistService, NotificationPublishService notificationPublishService, @Value("${chats.max-members}") Long maxMembers) {
+    public PersonalChatService(UserRepository userRepository, ChatRepository chatRepository, TopicRepository topicRepository, TopicMemberRepository topicMemberRepository, TopicBuilderService topicBuilderService, RateLimitService rateLimitService, BanlistService banlistService, BlacklistService blacklistService, NotificationPublishService notificationPublishService, @Value("${chats.max-members}") Long maxMembers) {
         this.userRepository = userRepository;
         this.chatRepository = chatRepository;
         this.topicRepository = topicRepository;
@@ -44,6 +46,7 @@ public class PersonalChatService {
         this.topicBuilderService = topicBuilderService;
         this.rateLimitService = rateLimitService;
         this.banlistService = banlistService;
+        this.blacklistService = blacklistService;
         this.notificationPublishService = notificationPublishService;
         this.maxMembers = maxMembers;
         log.info("initialization, max members {}", maxMembers);
@@ -107,6 +110,7 @@ public class PersonalChatService {
         userIds.add(0, userId);
         List<TopicMember> chatMembers = new ArrayList<>();
         for (Long memberId : userIds) {
+            blacklistService.validate(userId, memberId);
             try {
                 TopicMember chatMember = new TopicMember();
                 chatMember.setTimestamp(Instant.now().getEpochSecond());
@@ -266,6 +270,7 @@ public class PersonalChatService {
         }
 
         banlistService.validateChatPermission(userId);
+        blacklistService.validate(userId, targetId);
 
         if (Objects.equals(userId, targetId)) {
             throw new ApiException(ErrorCode.CANT_SELF_ADD);

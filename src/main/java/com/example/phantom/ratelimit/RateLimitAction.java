@@ -5,6 +5,7 @@ public enum RateLimitAction {
     CRYPTO,
     LOTTERY,
     SEND_MESSAGE,
+    BLACKLIST,
     CREATE_CHAT,
     INVITE_TO_CHAT,
     SEND_PRESENT,

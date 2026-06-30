@@ -41,6 +41,9 @@ public class RateLimitService {
                             @Value("${rate.send-message.tokens}") Long sendMessageTokens,
                             @Value("${rate.send-message.seconds}") Long sendMessageSeconds,
 
+                            @Value("${rate.blacklist.tokens}") Long blacklistTokens,
+                            @Value("${rate.blacklist.seconds}") Long blacklistSeconds,
+
                             @Value("${rate.create-chat.tokens}") Long createChatTokens,
                             @Value("${rate.create-chat.seconds}") Long createChatSeconds,
 
@@ -79,6 +82,7 @@ public class RateLimitService {
         this.registerRule(RateLimitAction.CRYPTO, null, new RateLimitRule(cryptoTokens, cryptoSeconds));
         this.registerRule(RateLimitAction.LOTTERY, null, new RateLimitRule(lotteryTokens, lotterySeconds));
         this.registerRule(RateLimitAction.SEND_MESSAGE, LevelFeature.SEND_MESSAGE, new RateLimitRule(sendMessageTokens, sendMessageSeconds));
+        this.registerRule(RateLimitAction.BLACKLIST, LevelFeature.SEND_MESSAGE, new RateLimitRule(blacklistTokens, blacklistSeconds));
         this.registerRule(RateLimitAction.CREATE_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(createChatTokens, createChatSeconds));
         this.registerRule(RateLimitAction.INVITE_TO_CHAT, LevelFeature.SEND_MESSAGE, new RateLimitRule(inviteToChatTokens, inviteToChatSeconds));
         this.registerRule(RateLimitAction.SEND_PRESENT, LevelFeature.SEND_PRESENT, new RateLimitRule(sendPresentTokens, sendPresentSeconds));
