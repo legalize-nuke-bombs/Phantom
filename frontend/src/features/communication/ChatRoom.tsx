@@ -9,6 +9,8 @@ import clsx from 'clsx';
 
 import { useAuth } from '@/shared/auth/AuthContext';
 import { errorMessage } from '@/shared/api/errors';
+import { useAmIBlocked, useIsBlocked } from '@/shared/chat/blacklist';
+import { otherMembers, useChatDetail } from '@/shared/chat/chats';
 import { GLOBAL_CHAT_ID, useChatMessages, useSendMessage } from '@/shared/chat/useChat';
 import { markBucketRead, useUnreadCount } from '@/shared/realtime/badges';
 import { useConsumesNotifications } from '@/shared/realtime/activeViews';
@@ -54,6 +56,22 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
   // adding members, handled on those actions. The Composer also lock-gates on a chat ban
   // (which blocks sending in every chat); we pass this feature-lock flag and it combines.
   const composerLocked = useFeatureGate('SEND_MESSAGE').locked && chatId === GLOBAL_CHAT_ID;
+
+  // P2 only: a block in EITHER direction forbids writing here. We need the chat to find the
+  // other participant, then probe both directions. For non-P2 chats `otherId` stays undefined,
+  // so both probes idle and `blockedReason` is null — the composer behaves as before. My own
+  // block (i-blocked) is shown first since I can lift it; otherwise theirs (blocked-me).
+  const chat = useChatDetail(chatId).data;
+  const otherId =
+    chat?.type === 'P2' && user ? otherMembers(chat, user.id)[0]?.user.id : undefined;
+  const iBlocked = useIsBlocked(otherId).data != null;
+  const theyBlockedMe = useAmIBlocked(otherId).data != null;
+  const blockedReason: 'i-blocked' | 'blocked-me' | null = iBlocked
+    ? 'i-blocked'
+    : theyBlockedMe
+      ? 'blocked-me'
+      : null;
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Oldest → newest for display (the API and cache hold newest-first).
@@ -198,9 +216,9 @@ export default function ChatRoom({ chatId }: { chatId: string }) {
       </div>
 
       {/* Composer owns the input, attachments (upload / disk picker), and the ban +
-          feature-lock banners. We pass the global-only feature lock; it combines that with
-          the chat-ban gate internally. */}
-      <Composer send={send} locked={composerLocked} />
+          feature-lock + blacklist banners. We pass the global-only feature lock (combined with
+          the chat-ban gate internally) and the P2 block reason (null in any non-P2 chat). */}
+      <Composer send={send} locked={composerLocked} blockedReason={blockedReason} />
     </div>
   );
 }

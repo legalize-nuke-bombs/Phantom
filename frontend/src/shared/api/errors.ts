@@ -44,6 +44,12 @@ export const ERROR_MESSAGES: Record<string, string> = {
   ALREADY_BANNED: 'Пользователь уже заблокирован',
   CANT_BAN_SELF: 'Нельзя заблокировать самого себя',
   CANT_BAN_MODERATOR: 'Нельзя заблокировать модератора',
+
+  // chat blacklist (a block in either direction forbids the P2 chat)
+  YOU_BLOCKED_THIS_USER: 'Вы заблокировали этого пользователя',
+  YOU_HAVE_BEEN_BLOCKED: 'Пользователь вас заблокировал',
+  CANT_BLOCK_SELF: 'Нельзя заблокировать самого себя',
+  ALREADY_BLOCKED: 'Пользователь уже в чёрном списке',
   TOO_MANY_MEMBERS: 'В чате слишком много участников',
   ALREADY_ADDED: 'Этот игрок уже в чате',
   CANT_SELF_ADD: 'Нельзя добавить самого себя',

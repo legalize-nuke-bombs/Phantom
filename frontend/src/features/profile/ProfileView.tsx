@@ -28,6 +28,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  ShieldOff,
   Sparkles,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -36,6 +37,7 @@ import { api, ApiError } from '@/shared/api/client';
 import { errorMessage } from '@/shared/api/errors';
 import { useAuth } from '@/shared/auth/AuthContext';
 import { useMyBan } from '@/shared/chat/ban';
+import { useBlockUser, useIsBlocked, useUnblockUser } from '@/shared/chat/blacklist';
 import { useStartDirectChat } from '@/shared/chat/chats';
 import { useMyExperience } from '@/shared/lib/experience';
 import { FeatureLock, useFeatureGate, useLevels } from '@/shared/lib/levelFeatures';
@@ -448,14 +450,15 @@ function HistoryCard({ userId }: { userId: number }) {
 /* Lives INSIDE the header card so it's the first thing on the own profile. A Link
    styled like a ghost Button — anchors can't be nested in <button>, so we reuse the
    button look here rather than wrapping the shared Button. */
-function NavLink({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
+function NavLink({ to, icon, label, className }: { to: string; icon: ReactNode; label: string; className?: string }) {
   return (
     <Link
       to={to}
       className={clsx(
-        'flex h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium',
+        'flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium',
         'bg-panel-2 text-fg border border-edge transition-colors hover:bg-panel-2/60 hover:border-ton/40',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-ton',
+        className,
       )}
     >
       <span className="text-muted">{icon}</span>
@@ -467,9 +470,15 @@ function NavLink({ to, icon, label }: { to: string; icon: ReactNode; label: stri
 /** The two own-profile nav links, side by side — rendered within the header card. */
 function OwnNav() {
   return (
-    <div className="mt-5 flex items-center gap-3 border-t border-edge pt-4">
+    <div className="mt-5 grid grid-cols-2 gap-3 border-t border-edge pt-4">
       <NavLink to="/profile/settings" icon={<Settings size={17} strokeWidth={2} />} label="Настройки" />
       <NavLink to="/profile/referrals" icon={<Gift size={17} strokeWidth={2} />} label="Рефералы" />
+      <NavLink
+        to="/profile/blacklist"
+        icon={<ShieldOff size={17} strokeWidth={2} />}
+        label="Чёрный список"
+        className="col-span-2"
+      />
     </div>
   );
 }
@@ -516,9 +525,23 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
       ),
   });
 
+  const user = userQuery.data;
+
+  // Blacklist: have I blocked THIS user? Resolved off the loaded profile id (the param may be
+  // a username), and only ever on someone else's profile — my own can't be blocked. A non-null
+  // result means I blocked them, so "Написать" is hidden behind a block and the action below
+  // flips to "Разблокировать".
+  const blockTargetId =
+    !isOwn && user && myUser && myUser.id !== user.id ? user.id : undefined;
+  const iBlocked = useIsBlocked(blockTargetId).data != null;
+  const blockUser = useBlockUser();
+  const unblockUser = useUnblockUser();
+  // Blocking is a quiet but real "cut them off" — confirm it inline (two-step) like the other
+  // destructive footer actions. Unblocking is harmless, so it fires straight away.
+  const [confirmBlock, setConfirmBlock] = useState(false);
+
   // Experience: useMyExperience swallows 403 → null (hidden). Keyed on the RESOLVED numeric
   // id (the param may be a username), and skipped when the privacy flag hides it.
-  const user = userQuery.data;
   const experienceVisible = isOwn || user == null || user.experiencePrivacySetting === 'EVERYONE';
   const experienceQuery = useMyExperience(experienceVisible ? user?.id : undefined);
   const levelsQuery = useLevels();
@@ -567,7 +590,7 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
                   onSuccess: (chatId) => navigate(`/chat/groups/${chatId}`),
                 })
               }
-              disabled={writeLocked}
+              disabled={writeLocked || iBlocked}
               loading={startChat.isPending}
               className="w-full"
             >
@@ -590,6 +613,70 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
                 {errorMessage(startChat.error, 'Не удалось открыть чат')}
               </p>
             ) : null}
+
+            {/* Block / unblock. iBlocked ⇒ I've already blocked them, so offer to lift it
+                (harmless, fires straight away). Otherwise offer to block via a two-step inline
+                confirm — the same destructive idiom as the chat members panel. */}
+            {iBlocked ? (
+              <>
+                <Button
+                  variant="ghost"
+                  onClick={() => unblockUser.mutate(user.id)}
+                  loading={unblockUser.isPending}
+                  className="mt-2 w-full"
+                >
+                  <Ban size={17} strokeWidth={2} />
+                  Разблокировать
+                </Button>
+                {unblockUser.isError ? (
+                  <p className="mt-2 text-sm text-lose">
+                    {errorMessage(unblockUser.error, 'Не удалось разблокировать')}
+                  </p>
+                ) : null}
+              </>
+            ) : confirmBlock ? (
+              <div className="mt-2 flex flex-col gap-2 rounded-xl border border-lose/40 bg-lose/5 p-2">
+                <p className="px-1 text-xs text-muted">
+                  Заблокировать пользователя? Вы больше не сможете переписываться.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      blockUser.mutate(user.id, { onSuccess: () => setConfirmBlock(false) })
+                    }
+                    loading={blockUser.isPending}
+                    className="flex-1 border-lose/40 text-lose hover:bg-lose/10"
+                  >
+                    Заблокировать
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmBlock(false)}
+                    disabled={blockUser.isPending}
+                    className="flex-1"
+                  >
+                    Отмена
+                  </Button>
+                </div>
+                {blockUser.isError ? (
+                  <p className="px-1 text-xs text-lose">
+                    {errorMessage(blockUser.error, 'Не удалось заблокировать')}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmBlock(true)}
+                className="mt-2 w-full border-lose/40 text-lose hover:bg-lose/10"
+              >
+                <Ban size={17} strokeWidth={2} />
+                Заблокировать
+              </Button>
+            )}
           </div>
         ) : null}
       </Card>

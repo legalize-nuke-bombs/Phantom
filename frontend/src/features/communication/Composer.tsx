@@ -30,7 +30,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react';
-import { Paperclip, Send, Upload, X, HardDrive, FileUp } from 'lucide-react';
+import { Ban, Paperclip, Send, Upload, X, HardDrive, FileUp } from 'lucide-react';
 
 import { errorMessage } from '@/shared/api/errors';
 import { banExpiry, useMyBan } from '@/shared/chat/ban';
@@ -127,7 +127,22 @@ function UploadProgressPanel({
   );
 }
 
-export default function Composer({ send, locked }: { send: SendMutation; locked: boolean }) {
+/**
+ * Why a P2 chat is write-locked by the blacklist: I blocked them ('i-blocked' — I can lift it
+ * in their profile) or they blocked me ('blocked-me'). null in any non-P2 chat or when neither
+ * side has a block.
+ */
+export type BlockedReason = 'i-blocked' | 'blocked-me' | null;
+
+export default function Composer({
+  send,
+  locked,
+  blockedReason = null,
+}: {
+  send: SendMutation;
+  locked: boolean;
+  blockedReason?: BlockedReason;
+}) {
   const [draft, setDraft] = useState('');
   // The pending attachments — files (uploaded from computer OR picked from disk) that will
   // ride along with the next send, one per message. Empty when nothing is attached.
@@ -307,6 +322,25 @@ export default function Composer({ send, locked }: { send: SendMutation; locked:
           {banned.duration > 0 ? (
             <p className="text-xs text-muted">До {formatTime(banExpiry(banned), 'datetime')}</p>
           ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // Blacklist (P2 only — the parent passes null elsewhere): a block in either direction forbids
+  // writing here. Sits between the ban banner (broader — every chat) and the feature lock. If I
+  // blocked them the message points to where I can lift it; if they blocked me there's nothing
+  // I can do, so it just states that.
+  if (blockedReason != null) {
+    return (
+      <div className="border-t border-edge p-4">
+        <div className="flex items-start gap-2 rounded-xl border border-lose/40 bg-lose/5 p-3">
+          <Ban size={16} strokeWidth={2} className="mt-0.5 shrink-0 text-lose" />
+          <p className="text-sm text-lose">
+            {blockedReason === 'i-blocked'
+              ? 'Вы заблокировали пользователя — писать нельзя. Снимите блокировку в его профиле.'
+              : 'Пользователь вас заблокировал.'}
+          </p>
         </div>
       </div>
     );
