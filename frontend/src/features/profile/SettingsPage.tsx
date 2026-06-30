@@ -22,6 +22,7 @@ import {
   KeyRound,
   Settings,
   ShieldCheck,
+  ShieldOff,
   Trash2,
   UserCog,
 } from 'lucide-react';
@@ -574,6 +575,18 @@ export default function SettingsPage() {
         <Accordion icon={<KeyRound size={18} strokeWidth={2} />} title="Ключ восстановления">
           <RecoveryKeyForm />
         </Accordion>
+
+        {/* Blacklist lives on its own page; this is a quiet nav row (not an accordion) styled
+            like the headers above so it sits in the list without drawing attention. */}
+        <Link
+          to="/profile/blacklist"
+          className="flex items-center gap-2.5 rounded-xl bg-panel border border-edge px-5 py-4 text-fg transition-colors hover:bg-panel-2"
+        >
+          <span className="text-muted">
+            <ShieldOff size={18} strokeWidth={2} />
+          </span>
+          <span className="flex-1 text-sm font-medium">Чёрный список</span>
+        </Link>
 
         <Accordion icon={<Trash2 size={18} strokeWidth={2} />} title="Удаление аккаунта" danger>
           <DeleteAccountForm />

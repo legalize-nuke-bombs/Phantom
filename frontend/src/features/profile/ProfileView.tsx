@@ -584,19 +584,44 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
           // Open (or create) the 1:1 with this user. The deterministic P2 id makes this
           // idempotent — repeated taps land in the SAME chat, never a duplicate.
           <div className="mt-5 border-t border-edge pt-4">
-            <Button
-              onClick={() =>
-                startChat.mutate(user.id, {
-                  onSuccess: (chatId) => navigate(`/chat/groups/${chatId}`),
-                })
-              }
-              disabled={writeLocked || iBlocked}
-              loading={startChat.isPending}
-              className="w-full"
-            >
-              <MessageSquare size={17} strokeWidth={2} />
-              Написать
-            </Button>
+            {/* "Написать" dominates; blocking is a rare (~1%) action, so it shrinks to an
+                icon button beside it instead of a full-width row competing for attention. */}
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() =>
+                  startChat.mutate(user.id, {
+                    onSuccess: (chatId) => navigate(`/chat/groups/${chatId}`),
+                  })
+                }
+                disabled={writeLocked || iBlocked}
+                loading={startChat.isPending}
+                className="flex-1"
+              >
+                <MessageSquare size={17} strokeWidth={2} />
+                Написать
+              </Button>
+              {/* iBlocked ⇒ already blocked, so the icon is lit and a tap lifts it straight
+                  away (harmless). Otherwise it's neutral and a tap opens the two-step confirm
+                  below — same destructive idiom as the chat members panel. */}
+              <button
+                type="button"
+                onClick={() =>
+                  iBlocked ? unblockUser.mutate(user.id) : setConfirmBlock((v) => !v)
+                }
+                disabled={blockUser.isPending || unblockUser.isPending}
+                title={iBlocked ? 'Разблокировать' : 'Заблокировать'}
+                aria-label={iBlocked ? 'Разблокировать' : 'Заблокировать'}
+                className={clsx(
+                  'grid size-11 shrink-0 place-items-center rounded-xl border transition-colors',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-ton disabled:opacity-50',
+                  iBlocked
+                    ? 'border-lose/40 bg-lose/10 text-lose'
+                    : 'border-edge text-muted hover:border-lose/40 hover:bg-lose/5 hover:text-lose',
+                )}
+              >
+                <Ban size={17} strokeWidth={2} />
+              </button>
+            </div>
             {writeLocked ? (
               <div className="mt-2 flex justify-center">
                 {writeBanned ? (
@@ -613,28 +638,15 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
                 {errorMessage(startChat.error, 'Не удалось открыть чат')}
               </p>
             ) : null}
+            {unblockUser.isError ? (
+              <p className="mt-2 text-xs text-lose">
+                {errorMessage(unblockUser.error, 'Не удалось разблокировать')}
+              </p>
+            ) : null}
 
-            {/* Block / unblock. iBlocked ⇒ I've already blocked them, so offer to lift it
-                (harmless, fires straight away). Otherwise offer to block via a two-step inline
-                confirm — the same destructive idiom as the chat members panel. */}
-            {iBlocked ? (
-              <>
-                <Button
-                  variant="ghost"
-                  onClick={() => unblockUser.mutate(user.id)}
-                  loading={unblockUser.isPending}
-                  className="mt-2 w-full"
-                >
-                  <Ban size={17} strokeWidth={2} />
-                  Разблокировать
-                </Button>
-                {unblockUser.isError ? (
-                  <p className="mt-2 text-sm text-lose">
-                    {errorMessage(unblockUser.error, 'Не удалось разблокировать')}
-                  </p>
-                ) : null}
-              </>
-            ) : confirmBlock ? (
+            {/* Two-step block confirm — unfolds UNDER the row from the icon, only while not
+                already blocked. */}
+            {confirmBlock && !iBlocked ? (
               <div className="mt-2 flex flex-col gap-2 rounded-xl border border-lose/40 bg-lose/5 p-2">
                 <p className="px-1 text-xs text-muted">
                   Заблокировать пользователя? Вы больше не сможете переписываться.
@@ -667,16 +679,7 @@ function ProfileBody({ userId, isOwn }: { userId: number | string; isOwn: boolea
                   </p>
                 ) : null}
               </div>
-            ) : (
-              <Button
-                variant="ghost"
-                onClick={() => setConfirmBlock(true)}
-                className="mt-2 w-full border-lose/40 text-lose hover:bg-lose/10"
-              >
-                <Ban size={17} strokeWidth={2} />
-                Заблокировать
-              </Button>
-            )}
+            ) : null}
           </div>
         ) : null}
       </Card>
