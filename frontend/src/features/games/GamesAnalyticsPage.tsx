@@ -11,10 +11,14 @@
 //   bets→«Ставки» (staked; NOT «Оборот») · results→«Выигрыши» (won back; NOT «Выплаты» = on-chain
 //   withdrawals) · profit = bets−results →«Прибыль» (can be negative) · RTP = results/bets · avg = bets/count.
 //
-// COST: each query is cached with a long staleTime so flipping tabs / re-mounting doesn't rebuild
-// the (expensive) aggregates — and `now` is pinned per mount so the query keys stay stable.
-// Per-game colour uses the theme's restrained `tier-*` tokens via inline var() (Tailwind v4 can't
-// purge an inline style the way it would a concatenated class).
+// Presentation choices (analytics, NOT marketing):
+//   • Money is shown as WHOLE dollars (formatUsd(x, 0)) in a neutral colour — these are aggregates,
+//     cents are noise here, and the finance-tier "Amount" rainbow only distracts in a dashboard.
+//   • Percentages carry one decimal (RTP / shares).
+//   • Per-game colour is a calm sand-free BLUE-GREY monochrome (told apart by lightness + legend),
+//     never the tier rainbow. The time line uses the brand accent (ton). Profit keeps win/lose —
+//     that's +/- semantics, not a size tier.
+//   Aggregates are cached (long staleTime) and `now` is pinned per mount so tab flips don't rebuild.
 
 import { useMemo, useState } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
@@ -27,12 +31,16 @@ import { useAuth } from '@/shared/auth/AuthContext';
 import { gameMeta } from '@/shared/lib/games';
 import { formatUsd } from '@/shared/lib/money';
 import { useMyCapabilities } from '@/shared/lib/roles';
-import Amount from '@/shared/ui/Amount';
 import Card from '@/shared/ui/Card';
 import PageBack from '@/shared/ui/PageBack';
 import Spinner from '@/shared/ui/Spinner';
 
 const STALE = 5 * 60 * 1000; // cache window — don't refetch the aggregates on every tab flip
+
+/** Whole-dollar money for the dashboard (no cents — aggregates), in a neutral colour. */
+const usd = (n: number | string) => formatUsd(n, 0);
+/** Signed profit, whole dollars: "+$28" / "−$5". */
+const signedUsd = (n: number) => `${n >= 0 ? '+' : '−'}${formatUsd(Math.abs(n), 0)}`;
 
 /* ── DTO ───────────────────────────────────────────────────────────────────── */
 interface GameStat {
@@ -59,16 +67,10 @@ const PERIODS: readonly Period[] = [
   { key: 'all', label: 'Всё время', headlineWindow: null, chartWindow: 28 * DAY, chartRays: 14 },
 ];
 
-/* ── palette (theme tier tokens — restrained, on-brand) ───────────────────────── */
-const PALETTE = [
-  'var(--color-tier-blue)',
-  'var(--color-tier-purple)',
-  'var(--color-tier-pink)',
-  'var(--color-tier-gold)',
-  'var(--color-tier-grey)',
-  'var(--color-tier-red)',
-] as const;
+/* ── palette: calm blue-grey monochrome (told apart by lightness, never a rainbow) ── */
+const PALETTE = ['#4a86b5', '#6699c0', '#82accb', '#9ec0d6', '#b6cfdd', '#cdddd6'] as const;
 const colorAt = (i: number) => PALETTE[i % PALETTE.length];
+const LINE = 'var(--color-ton)'; // brand accent for the one time-series line
 
 /* ── view model ─────────────────────────────────────────────────────────────── */
 interface Row {
@@ -77,8 +79,6 @@ interface Row {
   name: string;
   color: string;
   count: number;
-  bets: string;
-  results: string;
   betsNum: number;
   resultsNum: number;
   profitNum: number;
@@ -96,8 +96,6 @@ function toRows(data: Record<string, GameStat>): Row[] {
         name: meta.name,
         color: '',
         count: stat.count,
-        bets: stat.bets,
-        results: stat.results,
         betsNum,
         resultsNum,
         profitNum: betsNum - resultsNum,
@@ -118,6 +116,7 @@ function totalsOf(rows: Row[]) {
   );
 }
 
+/** RTP as a one-decimal share string ("96.5%"), or "—" when there were no stakes. */
 function rtp(bets: number, results: number): string {
   if (bets <= 0) return '—';
   return `${((results / bets) * 100).toFixed(1)}%`;
@@ -200,7 +199,7 @@ function PeriodTabs({ value, onChange }: { value: string; onChange: (key: string
   );
 }
 
-/* ── summary: four headline figures ─────────────────────────────────────────────*/
+/* ── summary: four headline figures, neutral money ──────────────────────────────*/
 function SummaryCard({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
     <Card className="flex flex-col gap-1.5 p-4">
@@ -208,7 +207,7 @@ function SummaryCard({ icon, label, children }: { icon: React.ReactNode; label: 
         {icon}
         <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
       </div>
-      <span className="font-mono text-lg font-semibold tabular-nums">{children}</span>
+      <span className="font-mono text-lg font-semibold tabular-nums text-fg">{children}</span>
     </Card>
   );
 }
@@ -218,19 +217,16 @@ function Summary({ totals }: { totals: { count: number; bets: number; results: n
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <SummaryCard icon={<BarChart3 size={14} strokeWidth={2} />} label="Игр">
-        <span className="text-fg">{totals.count.toLocaleString('ru-RU')}</span>
+        {totals.count.toLocaleString('ru-RU')}
       </SummaryCard>
       <SummaryCard icon={<Coins size={14} strokeWidth={2} />} label="Ставки">
-        <Amount value={totals.bets} />
+        {usd(totals.bets)}
       </SummaryCard>
       <SummaryCard icon={<Wallet size={14} strokeWidth={2} />} label="Прибыль">
-        <span className={profit >= 0 ? 'text-win' : 'text-lose'}>
-          {profit >= 0 ? '+' : '−'}
-          {formatUsd(Math.abs(profit))}
-        </span>
+        <span className={profit >= 0 ? 'text-win' : 'text-lose'}>{signedUsd(profit)}</span>
       </SummaryCard>
       <SummaryCard icon={<Percent size={14} strokeWidth={2} />} label="RTP">
-        <span className="text-fg">{rtp(totals.bets, totals.results)}</span>
+        {rtp(totals.bets, totals.results)}
       </SummaryCard>
     </div>
   );
@@ -253,10 +249,10 @@ function GamesTable({ rows }: { rows: Row[] }) {
               <th className="px-4 py-3 text-right font-medium">Прибыль</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-edge">
+          <tbody className="divide-y divide-edge font-mono tabular-nums">
             {rows.map((r) => (
               <tr key={r.key}>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 font-sans">
                   <span className="flex items-center gap-2 text-fg">
                     <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: r.color }} />
                     <span aria-hidden className="text-base leading-none">
@@ -265,35 +261,13 @@ function GamesTable({ rows }: { rows: Row[] }) {
                     <span className="font-medium">{r.name}</span>
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums text-fg">
-                  {r.count.toLocaleString('ru-RU')}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Amount value={r.bets} className="font-mono tabular-nums" />
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {r.count > 0 ? (
-                    <Amount value={r.betsNum / r.count} className="font-mono tabular-nums" />
-                  ) : (
-                    <span className="font-mono text-muted">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Amount value={r.results} className="font-mono tabular-nums" />
-                </td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums text-muted">
-                  {rtp(r.betsNum, r.resultsNum)}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <span
-                    className={clsx(
-                      'font-mono font-semibold tabular-nums',
-                      r.profitNum >= 0 ? 'text-win' : 'text-lose',
-                    )}
-                  >
-                    {r.profitNum >= 0 ? '+' : '−'}
-                    {formatUsd(Math.abs(r.profitNum))}
-                  </span>
+                <td className="px-4 py-3 text-right text-fg">{r.count.toLocaleString('ru-RU')}</td>
+                <td className="px-4 py-3 text-right text-fg">{usd(r.betsNum)}</td>
+                <td className="px-4 py-3 text-right text-muted">{r.count > 0 ? usd(r.betsNum / r.count) : '—'}</td>
+                <td className="px-4 py-3 text-right text-fg">{usd(r.resultsNum)}</td>
+                <td className="px-4 py-3 text-right text-muted">{rtp(r.betsNum, r.resultsNum)}</td>
+                <td className={clsx('px-4 py-3 text-right font-semibold', r.profitNum >= 0 ? 'text-win' : 'text-lose')}>
+                  {signedUsd(r.profitNum)}
                 </td>
               </tr>
             ))}
@@ -304,13 +278,13 @@ function GamesTable({ rows }: { rows: Row[] }) {
   );
 }
 
-/* ── stakes over time — an XY line (not bars), one point per ray ─────────────────
-   Plotted in a fixed viewBox; the polyline is the stakes curve, with a faint area fill under it
-   and a dot per point. X labels are thinned so they never collide. Flat-zero windows (no games
-   in the range) show an empty note instead of a line pinned to the floor. */
+/* ── stakes over time — total staked up to each point in time (the integral of the per-period
+   stakes), so the curve only climbs: flat where nothing was staked, rising where it was. A Y
+   axis (0 / half / max) with gridlines makes the magnitude readable; X labels are thinned. An
+   all-zero window shows an empty note. */
 const CW = 640;
 const CH = 200;
-const PAD = { l: 10, r: 10, t: 14, b: 26 };
+const PAD = { l: 52, r: 12, t: 14, b: 26 };
 const IW = CW - PAD.l - PAD.r;
 const IH = CH - PAD.t - PAD.b;
 
@@ -320,9 +294,9 @@ function StakesLine({ points, loading }: { points: { label: string; bets: number
   const xAt = (i: number) => PAD.l + (n <= 1 ? IW / 2 : (i / (n - 1)) * IW);
   const yAt = (v: number) => PAD.t + IH - (max > 0 ? (v / max) * IH : 0);
   const labelEvery = Math.max(1, Math.ceil(n / 7));
+  const yTicks = [0, 0.5, 1].map((f) => f * max); // 0 / half / max
 
   const line = points.map((p, i) => `${xAt(i).toFixed(1)},${yAt(p.bets).toFixed(1)}`).join(' ');
-  const area = `${PAD.l},${(PAD.t + IH).toFixed(1)} ${line} ${(PAD.l + IW).toFixed(1)},${(PAD.t + IH).toFixed(1)}`;
 
   return (
     <Card className="p-5 sm:p-6">
@@ -341,15 +315,26 @@ function StakesLine({ points, loading }: { points: { label: string; bets: number
         <div className="grid h-48 place-items-center text-sm text-muted">За этот период ставок не было</div>
       ) : (
         <svg viewBox={`0 0 ${CW} ${CH}`} className="h-48 w-full" preserveAspectRatio="none">
-          {/* baseline */}
-          <line x1={PAD.l} y1={PAD.t + IH} x2={PAD.l + IW} y2={PAD.t + IH} className="stroke-edge" strokeWidth={1} />
-          {/* area under the curve */}
-          <polygon points={area} fill="var(--color-ton)" opacity={0.12} />
-          {/* the curve */}
+          {/* Y gridlines + value labels (0 / half / max) */}
+          {yTicks.map((t, i) => (
+            <g key={i}>
+              <line x1={PAD.l} y1={yAt(t)} x2={PAD.l + IW} y2={yAt(t)} className="stroke-edge" strokeWidth={1} />
+              <text
+                x={PAD.l - 8}
+                y={yAt(t) + 3}
+                textAnchor="end"
+                className="fill-muted"
+                style={{ fontSize: 11 }}
+              >
+                {usd(t)}
+              </text>
+            </g>
+          ))}
+          {/* the cumulative curve */}
           <polyline
             points={line}
             fill="none"
-            stroke="var(--color-ton)"
+            stroke={LINE}
             strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -358,15 +343,9 @@ function StakesLine({ points, loading }: { points: { label: string; bets: number
           {/* points + thinned x labels */}
           {points.map((p, i) => (
             <g key={i}>
-              <circle cx={xAt(i)} cy={yAt(p.bets)} r={2.5} fill="var(--color-ton)" />
+              <circle cx={xAt(i)} cy={yAt(p.bets)} r={2.5} fill={LINE} />
               {i % labelEvery === 0 ? (
-                <text
-                  x={xAt(i)}
-                  y={CH - 8}
-                  textAnchor="middle"
-                  className="fill-muted"
-                  style={{ fontSize: 11 }}
-                >
+                <text x={xAt(i)} y={CH - 8} textAnchor="middle" className="fill-muted" style={{ fontSize: 11 }}>
                   {p.label}
                 </text>
               ) : null}
@@ -428,7 +407,7 @@ function StakeDonut({ rows, totalBets }: { rows: Row[]; totalBets: number }) {
           <div className="absolute inset-0 grid place-items-center px-6 text-center">
             <div className="flex flex-col items-center gap-0.5">
               <span className="text-[11px] uppercase tracking-wide text-muted">Ставки</span>
-              <Amount value={totalBets} className="font-mono text-base font-semibold tabular-nums" />
+              <span className="font-mono text-base font-semibold tabular-nums text-fg">{usd(totalBets)}</span>
             </div>
           </div>
         </div>
@@ -443,9 +422,7 @@ function StakeDonut({ rows, totalBets }: { rows: Row[]; totalBets: number }) {
                 </span>
                 {a.name}
               </span>
-              <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
-                {(a.share * 100).toFixed(1)}%
-              </span>
+              <span className="shrink-0 font-mono text-xs tabular-nums text-muted">{(a.share * 100).toFixed(1)}%</span>
             </li>
           ))}
         </ul>
@@ -485,16 +462,18 @@ export default function GamesAnalyticsPage() {
   const rows = useMemo(() => (headline.data ? toRows(headline.data.data) : []), [headline.data]);
   const totals = useMemo(() => totalsOf(rows), [rows]);
 
-  const points = useMemo(
-    () =>
-      rays.map((ray, i) => {
-        const data = rayResults[i]?.data?.data ?? {};
-        let bets = 0;
-        for (const s of Object.values(data)) bets += Number(s.bets) || 0;
-        return { label: ray.label, bets };
-      }),
-    [rays, rayResults],
-  );
+  // Cumulative: each point is the running total of bets up to that ray, so the curve only ever
+  // climbs (a "по времени" total can't shrink) — flat where nothing was staked, never dipping.
+  const points = useMemo(() => {
+    let cum = 0;
+    return rays.map((ray, i) => {
+      const data = rayResults[i]?.data?.data ?? {};
+      let bets = 0;
+      for (const s of Object.values(data)) bets += Number(s.bets) || 0;
+      cum += bets;
+      return { label: ray.label, bets: cum };
+    });
+  }, [rays, rayResults]);
   const raysLoading = rayResults.some((q) => q.isLoading);
 
   if (loading) {
