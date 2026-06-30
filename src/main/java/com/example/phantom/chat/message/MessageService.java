@@ -77,7 +77,7 @@ public class MessageService {
         if (chat.getType() == ChatType.P2) {
             List<TopicMember> chatMembers = topicMemberRepository.findByTopicIdWithUsers(chat.getTopic().getId());
             chatMembers.removeIf(tm -> Objects.equals(tm.getUser().getId(), user.getId()));
-            blacklistService.validate(user.getId(), chatMembers.get(0).getUser().getId());
+            chatMembers.stream().findFirst().ifPresent(target -> blacklistService.validate(user.getId(), target.getUser().getId()));
         }
 
         banlistService.validateChatPermission(userId);
